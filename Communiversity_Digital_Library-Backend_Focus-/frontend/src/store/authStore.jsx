@@ -1,30 +1,55 @@
 // src/store/authStore.js
 import { create } from "zustand";
 
-// Central state management for authentication
 export const useAuthStore = create((set) => ({
   user: null,
   isAuthenticated: false,
+  isLoading: false,
 
-  // Mock login function for now. Replace with API call later.
-  login: async (credentials) => {
-    // TODO: Replace with real API call
-    console.log("Attempting login with:", credentials);
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+  login: async (email, password) => {
+    set({ isLoading: true });
 
-    // Mock successful login
-    if (
-      credentials.username === "admin" &&
-      credentials.password === "password"
-    ) {
-      const userData = { name: "Librarian Admin", isAdmin: true };
-      set({ user: userData, isAuthenticated: true });
+    // Simulate API call
+    try {
+      // In a real app, you would call your API here
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Mock successful login
+      set({
+        user: {
+          id: 1,
+          name: "Admin User",
+          email: email,
+          isAdmin: true,
+        },
+        isAuthenticated: true,
+        isLoading: false,
+      });
+
       return { success: true };
-    } else {
-      return { success: false, error: "Invalid credentials" };
+    } catch (error) {
+      set({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+      });
+      return { success: false, error: error.message };
     }
   },
 
-  logout: () => set({ user: null, isAuthenticated: false }),
+  logout: () => {
+    set({
+      user: null,
+      isAuthenticated: false,
+    });
+  },
+
+  checkAuth: () => {
+    // Check if user is already authenticated (e.g., from localStorage)
+    const storedUser = localStorage.getItem("adminUser");
+    if (storedUser) {
+      const user = JSON.parse(storedUser);
+      set({ user, isAuthenticated: true });
+    }
+  },
 }));

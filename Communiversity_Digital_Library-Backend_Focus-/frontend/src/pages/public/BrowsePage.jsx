@@ -1,11 +1,21 @@
-// src/pages/public/BrowsePage.jsx
-import { useState } from "react";
-import { FiSearch, FiBook, FiChevronRight } from "react-icons/fi";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  FiSearch,
+  FiBook,
+  FiChevronRight,
+  FiHome,
+  FiArrowLeft,
+} from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
 
 const BrowsePage = () => {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlCategory = searchParams.get("category") || "";
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const deweyCategories = [
     {
@@ -90,9 +100,60 @@ const BrowsePage = () => {
     },
   ];
 
+  // Set selected category based on URL parameter
+  useEffect(() => {
+    if (urlCategory) {
+      const category = deweyCategories.find(
+        (cat) => cat.number === urlCategory
+      );
+      if (category) {
+        setSelectedCategory(category);
+      }
+    }
+  }, [urlCategory]);
+
+  const handleCategorySelect = (category) => {
+    setSelectedCategory(category);
+    setSearchParams({ category: category.number });
+  };
+
+  const handleClearSelection = () => {
+    setSelectedCategory(null);
+    setSearchParams({});
+  };
+
+  const handleSearch = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+  };
+
+  const handleViewAllBooks = () => {
+    if (selectedCategory) {
+      navigate(`/search?category=${selectedCategory.number}`);
+    }
+  };
+
+  const handleAdvancedSearch = () => {
+    navigate("/search");
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
       <div className="container mx-auto px-4">
+        {/* Header with Back Button */}
+        <div className="flex items-center mb-6">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="flex items-center text-gray-600 hover:text-gray-900"
+          >
+            <FiHome className="mr-2 h-4 w-4" />
+            Home
+          </Button>
+        </div>
+
         {/* Header */}
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
@@ -107,62 +168,85 @@ const BrowsePage = () => {
 
         {/* Search Bar */}
         <div className="max-w-2xl mx-auto mb-12">
-          <div className="relative group">
+          <form onSubmit={handleSearch} className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-30 group-hover:opacity-50 transition duration-300"></div>
             <div className="relative flex items-center">
               <input
                 type="text"
-                placeholder="🔍 Quick search within categories..."
-                className="w-full pl-6 pr-12 py-4 text-lg border-0 rounded-2xl shadow-lg backdrop-blur-sm bg-white/95"
+                placeholder="🔍 Quick search across all categories..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-6 pr-12 py-4 text-lg border-0 rounded-2xl shadow-lg backdrop-blur-sm bg-white/95 focus:ring-2 focus:ring-blue-500 focus:outline-none"
               />
-              <FiSearch className="absolute right-4 h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        {/* Dewey Categories Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
-          {deweyCategories.map((category) => (
-            <Card
-              key={category.number}
-              className="group hover:scale-105 transition-all duration-300 cursor-pointer border-0"
-              onClick={() => setSelectedCategory(category)}
-            >
-              <div
-                className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${category.color} flex items-center justify-center text-white text-2xl mb-4 mx-auto group-hover:scale-110 transition-transform duration-300`}
+              <button
+                type="submit"
+                className="absolute right-4 text-blue-600 hover:text-blue-700"
               >
-                {category.icon}
-              </div>
-
-              <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
-                {category.number}
-              </h3>
-
-              <h4 className="text-lg font-semibold text-gray-800 text-center mb-3">
-                {category.name}
-              </h4>
-
-              <p className="text-gray-600 text-center text-sm mb-4 leading-relaxed">
-                {category.description}
-              </p>
-
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">
-                  {category.books} books
-                </span>
-                <div className="flex items-center text-blue-600 group-hover:text-blue-700">
-                  <span className="text-sm font-medium">Explore</span>
-                  <FiChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform duration-300" />
-                </div>
-              </div>
-            </Card>
-          ))}
+                <FiSearch className="h-6 w-6" />
+              </button>
+            </div>
+          </form>
         </div>
+
+        {/* Back Button when category is selected */}
+        {selectedCategory && (
+          <div className="mb-6">
+            <Button
+              variant="ghost"
+              onClick={handleClearSelection}
+              className="flex items-center text-gray-600 hover:text-gray-900"
+            >
+              <FiArrowLeft className="mr-2 h-4 w-4" />
+              Back to All Categories
+            </Button>
+          </div>
+        )}
+
+        {/* Dewey Categories Grid - Hidden when a category is selected */}
+        {!selectedCategory && (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
+            {deweyCategories.map((category) => (
+              <Card
+                key={category.number}
+                className="group hover:scale-105 transition-all duration-300 cursor-pointer border-0 shadow-md hover:shadow-xl"
+                onClick={() => handleCategorySelect(category)}
+              >
+                <div
+                  className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${category.color} flex items-center justify-center text-white text-2xl mb-4 mx-auto group-hover:scale-110 transition-transform duration-300`}
+                >
+                  {category.icon}
+                </div>
+
+                <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+                  {category.number}
+                </h3>
+
+                <h4 className="text-lg font-semibold text-gray-800 text-center mb-3">
+                  {category.name}
+                </h4>
+
+                <p className="text-gray-600 text-center text-sm mb-4 leading-relaxed">
+                  {category.description}
+                </p>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">
+                    {category.books} books
+                  </span>
+                  <div className="flex items-center text-blue-600 group-hover:text-blue-700">
+                    <span className="text-sm font-medium">Explore</span>
+                    <FiChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform duration-300" />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Selected Category Details */}
         {selectedCategory && (
-          <Card className="mb-12 border-0 bg-gradient-to-r from-blue-50 to-purple-50">
-            <div className="text-center">
+          <Card className="mb-12 border-0 bg-gradient-to-r from-blue-50 to-purple-50 shadow-xl">
+            <div className="text-center p-8">
               <div
                 className={`w-20 h-20 rounded-2xl bg-gradient-to-r ${selectedCategory.color} flex items-center justify-center text-white text-3xl mb-6 mx-auto`}
               >
@@ -174,14 +258,22 @@ const BrowsePage = () => {
               <p className="text-gray-700 text-lg mb-6 max-w-2xl mx-auto">
                 {selectedCategory.description}
               </p>
-              <div className="flex justify-center space-x-4">
-                <Button variant="primary" className="px-6 py-3">
+              <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <Button
+                  variant="primary"
+                  className="px-6 py-3"
+                  onClick={handleViewAllBooks}
+                >
                   <FiBook className="mr-2 h-5 w-5" />
-                  View All Books
+                  View All {selectedCategory.books} Books
                 </Button>
-                <Button variant="secondary" className="px-6 py-3">
+                <Button
+                  variant="secondary"
+                  className="px-6 py-3"
+                  onClick={handleAdvancedSearch}
+                >
                   <FiSearch className="mr-2 h-5 w-5" />
-                  Advanced Search
+                  Advanced Search in {selectedCategory.number}
                 </Button>
               </div>
             </div>
@@ -189,7 +281,7 @@ const BrowsePage = () => {
         )}
 
         {/* Statistics */}
-        <Card className="text-center border-0 bg-white/80 backdrop-blur-sm">
+        <Card className="text-center border-0 bg-white/80 backdrop-blur-sm shadow-md">
           <h3 className="text-2xl font-bold text-gray-900 mb-6">
             Collection Overview
           </h3>

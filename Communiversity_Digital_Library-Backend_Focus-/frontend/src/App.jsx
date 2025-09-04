@@ -1,5 +1,7 @@
 // src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { useAuthStore } from "./store/authStore";
 import Layout from "./components/Layout/Layout";
 import HomePage from "./pages/public/HomePage";
 import BrowsePage from "./pages/public/BrowsePage";
@@ -8,9 +10,15 @@ import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import DashboardPage from "./pages/admin/DashboardPage";
 import AddBookPage from "./pages/admin/AddBookPage";
 import ManageBooksPage from "./pages/admin/ManageBooksPage";
-import ProtectedRoute from "./components/ProtectedRoute"; // Import the protector
+import ProtectedRoute from "./components/ProtectedRoute";
 
 const App = () => {
+  const checkAuth = useAuthStore((state) => state.checkAuth);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
   return (
     <Router>
       <Layout>

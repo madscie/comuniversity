@@ -1,13 +1,24 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiSearch, FiBookOpen, FiArrowRight } from "react-icons/fi";
-import TextInput from "../../components/UI/TextInput"; 
-import Card from "../../components/UI/Card"; 
-import Button from "../../components/UI/Button"; 
+import {
+  FiSearch,
+  FiBookOpen,
+  FiArrowRight,
+  FiBarChart2,
+} from "react-icons/fi";
+import { useAuthStore } from "../../store/authStore"; // ADD THIS IMPORT
+import TextInput from "../../components/UI/TextInput";
+import Card from "../../components/UI/Card";
+import Button from "../../components/UI/Button";
+import AdminLoginModal from "../../pages/admin/AdminLoginModal";
 
 const HomePage = () => {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+
+  // CORRECTLY ACCESS isAuthenticated from the auth store
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -15,6 +26,13 @@ const HomePage = () => {
       navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
     }
   };
+
+  // Check if user is already authenticated on component mount
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate("/admin/dashboard");
+    }
+  }, [isAuthenticated, navigate]);
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -114,7 +132,33 @@ const HomePage = () => {
             discovery.
           </p>
         </Card>
+
+        {/* Admin Access Card - Added as fourth card */}
+        <Card className="text-center group hover:scale-105 transition-transform duration-300">
+          <div className="mx-auto bg-gradient-to-br from-gray-100 to-gray-200 p-4 rounded-2xl mb-6 w-20 h-20 flex items-center justify-center group-hover:rotate-12 transition-transform duration-300">
+            <FiBarChart2 className="h-10 w-10 text-gray-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">
+            Admin Access
+          </h3>
+          <p className="text-gray-600 leading-relaxed">
+            Librarian tools for managing the digital collection and user
+            accounts.
+          </p>
+          <Button
+            variant="outline"
+            className="mt-4"
+            onClick={() => setIsAdminModalOpen(true)}
+          >
+            Admin Login
+          </Button>
+        </Card>
       </section>
+
+      <AdminLoginModal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+      />
     </div>
   );
 };
