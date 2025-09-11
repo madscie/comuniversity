@@ -17,6 +17,7 @@ const BrowsePage = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
+  // Main Dewey Decimal Categories
   const deweyCategories = [
     {
       number: "000-099",
@@ -100,12 +101,96 @@ const BrowsePage = () => {
     },
   ];
 
+  // Children’s Categories
+  const childrensCategories = [
+  {
+    number: "J 000-099",
+    name: "Children’s General Works",
+    description: "Encyclopedias, reference books for kids",
+    color: "from-blue-400 to-blue-500",
+    icon: "📘",
+    books: 120,
+  },
+  {
+    number: "J 100-199",
+    name: "Children’s Philosophy & Psychology",
+    description: "Feelings, thinking, values for young readers",
+    color: "from-purple-400 to-purple-500",
+    icon: "💭",
+    books: 80,
+  },
+  {
+    number: "J 200-299",
+    name: "Children’s Religion",
+    description: "Bible stories, world religions, mythology",
+    color: "from-red-400 to-red-500",
+    icon: "🙏",
+    books: 100,
+  },
+  {
+    number: "J 300-399",
+    name: "Children’s Social Sciences",
+    description: "Friends, community, cultures, careers",
+    color: "from-green-400 to-green-500",
+    icon: "🤝",
+    books: 150,
+  },
+  {
+    number: "J 400-499",
+    name: "Children’s Language",
+    description: "Grammar, ABCs, beginner dictionaries",
+    color: "from-yellow-400 to-yellow-500",
+    icon: "🔤",
+    books: 95,
+  },
+  {
+    number: "J 500-599",
+    name: "Children’s Natural Sciences & Math",
+    description: "Animals, space, plants, numbers",
+    color: "from-indigo-400 to-indigo-500",
+    icon: "🌱",
+    books: 200,
+  },
+  {
+    number: "J 600-699",
+    name: "Children’s Technology",
+    description: "Inventions, health, how things work",
+    color: "from-pink-400 to-pink-500",
+    icon: "🛠️",
+    books: 130,
+  },
+  {
+    number: "J 700-799",
+    name: "Children’s Arts & Recreation",
+    description: "Drawing, music, sports, crafts",
+    color: "from-teal-400 to-teal-500",
+    icon: "🎨",
+    books: 170,
+  },
+  {
+    number: "J 800-899",
+    name: "Children’s Literature",
+    description: "Stories, poems, fairy tales",
+    color: "from-orange-400 to-orange-500",
+    icon: "📖",
+    books: 220,
+  },
+  {
+    number: "J 900-999",
+    name: "Children’s History & Geography",
+    description: "History, maps, cultures of the world",
+    color: "from-gray-400 to-gray-500",
+    icon: "🌍",
+    books: 140,
+  },
+];
+
   // Set selected category based on URL parameter
   useEffect(() => {
     if (urlCategory) {
-      const category = deweyCategories.find(
-        (cat) => cat.number === urlCategory
-      );
+      const category =
+        deweyCategories.find((cat) => cat.number === urlCategory) ||
+        childrensCategories.find((cat) => cat.number === urlCategory);
       if (category) {
         setSelectedCategory(category);
       }
@@ -204,43 +289,88 @@ const BrowsePage = () => {
 
         {/* Dewey Categories Grid - Hidden when a category is selected */}
         {!selectedCategory && (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
-            {deweyCategories.map((category) => (
-              <Card
-                key={category.number}
-                className="group hover:scale-105 transition-all duration-300 cursor-pointer border-0 shadow-md hover:shadow-xl"
-                onClick={() => handleCategorySelect(category)}
-              >
-                <div
-                  className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${category.color} flex items-center justify-center text-white text-2xl mb-4 mx-auto group-hover:scale-110 transition-transform duration-300`}
+          <>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
+              {deweyCategories.map((category) => (
+                <Card
+                  key={category.number}
+                  className="group hover:scale-105 transition-all duration-300 cursor-pointer border-0 shadow-md hover:shadow-xl"
+                  onClick={() => handleCategorySelect(category)}
                 >
-                  {category.icon}
-                </div>
-
-                <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
-                  {category.number}
-                </h3>
-
-                <h4 className="text-lg font-semibold text-gray-800 text-center mb-3">
-                  {category.name}
-                </h4>
-
-                <p className="text-gray-600 text-center text-sm mb-4 leading-relaxed">
-                  {category.description}
-                </p>
-
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">
-                    {category.books} books
-                  </span>
-                  <div className="flex items-center text-blue-600 group-hover:text-blue-700">
-                    <span className="text-sm font-medium">Explore</span>
-                    <FiChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform duration-300" />
+                  <div
+                    className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${category.color} flex items-center justify-center text-white text-2xl mb-4 mx-auto group-hover:scale-110 transition-transform duration-300`}
+                  >
+                    {category.icon}
                   </div>
-                </div>
-              </Card>
-            ))}
-          </div>
+
+                  <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+                    {category.number}
+                  </h3>
+
+                  <h4 className="text-lg font-semibold text-gray-800 text-center mb-3">
+                    {category.name}
+                  </h4>
+
+                  <p className="text-gray-600 text-center text-sm mb-4 leading-relaxed">
+                    {category.description}
+                  </p>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">
+                      {category.books} books
+                    </span>
+                    <div className="flex items-center text-blue-600 group-hover:text-blue-700">
+                      <span className="text-sm font-medium">Explore</span>
+                      <FiChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform duration-300" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+
+            {/* Children’s Section */}
+            <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">
+              Children’s Section
+            </h2>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
+              {childrensCategories.map((category) => (
+                <Card
+                  key={category.number}
+                  className="group hover:scale-105 transition-all duration-300 cursor-pointer border-0 shadow-md hover:shadow-xl"
+                  onClick={() => handleCategorySelect(category)}
+                >
+                  <div
+                    className={`w-16 h-16 rounded-2xl bg-gradient-to-r ${category.color} flex items-center justify-center text-white text-2xl mb-4 mx-auto group-hover:scale-110 transition-transform duration-300`}
+                  >
+                    {category.icon}
+                  </div>
+
+                  <h3 className="text-xl font-bold text-gray-900 text-center mb-2">
+                    {category.number}
+                  </h3>
+
+                  <h4 className="text-lg font-semibold text-gray-800 text-center mb-3">
+                    {category.name}
+                  </h4>
+
+                  <p className="text-gray-600 text-center text-sm mb-4 leading-relaxed">
+                    {category.description}
+                  </p>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-500">
+                      {category.books} books
+                    </span>
+                    <div className="flex items-center text-blue-600 group-hover:text-blue-700">
+                      <span className="text-sm font-medium">Explore</span>
+                      <FiChevronRight className="h-4 w-4 ml-1 group-hover:translate-x-1 transition-transform duration-300" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Selected Category Details */}
