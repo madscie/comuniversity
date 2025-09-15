@@ -1,5 +1,5 @@
 // src/components/ProtectedRoute.jsx
-import { useAuthStore } from "../store/authStore";
+import { useAuthStore, useIsAuthenticated } from "../store/authStore";
 import { Navigate, useLocation } from "react-router-dom";
 import { FiLoader } from "react-icons/fi";
 
@@ -10,8 +10,9 @@ const Spinner = () => (
 );
 
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, user, isLoading } = useAuthStore();
   const location = useLocation();
+  const { user, isLoading } = useAuthStore(); // fixed import
+  const isAuthenticated = useIsAuthenticated();
 
   if (isLoading) {
     return <Spinner />;
@@ -19,10 +20,6 @@ const ProtectedRoute = ({ children }) => {
 
   if (!isAuthenticated) {
     return <Navigate to="/admin/login" state={{ from: location }} replace />;
-  }
-
-  if (user && !user.isAdmin) {
-    return <Navigate to="/" replace />;
   }
 
   return children;

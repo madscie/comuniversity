@@ -1,55 +1,70 @@
 // src/store/authStore.js
-import { create } from "zustand";
+import { create } from 'zustand';
 
-export const useAuthStore = create((set) => ({
+export const useAuthStore = create((set, get) => ({
   user: null,
-  isAuthenticated: false,
   isLoading: false,
+  error: null,
+
+  // Getter for authentication status
+  get isAuthenticated() {
+    return !!get().user;
+  },
+
+  checkAuth: () => {
+    const token = localStorage.getItem('adminToken');
+    const userData = localStorage.getItem('adminUser');
+    
+    if (token && userData) {
+      try {
+        const user = JSON.parse(userData);
+        set({ user });
+      } catch (error) {
+        console.error('Error parsing user data:', error);
+        localStorage.removeItem('adminToken');
+        localStorage.removeItem('adminUser');
+      }
+    }
+  },
 
   login: async (email, password) => {
-    set({ isLoading: true });
-
-    // Simulate API call
+    set({ isLoading: true, error: null });
+    
     try {
-      // In a real app, you would call your API here
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-
-      // Mock successful login
-      set({
-        user: {
-          id: 1,
-          name: "Admin User",
-          email: email,
-          isAdmin: true,
+      const response = await fetch('http://localhost:3002/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        isAuthenticated: true,
-        isLoading: false,
+        body: JSON.stringify({ email, password })
       });
 
-      return { success: true };
-    } catch (error) {
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-      });
-      return { success: false, error: error.message };
+      const data = await response.json();
+
+      if (response.ok) {
+        localStorage.setItem('adminToken', data.token);
+        localStorage.setItem('adminUser', JSON.stringify(data.user));
+        set({ user: data.user, isLoading: false, error: null });
+        return { success: true };
+      } else {
+        set({ error: data.message, isLoading: false });
+        return { success: false, error: data.message };
+      }
+    } catch (err) {
+      const error = 'Cannot connect to server. Please try again later.';
+      set({ error, isLoading: false });
+      return { success: false, error };
     }
   },
 
   logout: () => {
-    set({
-      user: null,
-      isAuthenticated: false,
-    });
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
+    set({ user: null, error: null });
   },
 
-  checkAuth: () => {
-    // Check if user is already authenticated (e.g., from localStorage)
-    const storedUser = localStorage.getItem("adminUser");
-    if (storedUser) {
-      const user = JSON.parse(storedUser);
-      set({ user, isAuthenticated: true });
-    }
-  },
+  clearError: () => set({ error: null })
 }));
+
+// Authentication selector
+export const useIsAuthenticated = () => useAuthStore((state) => !!state.user);

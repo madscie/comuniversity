@@ -1,17 +1,18 @@
 // src/pages/admin/AdminLoginPage.jsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../store/authStore";
+import { useIsAuthenticated } from "../../store/authStore";
 import AdminLoginModal from "../../pages/admin/AdminLoginModal";
+
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthenticated = useIsAuthenticated();
 
   useEffect(() => {
     // If already authenticated, redirect to dashboard
     if (isAuthenticated) {
-      navigate("/admin/dashboard");
+      navigate("/admin/dashboard", { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
