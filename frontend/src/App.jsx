@@ -1,4 +1,3 @@
-// src/App.jsx
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuthStore } from "./store/authStore";
@@ -6,6 +5,7 @@ import Layout from "./components/Layout/Layout";
 import HomePage from "./pages/public/HomePage";
 import BrowsePage from "./pages/public/BrowsePage";
 import SearchPage from "./pages/public/SearchPage";
+import UserDashboard from "./pages/public/UserDashboard";
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import DashboardPage from "./pages/admin/DashboardPage";
 import AddBookPage from "./pages/admin/AddBookPage";
@@ -31,11 +31,21 @@ const App = () => {
           {/* Admin Login (Public) */}
           <Route path="/admin/login" element={<AdminLoginPage />} />
 
+          {/* User Dashboard */}
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Protected Admin Routes */}
           <Route
             path="/admin/dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute adminOnly={true}>
                 <DashboardPage />
               </ProtectedRoute>
             }
@@ -43,7 +53,7 @@ const App = () => {
           <Route
             path="/admin/add-book"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute adminOnly={true}>
                 <AddBookPage />
               </ProtectedRoute>
             }
@@ -51,7 +61,7 @@ const App = () => {
           <Route
             path="/admin/manage-books"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute adminOnly={true}>
                 <ManageBooksPage />
               </ProtectedRoute>
             }
@@ -61,4 +71,5 @@ const App = () => {
     </Router>
   );
 };
+
 export default App;
