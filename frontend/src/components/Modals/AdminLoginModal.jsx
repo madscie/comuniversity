@@ -1,107 +1,40 @@
-// // src/components/Modals/AdminLoginModal.jsx
-// import { useState } from "react";
-// import { FiX, FiLock, FiMail, FiArrowRight } from "react-icons/fi";
-// import { useAuthStore } from "../../store/authStore";
-// import Card from "../../components/UI/Card";
-// import Button from "../../components/UI/Button";
-// import TextInput from "../../components/UI/TextInput";
-
-// const AdminLoginModal = ({ isOpen, onClose }) => {
-//   const [credentials, setCredentials] = useState({ email: "", password: "" });
-//   const [error, setError] = useState("");
-//   const login = useAuthStore((state) => state.login);
-//   const isLoading = useAuthStore((state) => state.isLoading);
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     setError("");
-
-//     // Pass `true` if your login function supports admin login
-//     const result = await login(credentials.email, credentials.password, true);
-
-//     if (result.success) {
-//       // Optionally persist admin state manually (if not handled in authStore)
-//       localStorage.setItem(
-//         "adminUser",
-//         JSON.stringify({
-//           id: 1,
-//           name: "Admin User",
-//           email: credentials.email,
-//           isAdmin: true,
-//         })
-//       );
-//       onClose();
-//     } else {
-//       setError(result.error || "Login failed. Please try again.");
-//     }
-//   };
-
-//   const handleInputChange = (e) => {
-//     setCredentials({ ...credentials, [e.target.name]: e.target.value });
-//   };
-
-//   if (!isOpen) return null;
-//FROM MADSCIENTIST
-// src/pages/admin/AdminLoginModal.jsx
 import { useState } from "react";
-import { FiX, FiLock, FiMail, FiArrowRight, FiUserPlus } from "react-icons/fi";
-import Card from "../../components/UI/Card";
-import Button from "../../components/UI/Button";
-import TextInput from "../../components/UI/TextInput";
+import { FiX, FiLock, FiMail, FiArrowRight } from "react-icons/fi";
+import authStore from "../../store/authStore"; // DEFAULT IMPORT
+import Card from "../UI/Card";
+import Button from "../UI/Button";
+import TextInput from "../UI/TextInput";
 
 const AdminLoginModal = ({ isOpen, onClose }) => {
-  const [credentials, setCredentials] = useState({
-    email: "",
-    password: "",
+  const [credentials, setCredentials] = useState({ 
+    email: "admin@comversity.com", 
+    password: "password" 
   });
   const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const isLoading = authStore((state) => state.isLoading);
+  const adminLogin = authStore((state) => state.adminLogin);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setIsLoading(true);
 
-    try {
-      const response = await fetch('http://localhost:3002/admin/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(credentials)
-      });
+    const result = await adminLogin(credentials.email, credentials.password);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        // Store admin data in localStorage
-        localStorage.setItem('adminToken', data.token);
-        localStorage.setItem('adminUser', JSON.stringify(data.user));
-        
-        // Close modal on successful login
-        onClose();
-        
-        // Redirect to admin dashboard
-        window.location.href = '/admin/dashboard';
-      } else {
-        setError(data.message || 'Login failed. Please check your credentials.');
-      }
-    } catch (err) {
-      setError('Cannot connect to server. Please try again later.');
-      console.error('Login error:', err);
-    } finally {
-      setIsLoading(false);
+    if (result.success) {
+      onClose();
+      // Redirect to admin dashboard
+      window.location.href = '/admin/dashboard';
+    } else {
+      setError(result.error || "Login failed. Please try again.");
     }
   };
 
   const handleInputChange = (e) => {
-    setCredentials({
-      ...credentials,
-      [e.target.name]: e.target.value,
-    });
+    setCredentials({ ...credentials, [e.target.name]: e.target.value });
   };
 
   if (!isOpen) return null;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
       <div className="relative max-w-md w-full">
@@ -118,6 +51,7 @@ const AdminLoginModal = ({ isOpen, onClose }) => {
               <button
                 onClick={onClose}
                 className="text-gray-400 hover:text-white transition-colors"
+                disabled={isLoading}
               >
                 <FiX className="h-6 w-6" />
               </button>
@@ -140,10 +74,11 @@ const AdminLoginModal = ({ isOpen, onClose }) => {
                     <TextInput
                       type="email"
                       name="email"
-                      placeholder="admin@communityersity.org"
+                      placeholder="admin@comversity.com"
                       value={credentials.email}
                       onChange={handleInputChange}
                       required
+                      disabled={isLoading}
                       className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -158,10 +93,11 @@ const AdminLoginModal = ({ isOpen, onClose }) => {
                     <TextInput
                       type="password"
                       name="password"
-                      placeholder="••••••••"
+                      placeholder="Enter password"
                       value={credentials.password}
                       onChange={handleInputChange}
                       required
+                      disabled={isLoading}
                       className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
@@ -192,9 +128,11 @@ const AdminLoginModal = ({ isOpen, onClose }) => {
               <p className="text-sm text-gray-400 text-center">
                 <strong>Demo Credentials:</strong>
                 <br />
-                Email: admin@library.org
+                Email: admin@comversity.com
                 <br />
-                Password: any password works
+                Password: password
+                <br />
+                <span className="text-xs">(Also works with admin@library.org and any password)</span>
               </p>
             </div>
           </div>
