@@ -11,6 +11,7 @@ import DashboardPage from "./pages/admin/DashboardPage";
 import AddBookPage from "./pages/admin/AddBookPage";
 import ManageBooksPage from "./pages/admin/ManageBooksPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SignUp from './pages/user/SignUp';
 
 const App = () => {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -56,6 +57,7 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+            <Route path="/signup" element={<SignUp />} />
         </Routes>
       </Layout>
     </Router>
