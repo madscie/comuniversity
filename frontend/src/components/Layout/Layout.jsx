@@ -13,6 +13,7 @@ import {
   FiBarChart2,
   FiMenu,
   FiX,
+  FiInfo, //Added icon for About Us
   FiUserPlus, // Added icon for Sign Up
 } from "react-icons/fi";
 
@@ -20,6 +21,7 @@ const navigation = [
   { name: "Home", href: "/", icon: FiHome },
   { name: "Browse", href: "/browse", icon: FiBookOpen },
   { name: "Search", href: "/search", icon: FiSearch },
+  {name: "About US", href: "/about", icon: FiInfo },
   
 ];
 
@@ -176,9 +178,103 @@ const Layout = ({ children }) => {
 
       <main className="flex-grow container mx-auto px-4 py-8">{children}</main>
 
-      <footer className="bg-white border-t mt-auto">
-        <div className="container mx-auto px-4 py-6 text-center text-gray-600 text-sm">
-          <p>© 2024 Communityersity Digital Library. All rights reserved.</p>
+      {/* FOOTER */}
+      <footer className="bg-gray-900 text-gray-300 mt-auto">
+        <div className="container mx-auto px-4 py-12 grid md:grid-cols-4 gap-8">
+          {/* About Section */}
+          <div>
+            <h4 className="text-white font-semibold text-lg mb-4">About Us</h4>
+            <p className="text-sm leading-relaxed">
+              Communityersity Library is a digital-first initiative to make
+              knowledge accessible globally. Explore, learn, and grow with
+              2,500+ books and resources.
+            </p>
+          </div>
+
+          {/* Quick Links */}
+          <div>
+            <h4 className="text-white font-semibold text-lg mb-4">
+              Quick Links
+            </h4>
+            <ul className="space-y-2 text-sm">
+              {navigation.map((item) => (
+                <li key={item.name}>
+                  <Link
+                    to={item.href}
+                    className="hover:text-white transition-colors flex items-center"
+                  >
+                    <item.icon className="h-4 w-4 mr-2" />
+                    {item.name}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Archives */}
+          <div>
+            <h4 className="text-white font-semibold text-lg mb-4">
+              Archives
+            </h4>
+            <ul className="space-y-2 text-sm">
+              <li>
+                <Link
+                  to="/archives/2024"
+                  className="hover:text-white transition-colors flex items-center"
+                >
+                  <FiArchive className="h-4 w-4 mr-2" /> 2024
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/archives/2023"
+                  className="hover:text-white transition-colors flex items-center"
+                >
+                  <FiArchive className="h-4 w-4 mr-2" /> 2023
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/archives/2022"
+                  className="hover:text-white transition-colors flex items-center"
+                >
+                  <FiArchive className="h-4 w-4 mr-2" /> 2022
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          {/* Socials */}
+          <div>
+            <h4 className="text-white font-semibold text-lg mb-4">
+              Connect With Us
+            </h4>
+            <div className="flex space-x-4">
+              <a
+                href="#"
+                className="p-2 bg-gray-800 rounded-full hover:bg-blue-600 transition"
+              >
+                <FiTwitter className="h-5 w-5" />
+              </a>
+              <a
+                href="#"
+                className="p-2 bg-gray-800 rounded-full hover:bg-blue-800 transition"
+              >
+                <FiFacebook className="h-5 w-5" />
+              </a>
+              <a
+                href="#"
+                className="p-2 bg-gray-800 rounded-full hover:bg-blue-700 transition"
+              >
+                <FiLinkedin className="h-5 w-5" />
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom Bar */}
+        <div className="border-t border-gray-700 py-4 text-center text-sm text-gray-500">
+          <p>© {new Date().getFullYear()} Communityersity Digital Library. All rights reserved.</p>
         </div>
       </footer>
     </div>
