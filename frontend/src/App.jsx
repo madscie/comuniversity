@@ -11,6 +11,8 @@ import DashboardPage from "./pages/admin/DashboardPage";
 import AddBookPage from "./pages/admin/AddBookPage";
 import ManageBooksPage from "./pages/admin/ManageBooksPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import AboutPage from "./pages/public/AboutPage";
+
 import SignUp from './pages/user/SignUp';
 
 const App = () => {
@@ -28,6 +30,7 @@ const App = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/about" element={<AboutPage />} />
 
           {/* Admin Login (Public) */}
           <Route path="/admin/login" element={<AdminLoginPage />} />
