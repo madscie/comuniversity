@@ -1,6 +1,8 @@
+
 import { Fragment } from "react";
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { useAuthStore } from "../../store/authStore";
+
 import { Link, useLocation } from "react-router-dom";
 import {
   FiHome,
@@ -11,12 +13,14 @@ import {
   FiBarChart2,
   FiMenu,
   FiX,
+  FiUserPlus, // Added icon for Sign Up
 } from "react-icons/fi";
 
 const navigation = [
   { name: "Home", href: "/", icon: FiHome },
   { name: "Browse", href: "/browse", icon: FiBookOpen },
   { name: "Search", href: "/search", icon: FiSearch },
+  
 ];
 
 function classNames(...classes) {
@@ -39,7 +43,7 @@ const Layout = ({ children }) => {
                   <Link to="/" className="flex-shrink-0 flex items-center">
                     <FiBookOpen className="h-8 w-8 text-blue-600" />
                     <span className="ml-2 text-xl font-bold text-gray-900 hidden sm:block">
-                      Communityersity Library
+                      Communiversity Library
                     </span>
                   </Link>
 
@@ -84,13 +88,25 @@ const Layout = ({ children }) => {
                       </button>
                     </div>
                   ) : (
-                    <Link
-                      to="/admin/login"
-                      className="flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
-                    >
-                      <FiBarChart2 className="h-5 w-5 mr-1" />
-                      Admin Login
-                    </Link>
+                    <div className="flex items-center space-x-3">
+                      {/* Admin Login Link */}
+                      <Link
+                        to="/admin/login"
+                        className="flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        <FiBarChart2 className="h-5 w-5 mr-1" />
+                        Admin Login
+                      </Link>
+                      
+                      {/* Sign Up Button */}
+                      <Link
+                        to="/signup"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
+                      >
+                        <FiUserPlus className="h-4 w-4 mr-1" />
+                        Sign Up
+                      </Link>
+                    </div>
                   )}
 
                   {/* Mobile menu button */}
@@ -130,6 +146,28 @@ const Layout = ({ children }) => {
                     </Disclosure.Button>
                   );
                 })}
+                
+                {/* Add Sign Up to mobile menu when not authenticated */}
+                {!isAuthenticated && (
+                  <>
+                    <Disclosure.Button
+                      as={Link}
+                      to="/admin/login"
+                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                    >
+                      <FiBarChart2 className="h-5 w-5 mr-3" />
+                      Admin Login
+                    </Disclosure.Button>
+                    <Disclosure.Button
+                      as={Link}
+                      to="/signup"
+                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-white bg-blue-600 hover:bg-blue-700"
+                    >
+                      <FiUserPlus className="h-5 w-5 mr-3" />
+                      Sign Up
+                    </Disclosure.Button>
+                  </>
+                )}
               </div>
             </Disclosure.Panel>
           </>
