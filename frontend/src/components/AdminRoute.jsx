@@ -1,4 +1,4 @@
-// src/components/ProtectedRoute.jsx
+// src/components/AdminRoute.jsx
 import { useAuthStore } from "../store/authStore";
 import { Navigate, useLocation } from "react-router-dom";
 import { FiLoader } from "react-icons/fi";
@@ -9,7 +9,7 @@ const Spinner = () => (
   </div>
 );
 
-const ProtectedRoute = ({ children }) => {
+const AdminRoute = ({ children }) => {
   const { isAuthenticated, user, isLoading } = useAuthStore();
   const location = useLocation();
 
@@ -28,4 +28,4 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-export default ProtectedRoute;
+export default AdminRoute;
