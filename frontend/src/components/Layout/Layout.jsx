@@ -15,6 +15,10 @@ import {
   FiX,
   FiInfo, //Added icon for About Us
   FiUserPlus, // Added icon for Sign Up
+  FiArchive, 
+  FiTwitter,
+  FiFacebook,
+  FiLinkedin,
 } from "react-icons/fi";
 
 const navigation = [
