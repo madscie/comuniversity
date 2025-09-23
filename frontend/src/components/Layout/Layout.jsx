@@ -1,4 +1,3 @@
-
 import { Fragment } from "react";
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { useAuthStore } from "../../store/authStore";
@@ -15,18 +14,20 @@ import {
   FiX,
   FiInfo, //Added icon for About Us
   FiUserPlus, // Added icon for Sign Up
-  FiArchive, 
+  FiArchive,
   FiTwitter,
   FiFacebook,
   FiLinkedin,
 } from "react-icons/fi";
 
+import { FaDesktop } from "react-icons/fa";
+
 const navigation = [
   { name: "Home", href: "/", icon: FiHome },
   { name: "Browse", href: "/browse", icon: FiBookOpen },
   { name: "Search", href: "/search", icon: FiSearch },
-  {name: "About US", href: "/about", icon: FiInfo },
-  
+  { name: "About Us", href: "/about", icon: FiInfo },
+  { name: "Webinars", href: "/webinars", icon: FaDesktop },
 ];
 
 function classNames(...classes) {
@@ -103,7 +104,7 @@ const Layout = ({ children }) => {
                         <FiBarChart2 className="h-5 w-5 mr-1" />
                         Admin Login
                       </Link>
-                      
+
                       {/* Sign Up Button */}
                       <Link
                         to="/signup"
@@ -152,7 +153,7 @@ const Layout = ({ children }) => {
                     </Disclosure.Button>
                   );
                 })}
-                
+
                 {/* Add Sign Up to mobile menu when not authenticated */}
                 {!isAuthenticated && (
                   <>
@@ -217,9 +218,7 @@ const Layout = ({ children }) => {
 
           {/* Archives */}
           <div>
-            <h4 className="text-white font-semibold text-lg mb-4">
-              Archives
-            </h4>
+            <h4 className="text-white font-semibold text-lg mb-4">Archives</h4>
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
@@ -278,7 +277,10 @@ const Layout = ({ children }) => {
 
         {/* Bottom Bar */}
         <div className="border-t border-gray-700 py-4 text-center text-sm text-gray-500">
-          <p>© {new Date().getFullYear()} Communityersity Digital Library. All rights reserved.</p>
+          <p>
+            © {new Date().getFullYear()} Communityersity Digital Library. All
+            rights reserved.
+          </p>
         </div>
       </footer>
     </div>
