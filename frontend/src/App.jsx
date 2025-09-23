@@ -14,6 +14,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AboutPage from "./pages/public/AboutPage";
 
 import SignUp from './pages/user/SignUp';
+import ArticlesPage from "./pages/public/ArticlesPage";
 
 const App = () => {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -31,7 +32,7 @@ const App = () => {
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/about" element={<AboutPage />} />
-
+<Route path="/article" element={<ArticlesPage />} />
           {/* Admin Login (Public) */}
           <Route path="/admin/login" element={<AdminLoginPage />} />
 
