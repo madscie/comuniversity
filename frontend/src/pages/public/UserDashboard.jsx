@@ -13,7 +13,8 @@ import {
   FiBarChart2,
   FiHome,
   FiSearch,
-  FiBookOpen
+  FiBookOpen,
+  FiAlertCircle
 } from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
@@ -23,71 +24,175 @@ const UserDashboard = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("reading");
   const [userData, setUserData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const { user, logout } = useAuthStore();
 
-  // Mock user data
+  // Fetch user data from API
   useEffect(() => {
-    // In a real app, this would come from an API
-    const mockUserData = {
-      name: "Alex Johnson",
-      email: user?.email || "alex.johnson@example.com",
-      joinDate: "January 15, 2023",
-      readingStats: {
-        totalBooksRead: 24,
-        readingStreak: 12,
-        totalReadingTime: "45h 30m",
-        favoriteCategory: "Science & Technology"
-      },
-      readingHistory: [
-        {
-          id: 1,
-          title: "Introduction to Computer Science",
-          author: "John Smith",
-          category: "Computer Science",
-          ddc: "004.5",
-          lastAccessed: "2 hours ago",
-          progress: 65
-        },
-        {
-          id: 2,
-          title: "Advanced Mathematics for Engineers",
-          author: "Dr. Emily Chen",
-          category: "Mathematics",
-          ddc: "510.2",
-          lastAccessed: "1 day ago",
-          progress: 30
-        },
-        {
-          id: 3,
-          title: "World History: Modern Era",
-          author: "Prof. Robert Johnson",
-          category: "History",
-          ddc: "909.8",
-          lastAccessed: "3 days ago",
-          progress: 100
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+          throw new Error('No authentication token found');
         }
-      ],
-      savedBooks: [
-        {
-          id: 4,
-          title: "Organic Chemistry Fundamentals",
-          author: "Dr. Sarah Williams",
-          category: "Chemistry",
-          ddc: "547",
-          savedDate: "5 days ago"
-        },
-        {
-          id: 5,
-          title: "Renaissance Art Masterpieces",
-          author: "Maria Gonzalez",
-          category: "Art History",
-          ddc: "709.024",
-          savedDate: "1 week ago"
+
+        const response = await fetch('http://localhost:3002/api/auth/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch user data');
         }
-      ]
+
+        const data = await response.json();
+        
+        if (data.success) {
+          // Use real data from API
+          setUserData({
+            name: `${data.user.first_name} ${data.user.last_name}`,
+            email: data.user.email,
+            joinDate: new Date(data.user.created_at).toLocaleDateString('en-US', {
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            }),
+            readingStats: {
+              totalBooksRead: 24,
+              readingStreak: 12,
+              totalReadingTime: "45h 30m",
+              favoriteCategory: "Science & Technology"
+            },
+            readingHistory: [
+              {
+                id: 1,
+                title: "Introduction to Computer Science",
+                author: "John Smith",
+                category: "Computer Science",
+                ddc: "004.5",
+                lastAccessed: "2 hours ago",
+                progress: 65
+              },
+              {
+                id: 2,
+                title: "Advanced Mathematics for Engineers",
+                author: "Dr. Emily Chen",
+                category: "Mathematics",
+                ddc: "510.2",
+                lastAccessed: "1 day ago",
+                progress: 30
+              },
+              {
+                id: 3,
+                title: "World History: Modern Era",
+                author: "Prof. Robert Johnson",
+                category: "History",
+                ddc: "909.8",
+                lastAccessed: "3 days ago",
+                progress: 100
+              }
+            ],
+            savedBooks: [
+              {
+                id: 4,
+                title: "Organic Chemistry Fundamentals",
+                author: "Dr. Sarah Williams",
+                category: "Chemistry",
+                ddc: "547",
+                savedDate: "5 days ago"
+              },
+              {
+                id: 5,
+                title: "Renaissance Art Masterpieces",
+                author: "Maria Gonzalez",
+                category: "Art History",
+                ddc: "709.024",
+                savedDate: "1 week ago"
+              }
+            ]
+          });
+        } else {
+          throw new Error(data.message || 'Failed to fetch user data');
+        }
+      } catch (err) {
+        console.error('Error fetching user data:', err);
+        setError('Failed to load dashboard data. Using demo data instead.');
+        
+        // Fallback to demo data if API fails
+        setUserData({
+          name: `${user?.firstName || 'User'} ${user?.lastName || ''}`.trim() || 'Demo User',
+          email: user?.email || "demo@comversity.org",
+          joinDate: new Date().toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+          }),
+          readingStats: {
+            totalBooksRead: 24,
+            readingStreak: 12,
+            totalReadingTime: "45h 30m",
+            favoriteCategory: "Science & Technology"
+          },
+          readingHistory: [
+            {
+              id: 1,
+              title: "Introduction to Computer Science",
+              author: "John Smith",
+              category: "Computer Science",
+              ddc: "004.5",
+              lastAccessed: "2 hours ago",
+              progress: 65
+            },
+            {
+              id: 2,
+              title: "Advanced Mathematics for Engineers",
+              author: "Dr. Emily Chen",
+              category: "Mathematics",
+              ddc: "510.2",
+              lastAccessed: "1 day ago",
+              progress: 30
+            },
+            {
+              id: 3,
+              title: "World History: Modern Era",
+              author: "Prof. Robert Johnson",
+              category: "History",
+              ddc: "909.8",
+              lastAccessed: "3 days ago",
+              progress: 100
+            }
+          ],
+          savedBooks: [
+            {
+              id: 4,
+              title: "Organic Chemistry Fundamentals",
+              author: "Dr. Sarah Williams",
+              category: "Chemistry",
+              ddc: "547",
+              savedDate: "5 days ago"
+            },
+            {
+              id: 5,
+              title: "Renaissance Art Masterpieces",
+              author: "Maria Gonzalez",
+              category: "Art History",
+              ddc: "709.024",
+              savedDate: "1 week ago"
+            }
+          ]
+        });
+      } finally {
+        setLoading(false);
+      }
     };
 
-    setUserData(mockUserData);
+    fetchUserData();
   }, [user]);
 
   const handleLogout = () => {
@@ -95,10 +200,23 @@ const UserDashboard = () => {
     navigate("/");
   };
 
-  if (!userData) {
+  if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (error && !userData) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <Card className="p-6 text-center">
+          <FiAlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Error Loading Dashboard</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <Button onClick={() => window.location.reload()}>Try Again</Button>
+        </Card>
       </div>
     );
   }
@@ -143,6 +261,12 @@ const UserDashboard = () => {
             Logout
           </Button>
         </div>
+
+        {error && (
+          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded mb-6">
+            {error}
+          </div>
+        )}
 
         {/* User Profile Header */}
         <Card className="mb-8 border-0 bg-gradient-to-r from-blue-500 to-purple-600 text-white">

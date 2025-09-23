@@ -1,12 +1,17 @@
-const mysql = require('mysql2');
-require('dotenv').config();
+// config/database.js
+import mysql from "mysql2";
+
+export const dbConfig = {
+  host: "localhost",
+  user: "root",
+  password: "",
+  database: "comversity",
+  charset: 'utf8mb4'
+};
 
 // Create connection pool
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
-  database: process.env.DB_NAME || 'comversity',
+  ...dbConfig,
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0
@@ -16,9 +21,9 @@ const pool = mysql.createPool({
 const promisePool = pool.promise();
 
 // Helper function for queries
-const query = async (sql, params) => {
+export const query = async (sql, params) => {
   try {
-    const [rows, fields] = await promisePool.execute(sql, params);
+    const [rows] = await promisePool.execute(sql, params);
     return rows;
   } catch (error) {
     console.error('Database query error:', error);
@@ -26,8 +31,15 @@ const query = async (sql, params) => {
   }
 };
 
-module.exports = {
-  pool,
-  promisePool,
-  query
+export const connectDatabase = () => {
+  pool.getConnection((err, connection) => {
+    if (err) {
+      console.error("Database connection failed:", err);
+      return;
+    }
+    console.log("Connected to Comversity database");
+    connection.release();
+  });
 };
+
+export { pool, promisePool };

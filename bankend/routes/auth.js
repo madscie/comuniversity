@@ -1,24 +1,26 @@
-const express = require('express');
-const router = express.Router();
-const {
-  register,
-  login,
-  getProfile,
-  logout
-} = require('../controllers/authController');
-const {
-  validateRegistration,
-  validateLogin,
+// routes/auth.js
+import express from "express";
+import {
+  registerUser,
+  loginUser,
+  getUserProfile,
+  logoutUser
+} from "../controllers/authController.js";
+import {
+  validateUserRegistration,
+  validateUserLogin,
   handleValidationErrors
-} = require('../middleware/validation');
-const { authenticateToken } = require('../middleware/auth');
+} from "../middleware/validation.js";
+import { authenticateToken, requireUser } from "../middleware/auth.js";
+
+const router = express.Router();
 
 // Public routes
-router.post('/register', validateRegistration, handleValidationErrors, register);
-router.post('/login', validateLogin, handleValidationErrors, login);
+router.post("/register", validateUserRegistration, handleValidationErrors, registerUser);
+router.post("/login", validateUserLogin, handleValidationErrors, loginUser);
 
 // Protected routes
-router.get('/profile', authenticateToken, getProfile);
-router.post('/logout', authenticateToken, logout);
+router.get("/profile", authenticateToken, requireUser, getUserProfile);
+router.post("/logout", authenticateToken, logoutUser);
 
-module.exports = router;
+export default router;
