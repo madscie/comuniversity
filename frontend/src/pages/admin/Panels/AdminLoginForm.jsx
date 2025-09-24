@@ -1,4 +1,4 @@
-// src/components/AdminLoginForm.jsx (Frontend)
+// src/components/AdminLoginForm.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/authStore";
@@ -8,21 +8,33 @@ const AdminLoginForm = () => {
     email: "", 
     password: "" 
   });
-  
+  const [error, setError] = useState("");
+
   const login = useAuthStore((state) => state.login);
   const isLoading = useAuthStore((state) => state.isLoading);
-  const error = useAuthStore((state) => state.error);
   const clearError = useAuthStore((state) => state.clearError);
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError("");
     clearError();
-    
-    const result = await login(credentials.email, credentials.password);
 
-    if (result.success) {
-      navigate("/admin/dashboard", { replace: true });
+    if (!credentials.email || !credentials.password) return;
+
+    try {
+      // Pass true to indicate admin login
+      const result = await login(credentials.email, credentials.password, true);
+
+      if (result.success) {
+        // Navigate to admin dashboard
+        navigate("/admin/dashboard", { replace: true });
+      } else {
+        setError(result.error || "Invalid credentials");
+      }
+    } catch (err) {
+      console.error("Admin login error:", err);
+      setError("Cannot connect to server. Please try again later.");
     }
   };
 
@@ -31,10 +43,8 @@ const AdminLoginForm = () => {
       ...credentials,
       [e.target.name]: e.target.value,
     });
-    
-    if (error) {
-      clearError();
-    }
+    if (error) setError("");
+    clearError();
   };
 
   return (
@@ -62,7 +72,7 @@ const AdminLoginForm = () => {
             type="email"
             id="email"
             name="email"
-            placeholder="admin@communityersity.org"
+            placeholder="admin@comversity.org"
             value={credentials.email}
             onChange={handleInputChange}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors"
@@ -107,10 +117,8 @@ const AdminLoginForm = () => {
         </button>
       </form>
 
-      <div className="mt-6 text-center">
-        <p className="text-sm text-gray-600">
-          Demo access: admin@library.org / any password
-        </p>
+      <div className="mt-6 text-center text-sm text-gray-600">
+        Demo access: admin@comversity.org / any password
       </div>
     </div>
   );

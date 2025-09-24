@@ -1,18 +1,10 @@
 // routes/admin.js
 import express from "express";
-import {
-  loginAdmin,
-  registerAdmin
-} from "../controllers/adminController.js";
-import {
-  validateAdminRegistration,
-  handleValidationErrors
-} from "../middleware/validation.js";
+import { loginAdmin } from "../controllers/adminController.js";
 
 const router = express.Router();
 
-// Admin authentication routes
+// Admin authentication route
 router.post("/login", loginAdmin);
-router.post("/register", validateAdminRegistration, handleValidationErrors, registerAdmin);
 
 export default router;
