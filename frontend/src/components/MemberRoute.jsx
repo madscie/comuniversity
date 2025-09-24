@@ -1,28 +1,26 @@
-// src/components/MemberRoute.jsx
-import { useAuthStore } from "../store/authStore";
-import { Navigate, useLocation } from "react-router-dom";
-import { FiLoader } from "react-icons/fi";
-
-const Spinner = () => (
-  <div className="flex justify-center items-center p-8">
-    <FiLoader className="h-8 w-8 animate-spin text-blue-600" />
-  </div>
-);
+// components/MemberRoute.jsx
+import { Navigate } from 'react-router-dom';
+import { useAuthStore } from '../store/authStore';
 
 const MemberRoute = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuthStore();
-  const location = useLocation();
-
+  
+  console.log('MemberRoute - isAuthenticated:', isAuthenticated);
+  console.log('MemberRoute - isLoading:', isLoading);
+  
   if (isLoading) {
-    return <Spinner />;
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
+      </div>
+    );
   }
-
-  // If the user is NOT authenticated, redirect them to the MAIN LOGIN page
-//   if (!isAuthenticated) {
-//     return <Navigate to="/login" state={{ from: location }} replace />;
-//   }
-
-  // If they are authenticated, let them see the page (regardless of being admin or not)
+  
+  if (!isAuthenticated) {
+    console.log('Not authenticated, redirecting to login');
+    return <Navigate to="/login" replace />;
+  }
+  
   return children;
 };
 

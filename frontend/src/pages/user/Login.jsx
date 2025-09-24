@@ -1,9 +1,15 @@
+// export default Login;
+
+
 import React, { useState } from "react";
 import { FiLogIn } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../../store/authStore";
+
 
 const Login = () => {
   const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -46,39 +52,6 @@ const Login = () => {
     return newErrors;
   };
 
-  // Fake API call for demo (replace with real /api/auth/login later)
-  const callLoginApi = async (userData) => {
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
-
-      if (!response.ok) {
-        throw new Error("API request failed");
-      }
-
-      return await response.json();
-    } catch (error) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      if (userData.email === "wrong@example.com") {
-        return {
-          success: false,
-          message: "Invalid email or password",
-        };
-      }
-
-      return {
-        success: true,
-        message: "Login successful! Redirecting...",
-      };
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -92,25 +65,30 @@ const Login = () => {
     setApiResponse({ ...apiResponse, show: false });
 
     try {
-      const result = await callLoginApi(formData);
-
-      setApiResponse({
-        message: result.message,
-        isSuccess: result.success,
-        show: true,
-      });
+      // Use the auth store login function
+      const result = await login(formData.email, formData.password);
 
       if (result.success) {
+        setApiResponse({
+          message: "Login successful! Redirecting...",
+          isSuccess: true,
+          show: true,
+        });
+
         setFormData({ email: "", password: "" });
 
-        // Show success message before redirect
-        setTimeout(() => {
-          navigate("/"); // redirect to homepage
-        }, 1500);
+        // Redirect to home page
+        navigate("/", { replace: true });
+      } else {
+        setApiResponse({
+          message: result.error || "Login failed. Please check your credentials.",
+          isSuccess: false,
+          show: true,
+        });
       }
     } catch (error) {
       setApiResponse({
-        message: "An error occurred. Please try again later.",
+        message: "An unexpected error occurred. Please try again.",
         isSuccess: false,
         show: true,
       });
@@ -210,7 +188,7 @@ const Login = () => {
 
         <div className="text-center py-5 border-t border-gray-200 text-gray-700">
           <p>
-            Don’t have an account?{" "}
+            Don't have an account?{" "}
             <a
               href="/signup"
               className="text-blue-600 font-medium hover:underline"

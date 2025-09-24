@@ -88,38 +88,40 @@ const SignUp = () => {
         setPasswordStrength({ class: 'bg-red-600', text: 'Weak password' });
     };
 
-    // Real API call to /api/auth/signup
+    // REAL API call to your backend
     const callSignupApi = async (userData) => {
         try {
-            const response = await fetch('/api/auth/signup', {
+            // Split full name into first and last name for database
+            const nameParts = userData.name.trim().split(/\s+/);
+            const firstName = nameParts[0];
+            const lastName = nameParts.slice(1).join(' ') || 'User';
+
+            const response = await fetch('http://localhost:5000/api/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(userData),
+                body: JSON.stringify({
+                    firstName: firstName,
+                    lastName: lastName,
+                    email: userData.email,
+                    password: userData.password,
+                    affiliateCode: userData.affiliateCode || null
+                }),
             });
             
+            const result = await response.json();
+            
             if (!response.ok) {
-                throw new Error('API request failed');
+                throw new Error(result.message || 'Registration failed');
             }
             
-            return await response.json();
+            return result;
         } catch (error) {
-            // For demonstration, we'll simulate API behavior
-            await new Promise(resolve => setTimeout(resolve, 1500));
-            
-            // Check for demo scenarios
-            if (userData.email === 'error@example.com') {
-                return {
-                    success: false,
-                    message: 'An account with this email already exists'
-                };
-            }
-            
-            // Simulate successful signup
+            console.error('Signup error:', error);
             return {
-                success: true,
-                message: 'Account created successfully! Please check your email to verify your account.'
+                success: false,
+                message: error.message || 'An error occurred during registration. Please try again.'
             };
         }
     };
@@ -140,7 +142,7 @@ const SignUp = () => {
             // Prepare data for API (remove confirmPassword as it's not needed by the API)
             const { confirmPassword, ...apiData } = formData;
             
-            // Call the API
+            // Call the REAL API
             const result = await callSignupApi(apiData);
             
             // Show API response

@@ -1,31 +1,30 @@
-// src/pages/admin/AdminLoginPage.jsx
+// export default AdminLoginPage;
+
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/authStore";
-import AdminLoginModal from "../../pages/admin/AdminLoginModal";
+import AdminLoginModal from "./AdminLoginModal";
 
 const AdminLoginPage = () => {
   const navigate = useNavigate();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
+  // Redirect to dashboard if already authenticated
   useEffect(() => {
-    // If already authenticated, redirect to dashboard
     if (isAuthenticated) {
       navigate("/admin/dashboard");
+      
     }
   }, [isAuthenticated, navigate]);
 
   const handleClose = () => {
-    navigate("/");
+    navigate("/"); // Redirect to homepage if modal closed
   };
-
-  if (isAuthenticated) {
-    return null; // Will redirect in useEffect
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 to-blue-900 flex items-center justify-center p-4">
-      <AdminLoginModal isOpen={true} onClose={handleClose} />
+      {/* Always render modal; it controls visibility */}
+      <AdminLoginModal isOpen={!isAuthenticated} onClose={handleClose} />
     </div>
   );
 };

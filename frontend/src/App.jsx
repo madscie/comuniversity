@@ -101,7 +101,7 @@ const App = () => {
                 <ChildrenPage />
               </MemberRoute>
             }
-          /> */}
+          /> }
 
           {/* ---------- PROTECTED ADMIN ROUTES ---------- */}
           <Route
