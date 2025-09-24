@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bookController = require('../controllers/bookController');
 const { auth } = require('../middleware/auth');
-const upload = require('../config/upload'); // Import from config file
+const upload = require('../config/upload');
 
 // POST /api/books - Create new book (with file upload)
 router.post(
@@ -10,7 +10,7 @@ router.post(
   auth,
   upload.fields([
     { name: 'cover_image', maxCount: 1 },
-    { name: 'file_url', maxCount: 1 }
+    { name: 'content_file', maxCount: 1 } // Changed from 'file_url' to 'content_file'
   ]),
   bookController.createBook
 );

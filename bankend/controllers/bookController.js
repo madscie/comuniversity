@@ -54,23 +54,33 @@ exports.createBook = async (req, res) => {
       category_id,
       tags,
       is_featured,
-      is_approved
+      is_approved,
+      content_type,
+      total_copies,
+      available_copies,
+      journal_name,
+      volume,
+      issue,
+      pages,
+      doi,
+      age_group,
+      reading_level
     } = req.body;
 
-    // Uploaded files
+    // Uploaded files - UPDATED FIELD NAMES
     let cover_image = null;
     let file_url = null;
 
     if (req.files?.cover_image) {
       cover_image = `/uploads/${req.files.cover_image[0].filename}`;
     }
-    if (req.files?.file_url) {
-      const fileExt = path.extname(req.files.file_url[0].originalname).toLowerCase();
+    if (req.files?.content_file) { // Changed from 'file_url' to 'content_file'
+      const fileExt = path.extname(req.files.content_file[0].originalname).toLowerCase();
       if (fileExt !== ".pdf") {
-        deleteFile(req.files.file_url[0].path);
+        deleteFile(req.files.content_file[0].path);
         return res.status(400).json({ message: "Only PDF files are allowed for book uploads." });
       }
-      file_url = `/uploads/${req.files.file_url[0].filename}`;
+      file_url = `/uploads/${req.files.content_file[0].filename}`;
     }
 
     // Check if book already exists by ISBN
@@ -78,7 +88,7 @@ exports.createBook = async (req, res) => {
       const existingBook = await Book.findByIsbn(isbn);
       if (existingBook) {
         if (req.files?.cover_image) deleteFile(req.files.cover_image[0].path);
-        if (req.files?.file_url) deleteFile(req.files.file_url[0].path);
+        if (req.files?.content_file) deleteFile(req.files.content_file[0].path);
         return res.status(400).json({ message: 'Book with this ISBN already exists.' });
       }
     }
@@ -92,7 +102,7 @@ exports.createBook = async (req, res) => {
       cover_image,
       file_url,
       file_format: 'PDF',
-      file_size: req.files?.file_url ? req.files.file_url[0].size : 0,
+      file_size: req.files?.content_file ? req.files.content_file[0].size : 0,
       page_count: req.body.page_count ? parseInt(req.body.page_count) : 0,
       publisher,
       published_year: published_year ? parseInt(published_year) : null,
@@ -101,7 +111,17 @@ exports.createBook = async (req, res) => {
       tags: tags ? JSON.parse(tags) : null,
       is_featured: is_featured ? parseInt(is_featured) : 0,
       is_approved: is_approved ? parseInt(is_approved) : 0,
-      uploader_id: req.user ? req.user.id : null
+      uploader_id: req.user ? req.user.id : null,
+      content_type: content_type || 'book',
+      total_copies: total_copies ? parseInt(total_copies) : 1,
+      available_copies: available_copies ? parseInt(available_copies) : 1,
+      journal_name,
+      volume,
+      issue,
+      pages,
+      doi,
+      age_group,
+      reading_level
     });
 
     const newBook = await Book.findById(bookId);
@@ -110,7 +130,7 @@ exports.createBook = async (req, res) => {
   } catch (error) {
     console.error('Error creating book:', error);
     if (req.files?.cover_image) deleteFile(req.files.cover_image[0].path);
-    if (req.files?.file_url) deleteFile(req.files.file_url[0].path);
+    if (req.files?.content_file) deleteFile(req.files.content_file[0].path);
     res.status(500).json({ message: 'Server error while creating book.' });
   }
 };
@@ -124,15 +144,15 @@ exports.updateBook = async (req, res) => {
     if (req.files?.cover_image) {
       dataToUpdate.cover_image = `/uploads/${req.files.cover_image[0].filename}`;
     }
-    if (req.files?.file_url) {
-      const fileExt = path.extname(req.files.file_url[0].originalname).toLowerCase();
+    if (req.files?.content_file) { // Changed from 'file_url' to 'content_file'
+      const fileExt = path.extname(req.files.content_file[0].originalname).toLowerCase();
       if (fileExt !== ".pdf") {
-        deleteFile(req.files.file_url[0].path);
+        deleteFile(req.files.content_file[0].path);
         return res.status(400).json({ message: "Only PDF files are allowed." });
       }
-      dataToUpdate.file_url = `/uploads/${req.files.file_url[0].filename}`;
+      dataToUpdate.file_url = `/uploads/${req.files.content_file[0].filename}`;
       dataToUpdate.file_format = 'PDF';
-      dataToUpdate.file_size = req.files.file_url[0].size;
+      dataToUpdate.file_size = req.files.content_file[0].size;
     }
 
     const updated = await Book.update(id, dataToUpdate);

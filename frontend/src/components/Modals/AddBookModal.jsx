@@ -41,7 +41,6 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
     { value: 'report', label: 'Report' }
   ];
 
-  // This would ideally come from your API
   const categories = [
     { id: 1, name: 'Fiction' },
     { id: 2, name: 'Non-Fiction' },
@@ -57,13 +56,11 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
   const validateForm = () => {
     const newErrors = {};
     
-    // Common validations
     if (!formData.title.trim()) newErrors.title = 'Title is required';
     if (!formData.author.trim()) newErrors.author = 'Author is required';
     if (!formData.category_id) newErrors.category_id = 'Category is required';
     if (!formData.dewey_decimal.trim()) newErrors.dewey_decimal = 'Dewey Decimal is required';
     
-    // Type-specific validations
     if (contentType === 'book' && !formData.isbn.trim()) {
       newErrors.isbn = 'ISBN is required for books';
     }
@@ -74,10 +71,9 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
       newErrors.available_copies = 'Available copies cannot exceed total copies';
     }
     
-    // File validation
     if (!formData.content_file) {
       newErrors.content_file = 'Content file is required';
-    } else if (formData.content_file.size > 50 * 1024 * 1024) { // 50MB limit
+    } else if (formData.content_file.size > 50 * 1024 * 1024) {
       newErrors.content_file = 'File size must be less than 50MB';
     }
 
@@ -93,25 +89,11 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
     setIsLoading(true);
     
     try {
-      // Create FormData for file upload
-      const submitData = new FormData();
+      console.log('Starting book upload...');
+      console.log('Form data:', formData);
       
-      // Append all form data
-      Object.keys(formData).forEach(key => {
-        if (formData[key] !== null && formData[key] !== undefined) {
-          if (key === 'cover_image' || key === 'content_file') {
-            submitData.append(key, formData[key]);
-          } else {
-            submitData.append(key, formData[key]);
-          }
-        }
-      });
-      
-      // Add content type
-      submitData.append('content_type', contentType);
-      
-      // Use the existing bookAPI but with enhanced backend
-      const newBook = await bookAPI.create(submitData);
+      // Use the bookAPI directly with the formData object
+      const newBook = await bookAPI.create(formData);
       onBookAdded(newBook);
       onClose();
       resetForm();
@@ -129,7 +111,6 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
     if (name === 'cover_image' || name === 'content_file') {
       const file = files[0];
       if (file) {
-        // Check file size based on file type
         let maxSize = name === 'cover_image' ? 5 * 1024 * 1024 : 50 * 1024 * 1024;
         
         if (file.size > maxSize) {
@@ -140,7 +121,6 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
           return;
         }
         
-        // Check file types
         if (name === 'cover_image' && !file.type.startsWith('image/')) {
           setErrors(prev => ({ ...prev, [name]: 'Only image files are allowed' }));
           return;
@@ -158,7 +138,6 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
         setFormData(prev => ({ ...prev, [name]: file }));
         setErrors(prev => ({ ...prev, [name]: null }));
         
-        // Create image preview for cover images
         if (name === 'cover_image') {
           const reader = new FileReader();
           reader.onload = (e) => setImagePreview(e.target.result);
@@ -174,7 +153,6 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
   const handleTypeChange = (e) => {
     const newType = e.target.value;
     setContentType(newType);
-    // Reset type-specific fields when changing type
     setFormData(prev => ({
       ...prev,
       journal_name: '',
