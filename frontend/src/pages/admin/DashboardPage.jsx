@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { bookAPI } from '../../services/api';
 import AddBookModal from '../../components/Modals/AddBookModal';
+import BookReaderModal from '../../components/Modals/BookReaderModal'; // We'll create this
 
 const DashboardPage = () => {
   const [books, setBooks] = useState([]);
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isReaderModalOpen, setIsReaderModalOpen] = useState(false);
+  const [selectedBook, setSelectedBook] = useState(null);
   const [stats, setStats] = useState({
     totalBooks: 0,
     activeUsers: 1287,
@@ -51,10 +54,10 @@ const DashboardPage = () => {
 
     const filtered = books.filter(
       (book) =>
-        book.title.toLowerCase().includes(query.toLowerCase()) ||
-        book.author.toLowerCase().includes(query.toLowerCase()) ||
-        book.isbn.toLowerCase().includes(query.toLowerCase()) ||
-        book.category.toLowerCase().includes(query.toLowerCase())
+        book.title?.toLowerCase().includes(query.toLowerCase()) ||
+        book.author?.toLowerCase().includes(query.toLowerCase()) ||
+        book.isbn?.toLowerCase().includes(query.toLowerCase()) ||
+        book.category?.toLowerCase().includes(query.toLowerCase())
     );
     setFilteredBooks(filtered);
   };
@@ -63,6 +66,26 @@ const DashboardPage = () => {
   const handleBookAdded = (newBook) => {
     setBooks((prev) => [...prev, newBook]);
     setFilteredBooks((prev) => [...prev, newBook]);
+  };
+
+  /** Open book reader */
+  const handleReadBook = (book) => {
+    setSelectedBook(book);
+    setIsReaderModalOpen(true);
+  };
+
+  /** Get full image URL */
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    return `http://localhost:3002${imagePath}`;
+  };
+
+  /** Get book file URL */
+  const getBookFileUrl = (filePath) => {
+    if (!filePath) return null;
+    if (filePath.startsWith('http')) return filePath;
+    return `http://localhost:3002${filePath}`;
   };
 
   return (
@@ -156,23 +179,32 @@ const DashboardPage = () => {
             {filteredBooks.map((book) => (
               <div
                 key={book.id}
-                className="bg-gray-50 rounded-lg p-4 border border-gray-200"
+                className="bg-gray-50 rounded-lg p-4 border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleReadBook(book)}
               >
+                {/* Book Cover Image */}
                 <div className="h-48 bg-gray-200 rounded-lg flex items-center justify-center mb-4 overflow-hidden">
                   {book.cover_image ? (
                     <img
-                      src={`http://localhost:5000${book.cover_image}`}
+                      src={getImageUrl(book.cover_image)}
                       alt={book.title}
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
+                        // Show fallback if image fails to load
+                        const fallback = e.target.parentElement.querySelector('.image-fallback');
+                        if (fallback) fallback.style.display = 'flex';
                       }}
                     />
-                  ) : (
-                    <div className="text-gray-400 flex items-center justify-center w-full h-full">
+                  ) : null}
+                  
+                  {/* Fallback when no image or image fails */}
+                  <div 
+                    className={`image-fallback text-gray-400 flex items-center justify-center w-full h-full ${book.cover_image ? 'hidden' : 'flex'}`}
+                  >
+                    <div className="text-center">
                       <svg
-                        className="w-12 h-12"
+                        className="w-12 h-12 mx-auto mb-2"
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
@@ -181,31 +213,41 @@ const DashboardPage = () => {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M4 6h16M4 12h16m-7 6h7"
+                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
                         />
                       </svg>
+                      <span className="text-sm">No Cover</span>
                     </div>
-                  )}
+                  </div>
                 </div>
 
+                {/* Book Info */}
                 <h3 className="font-semibold text-lg text-gray-900 mb-1 line-clamp-2">
-                  {book.title}
+                  {book.title || 'Untitled'}
                 </h3>
-                <p className="text-gray-600 text-sm mb-2">by {book.author}</p>
+                <p className="text-gray-600 text-sm mb-2">
+                  by {book.author || 'Unknown Author'}
+                </p>
 
                 <div className="flex items-center justify-between mb-3">
                   <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                    {book.category}
+                    {book.category || 'Uncategorized'}
                   </span>
-                  <span className="text-sm text-gray-500">ISBN: {book.isbn}</span>
+                  <span className="text-sm text-gray-500">ISBN: {book.isbn || 'N/A'}</span>
                 </div>
 
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">
-                    {book.available_copies} of {book.total_copies} available
+                    {book.available_copies || 0} of {book.total_copies || 0} available
                   </span>
-                  <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                    View Details
+                  <button 
+                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent triggering parent click
+                      handleReadBook(book);
+                    }}
+                  >
+                    Read Book
                   </button>
                 </div>
               </div>
@@ -220,6 +262,19 @@ const DashboardPage = () => {
         onClose={() => setIsAddModalOpen(false)}
         onBookAdded={handleBookAdded}
       />
+
+      {/* Book Reader Modal */}
+      {selectedBook && (
+        <BookReaderModal
+          isOpen={isReaderModalOpen}
+          onClose={() => {
+            setIsReaderModalOpen(false);
+            setSelectedBook(null);
+          }}
+          book={selectedBook}
+          bookFileUrl={getBookFileUrl(selectedBook.file_url)}
+        />
+      )}
     </div>
   );
 };
