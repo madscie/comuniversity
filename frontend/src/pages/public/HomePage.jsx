@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FiSearch,
@@ -6,7 +6,7 @@ import {
   FiArrowRight,
   FiBarChart2,
 } from "react-icons/fi";
-import { useAuthStore } from "../../store/authStore"; // ADD THIS IMPORT
+import { useAuthStore } from "../../store/authStore";
 import TextInput from "../../components/UI/TextInput";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
@@ -27,12 +27,7 @@ const HomePage = () => {
     }
   };
 
-  // Check if user is already authenticated on component mount
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate("/admin/dashboard");
-    }
-  }, [isAuthenticated, navigate]);
+  // REMOVED the problematic useEffect that was causing automatic redirects
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 bg-gradient-to-br from-blue-50 to-indigo-100">

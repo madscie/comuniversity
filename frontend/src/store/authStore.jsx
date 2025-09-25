@@ -1,4 +1,3 @@
-// src/store/authStore.js
 import { create } from "zustand";
 
 export const useAuthStore = create((set) => ({
@@ -9,24 +8,37 @@ export const useAuthStore = create((set) => ({
   login: async (email, password) => {
     set({ isLoading: true });
 
-    // Simulate API call
     try {
-      // In a real app, you would call your API here
+      // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      // Mock successful login
+      // Dynamic role assignment based on email
+      const isAdmin = email.includes('admin') || email === 'admin@example.com';
+      const userRole = isAdmin ? 'admin' : 'user';
+      
+      // Extract name from email for more personalized greeting
+      const emailName = email.split('@')[0];
+      const formattedName = emailName.charAt(0).toUpperCase() + emailName.slice(1);
+      
+      const userData = {
+        id: 1,
+        name: isAdmin ? "Admin User" : formattedName,
+        email: email,
+        isAdmin: isAdmin,
+        role: userRole,
+        joinDate: new Date().toISOString()
+      };
+
       set({
-        user: {
-          id: 1,
-          name: "Admin User",
-          email: email,
-          isAdmin: true,
-        },
+        user: userData,
         isAuthenticated: true,
         isLoading: false,
       });
 
-      return { success: true };
+      // Store in localStorage
+      localStorage.setItem("user", JSON.stringify(userData));
+
+      return { success: true, user: userData };
     } catch (error) {
       set({
         user: null,
@@ -38,18 +50,21 @@ export const useAuthStore = create((set) => ({
   },
 
   logout: () => {
+    localStorage.removeItem("user");
     set({
       user: null,
       isAuthenticated: false,
+      isLoading: false,
     });
   },
 
   checkAuth: () => {
-    // Check if user is already authenticated (e.g., from localStorage)
-    const storedUser = localStorage.getItem("adminUser");
+    const storedUser = localStorage.getItem("user");
     if (storedUser) {
       const user = JSON.parse(storedUser);
       set({ user, isAuthenticated: true });
     }
   },
 }));
+
+

@@ -1,11 +1,7 @@
-// export default Login;
-
-
 import React, { useState } from "react";
 import { FiLogIn } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/authStore";
-
 
 const Login = () => {
   const navigate = useNavigate();
@@ -65,7 +61,6 @@ const Login = () => {
     setApiResponse({ ...apiResponse, show: false });
 
     try {
-      // Use the auth store login function
       const result = await login(formData.email, formData.password);
 
       if (result.success) {
@@ -78,7 +73,10 @@ const Login = () => {
         setFormData({ email: "", password: "" });
 
         // Redirect to home page
-        navigate("/", { replace: true });
+        setTimeout(() => {
+          navigate("/", { replace: true });
+        }, 1500);
+
       } else {
         setApiResponse({
           message: result.error || "Login failed. Please check your credentials.",

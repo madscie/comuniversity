@@ -12,8 +12,8 @@ import {
   FiBarChart2,
   FiMenu,
   FiX,
-  FiInfo, //Added icon for About Us
-  FiUserPlus, // Added icon for Sign Up
+  FiInfo,
+  FiUserPlus,
   FiArchive,
   FiTwitter,
   FiFacebook,

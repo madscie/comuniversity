@@ -37,4 +37,8 @@ const testConnection = async () => {
   }
 };
 
-module.exports = { pool, testConnection };
+// Export the pool directly so db.execute() works
+module.exports = pool;
+
+// Also export testConnection separately if needed elsewhere
+module.exports.testConnection = testConnection;
