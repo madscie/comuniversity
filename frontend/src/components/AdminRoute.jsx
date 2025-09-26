@@ -1,28 +1,37 @@
-// src/components/AdminRoute.jsx
 import { useAuthStore } from "../store/authStore";
 import { Navigate, useLocation } from "react-router-dom";
-import { FiLoader } from "react-icons/fi";
-
-const Spinner = () => (
-  <div className="flex justify-center items-center p-8">
-    <FiLoader className="h-8 w-8 animate-spin text-blue-600" />
-  </div>
-);
+import { useEffect, useState } from "react";
 
 const AdminRoute = ({ children }) => {
-  const { isAuthenticated, user, isLoading } = useAuthStore();
+  const { user, isAuthenticated, hasCheckedAuth, isLoading } = useAuthStore();
   const location = useLocation();
+  const [shouldRedirect, setShouldRedirect] = useState(false);
 
-  if (isLoading) {
-    return <Spinner />;
+  // Use useEffect to handle redirects in a single pass
+  useEffect(() => {
+    if (hasCheckedAuth && !isLoading) {
+      setShouldRedirect(true);
+    }
+  }, [hasCheckedAuth, isLoading]);
+
+  // Show loading while checking auth
+  if (!hasCheckedAuth || isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-lg">Checking admin permissions...</div>
+      </div>
+    );
   }
 
-  if (!isAuthenticated) {
-    return <Navigate to="/admin/login" state={{ from: location }} replace />;
-  }
+  // Only perform redirects after the component has mounted and auth is checked
+  if (shouldRedirect) {
+    if (!isAuthenticated) {
+      return <Navigate to="/admin/login" state={{ from: location }} replace />;
+    }
 
-  if (user && !user.isAdmin) {
-    return <Navigate to="/" replace />;
+    if (user?.role !== "admin") {
+      return <Navigate to="/" replace />;
+    }
   }
 
   return children;

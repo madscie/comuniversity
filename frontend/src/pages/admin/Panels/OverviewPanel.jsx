@@ -1,4 +1,3 @@
-// src/components/admin/OverviewPanel.jsx
 import { FiBook, FiUsers, FiPlus, FiSearch } from "react-icons/fi";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
@@ -79,14 +78,18 @@ const OverviewPanel = () => {
         {stats.map((stat, index) => (
           <Card
             key={index}
-            className="border-0 shadow-sm hover:shadow-md transition-shadow"
+            className="p-6 border-0 shadow-sm hover:shadow-md transition-shadow duration-200"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm">{stat.label}</p>
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                <p className="text-gray-600 text-sm font-medium">
+                  {stat.label}
+                </p>
+                <p className="text-2xl font-bold text-gray-900 mt-1">
+                  {stat.value}
+                </p>
                 <p
-                  className={`text-sm ${
+                  className={`text-sm mt-1 ${
                     stat.trend === "up" ? "text-green-600" : "text-red-600"
                   }`}
                 >
@@ -103,7 +106,7 @@ const OverviewPanel = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Recent Activity */}
-        <Card className="border-0 shadow-sm">
+        <Card className="p-6 border-0 shadow-sm">
           <h2 className="text-xl font-bold text-gray-900 mb-6">
             Recent Activity
           </h2>
@@ -117,7 +120,7 @@ const OverviewPanel = () => {
                   <p className="font-semibold text-gray-900">
                     {activity.action}
                   </p>
-                  <p className="text-gray-600">{activity.title}</p>
+                  <p className="text-gray-600 text-sm mt-1">{activity.title}</p>
                 </div>
                 <span className="text-gray-500 text-sm">{activity.time}</span>
               </div>
@@ -126,11 +129,11 @@ const OverviewPanel = () => {
         </Card>
 
         {/* Quick Actions */}
-        <Card className="border-0 shadow-sm">
+        <Card className="p-6 border-0 shadow-sm">
           <h2 className="text-xl font-bold text-gray-900 mb-6">
             Quick Actions
           </h2>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <Button variant="primary" className="w-full justify-center py-3">
               <FiPlus className="mr-2 h-5 w-5" />
               Add New Book

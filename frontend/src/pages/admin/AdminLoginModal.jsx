@@ -1,10 +1,7 @@
-// src/components/Modals/AdminLoginModal.jsx
 import { useState } from "react";
-import { FiX, FiLock, FiMail, FiArrowRight } from "react-icons/fi";
+import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/authStore";
-import Card from "../../components/UI/Card";
-import Button from "../../components/UI/Button";
-import TextInput from "../../components/UI/TextInput";
+import { FiX, FiLock, FiMail } from "react-icons/fi";
 
 const AdminLoginModal = ({ isOpen, onClose }) => {
   const [credentials, setCredentials] = useState({
@@ -12,140 +9,121 @@ const AdminLoginModal = ({ isOpen, onClose }) => {
     password: "",
   });
   const [error, setError] = useState("");
-  const login = useAuthStore((state) => state.login);
-  const isLoading = useAuthStore((state) => state.isLoading);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const navigate = useNavigate();
+  const { adminLogin } = useAuthStore();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setIsLoading(true);
     setError("");
 
-    const result = await login(credentials.email, credentials.password);
+    try {
+      // Use the adminLogin method from store with email and password
+      const result = await adminLogin(credentials.email, credentials.password);
 
-    if (result.success) {
-      // Store auth state in localStorage for persistence
-      localStorage.setItem(
-        "adminUser",
-        JSON.stringify({
-          id: 1,
-          name: "Admin User",
-          email: credentials.email,
-          isAdmin: true,
-        })
-      );
-
-      onClose();
-    } else {
-      setError(result.error || "Login failed. Please try again.");
+      if (result.success) {
+        navigate("/admin/dashboard");
+      } else {
+        setError(result.error || "Invalid admin credentials");
+      }
+    } catch (err) {
+      setError("Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-  };
-
-  const handleInputChange = (e) => {
-    setCredentials({
-      ...credentials,
-      [e.target.name]: e.target.value,
-    });
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-      <div className="relative max-w-md w-full">
-        <Card className="border-0 bg-gradient-to-br from-gray-900 to-blue-900 text-white overflow-hidden relative">
-          {/* Futuristic background elements */}
-          <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
-          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500 rounded-full filter blur-3xl opacity-20"></div>
-          <div className="absolute bottom-0 left-0 w-32 h-32 bg-purple-500 rounded-full filter blur-3xl opacity-20"></div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+        {/* Header */}
+        <div className="flex justify-between items-center p-6 border-b">
+          <h2 className="text-2xl font-bold text-gray-900">Admin Login</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <FiX className="h-5 w-5" />
+          </button>
+        </div>
 
-          <div className="relative z-10">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-400">
-                Admin Portal
-              </h2>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-white transition-colors"
-              >
-                <FiX className="h-6 w-6" />
-              </button>
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg">
+              {error}
             </div>
+          )}
 
-            {error && (
-              <div className="mb-4 p-3 bg-red-500 bg-opacity-20 border border-red-500 rounded-lg">
-                <p className="text-red-200 text-sm">{error}</p>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <FiMail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                    <TextInput
-                      type="email"
-                      name="email"
-                      placeholder="admin@communityersity.org"
-                      value={credentials.email}
-                      onChange={handleInputChange}
-                      required
-                      className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Password
-                  </label>
-                  <div className="relative">
-                    <FiLock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                    <TextInput
-                      type="password"
-                      name="password"
-                      placeholder="••••••••"
-                      value={credentials.password}
-                      onChange={handleInputChange}
-                      required
-                      className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                variant="gradient"
-                className="w-full py-3 font-semibold group"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                    Authenticating...
-                  </>
-                ) : (
-                  <>
-                    Access Dashboard
-                    <FiArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-6 p-4 bg-black bg-opacity-30 rounded-lg">
-              <p className="text-sm text-gray-400 text-center">
-                <strong>Demo Credentials:</strong>
-                <br />
-                Email: admin@library.org
-                <br />
-                Password: any password works
-              </p>
+          <div className="space-y-2">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Admin Email
+            </label>
+            <div className="relative">
+              <FiMail className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+              <input
+                id="email"
+                type="email"
+                required
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="admin@communiversity.com"
+                value={credentials.email}
+                onChange={(e) =>
+                  setCredentials({ ...credentials, email: e.target.value })
+                }
+              />
             </div>
           </div>
-        </Card>
+
+          <div className="space-y-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-gray-700"
+            >
+              Password
+            </label>
+            <div className="relative">
+              <FiLock className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+              <input
+                id="password"
+                type="password"
+                required
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Enter your password"
+                value={credentials.password}
+                onChange={(e) =>
+                  setCredentials({ ...credentials, password: e.target.value })
+                }
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+          >
+            {isLoading ? "Signing in..." : "Sign in as Admin"}
+          </button>
+        </form>
+
+        {/* Demo Credentials */}
+        <div className="bg-gray-50 p-4 rounded-b-2xl">
+          <p className="text-sm text-gray-600 text-center">
+            <strong>Demo Credentials:</strong>
+            <br />
+            Email: admin@communiversity.com
+            <br />
+            Password: admin123
+          </p>
+        </div>
       </div>
     </div>
   );

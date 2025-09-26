@@ -1,8 +1,6 @@
-// src/components/admin/BooksPanel.jsx
 import { FiPlus, FiSearch, FiEdit, FiTrash2 } from "react-icons/fi";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
-import TextInput from "../../../components/UI/TextInput";
 
 const BooksPanel = () => {
   const books = [
@@ -56,11 +54,15 @@ const BooksPanel = () => {
       </header>
 
       {/* Search and Filters */}
-      <Card className="border-0 shadow-sm mb-6">
+      <Card className="p-6 border-0 shadow-sm mb-6">
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 relative">
             <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <TextInput placeholder="Search books..." className="pl-10" />
+            <input
+              type="text"
+              placeholder="Search books..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
           <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
             <option>All Categories</option>
@@ -72,7 +74,7 @@ const BooksPanel = () => {
       </Card>
 
       {/* Books Table */}
-      <Card className="border-0 shadow-sm overflow-hidden">
+      <Card className="p-0 border-0 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50">
@@ -99,24 +101,23 @@ const BooksPanel = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {books.map((book) => (
-                <tr key={book.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                <tr
+                  key={book.id}
+                  className="hover:bg-gray-50 transition-colors"
+                >
+                  <td className="px-6 py-4">
                     <div className="font-medium text-gray-900">
                       {book.title}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {book.author}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {book.year}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                  <td className="px-6 py-4 text-gray-600">{book.author}</td>
+                  <td className="px-6 py-4 text-gray-600">{book.year}</td>
+                  <td className="px-6 py-4 text-gray-600 font-mono">
                     {book.ddc}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4">
                     <span
-                      className={`px-2 py-1 text-xs rounded-full ${
+                      className={`px-3 py-1 text-xs rounded-full font-medium ${
                         book.status === "Available"
                           ? "bg-green-100 text-green-800"
                           : "bg-yellow-100 text-yellow-800"
@@ -125,13 +126,15 @@ const BooksPanel = () => {
                       {book.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <button className="text-blue-600 hover:text-blue-900 mr-3">
-                      <FiEdit className="h-4 w-4" />
-                    </button>
-                    <button className="text-red-600 hover:text-red-900">
-                      <FiTrash2 className="h-4 w-4" />
-                    </button>
+                  <td className="px-6 py-4">
+                    <div className="flex space-x-2">
+                      <button className="text-blue-600 hover:text-blue-900 p-1 rounded">
+                        <FiEdit className="h-4 w-4" />
+                      </button>
+                      <button className="text-red-600 hover:text-red-900 p-1 rounded">
+                        <FiTrash2 className="h-4 w-4" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
