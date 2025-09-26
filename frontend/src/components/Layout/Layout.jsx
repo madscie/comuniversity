@@ -21,12 +21,15 @@ import {
 } from "react-icons/fi";
 
 import { FaDesktop } from "react-icons/fa";
+import { PiArticleNyTimes } from "react-icons/pi";
 
 const navigation = [
   { name: "Home", href: "/", icon: FiHome },
   { name: "Browse", href: "/browse", icon: FiBookOpen },
-  { name: "Search", href: "/search", icon: FiSearch },
-  { name: "About Us", href: "/about", icon: FiInfo },
+  { name: "Articles", href: "/articles", icon: PiArticleNyTimes },
+
+  // { name: "Search", href: "/search", icon: FiSearch },
+  // { name: "About Us", href: "/about", icon: FiInfo },
   { name: "Webinars", href: "/webinars", icon: FaDesktop },
 ];
 
@@ -96,16 +99,7 @@ const Layout = ({ children }) => {
                     </div>
                   ) : (
                     <div className="flex items-center space-x-3">
-                      {/* Admin Login Link */}
-                      <Link
-                        to="/admin/login"
-                        className="flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium"
-                      >
-                        <FiBarChart2 className="h-5 w-5 mr-1" />
-                        Admin Login
-                      </Link>
-
-                      {/* Sign Up Button */}
+                      {/* REMOVE Admin Login link from here - it's now separate */}
                       <Link
                         to="/signup"
                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"

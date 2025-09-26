@@ -33,6 +33,11 @@ const SearchPage = () => {
     setIsModalOpen(true);
   };
 
+  const handleViewDetailsPage = (bookId) => {
+    console.log("Selected Book:", bookId);
+
+    navigate(`/books/${bookId}`);
+  };
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedBook(null);
@@ -523,7 +528,11 @@ const SearchPage = () => {
               </div>
 
               <div className="flex flex-col sm:flex-row gap-4">
-                <Button variant="primary" className="flex-1">
+                <Button
+                  onClick={() => handleViewDetailsPage(selectedBook.id)}
+                  variant="primary"
+                  className="flex-1"
+                >
                   <FiBookOpen className="mr-2 h-5 w-5" />
                   Read Now
                 </Button>

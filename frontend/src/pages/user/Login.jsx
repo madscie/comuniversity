@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { FiLogIn } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
+import { useAuthStore } from "../../store/authStore";
 
 const Login = () => {
   const navigate = useNavigate();
+  const login = useAuthStore((state) => state.login);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -46,39 +48,6 @@ const Login = () => {
     return newErrors;
   };
 
-  // Fake API call for demo (replace with real /api/auth/login later)
-  const callLoginApi = async (userData) => {
-    try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(userData),
-      });
-
-      if (!response.ok) {
-        throw new Error("API request failed");
-      }
-
-      return await response.json();
-    } catch (error) {
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-
-      if (userData.email === "wrong@example.com") {
-        return {
-          success: false,
-          message: "Invalid email or password",
-        };
-      }
-
-      return {
-        success: true,
-        message: "Login successful! Redirecting...",
-      };
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -92,18 +61,34 @@ const Login = () => {
     setApiResponse({ ...apiResponse, show: false });
 
     try {
-      const result = await callLoginApi(formData);
+      // IMPORTANT: Check if user is trying to login as admin
+      if (
+        formData.email === "admin@communiversity.com" &&
+        formData.password === "admin123"
+      ) {
+        setApiResponse({
+          message:
+            "Admin credentials detected. Please use the admin login page.",
+          isSuccess: false,
+          show: true,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Use the login function from the store for regular users
+      const result = await login(formData.email, formData.password);
 
       setApiResponse({
-        message: result.message,
+        message: result.success
+          ? "Login successful! Redirecting..."
+          : result.error || "Login failed",
         isSuccess: result.success,
         show: true,
       });
 
       if (result.success) {
         setFormData({ email: "", password: "" });
-
-        // Show success message before redirect
         setTimeout(() => {
           navigate("/"); // redirect to homepage
         }, 1500);
@@ -117,6 +102,13 @@ const Login = () => {
     } finally {
       setIsSubmitting(false);
     }
+
+    // Check what's actually in storage
+    console.log("User:", localStorage.getItem("user"));
+    console.log("Admin:", localStorage.getItem("adminUser"));
+
+    // Check the current auth state
+    console.log("Auth State:", useAuthStore.getState());
   };
 
   return (
@@ -206,11 +198,25 @@ const Login = () => {
               {apiResponse.message}
             </div>
           )}
+
+          {/* Demo credentials hint */}
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800 text-center">
+              <strong>Demo:</strong> Use any email and password (except admin
+              credentials)
+            </p>
+            <p className="text-xs mt-1">
+              Admin?{" "}
+              <a href="/admin/login" className="text-blue-600 underline">
+                Go to admin login
+              </a>
+            </p>
+          </div>
         </form>
 
         <div className="text-center py-5 border-t border-gray-200 text-gray-700">
           <p>
-            Don’t have an account?{" "}
+            Don't have an account?{" "}
             <a
               href="/signup"
               className="text-blue-600 font-medium hover:underline"

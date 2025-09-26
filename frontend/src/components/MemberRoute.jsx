@@ -1,28 +1,31 @@
-// src/components/MemberRoute.jsx
 import { useAuthStore } from "../store/authStore";
 import { Navigate, useLocation } from "react-router-dom";
-import { FiLoader } from "react-icons/fi";
-
-const Spinner = () => (
-  <div className="flex justify-center items-center p-8">
-    <FiLoader className="h-8 w-8 animate-spin text-blue-600" />
-  </div>
-);
 
 const MemberRoute = ({ children }) => {
-  const { isAuthenticated, isLoading } = useAuthStore();
+  const { isAuthenticated, isLoading, user, hasCheckedAuth } = useAuthStore();
   const location = useLocation();
 
-  if (isLoading) {
-    return <Spinner />;
+  // Wait for auth check to complete
+  if (!hasCheckedAuth || isLoading) {
+    return (
+      <div className="min-h-screen flex justify-center items-center">
+        <div className="text-lg">Loading...</div>
+      </div>
+    );
   }
 
-  // If the user is NOT authenticated, redirect them to the MAIN LOGIN page
-//   if (!isAuthenticated) {
-//     return <Navigate to="/login" state={{ from: location }} replace />;
-//   }
+  // If not authenticated, redirect to login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
 
-  // If they are authenticated, let them see the page (regardless of being admin or not)
+  // If user is admin AND trying to access non-admin routes, redirect to admin dashboard
+  // But only if they're not already on an admin route
+  if (user?.role === "admin" && !location.pathname.startsWith("/admin")) {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
+  // Regular user - allow access
   return children;
 };
 
