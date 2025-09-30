@@ -97,7 +97,7 @@ const AdminLayout = ({ children }) => {
           ))}
         </nav>
 
-        <div className="absolute bottom-4 left-4 right-4">
+        <div className="p-4 bottom-4 left-4 right-4">
           <button
             onClick={() => navigate("/")}
             className="w-full flex items-center px-3 py-2 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-lg mb-2"
