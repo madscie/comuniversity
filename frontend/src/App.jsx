@@ -22,6 +22,7 @@ import ManageAffiliatesPage from "./pages/admin/Pages/ManageAffiliatePage";
 import UserManagementPage from "./pages/admin/Pages/UserManagementPage";
 import ManageWebinarsPage from "./pages/admin/Pages/ManageWebinarsPage";
 import BookDetail from "./pages/public/BookDetail";
+import Profile from "./pages/public/Profile/ProfilePage";
 
 const App = () => {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -46,7 +47,6 @@ const App = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
-
         {/* ---------- MEMBER ROUTES (Require user authentication) ---------- */}
         <Route
           path="/"
@@ -118,6 +118,18 @@ const App = () => {
             </MemberRoute>
           }
         />
+        <Route
+          path="/profile"
+          element={
+            <MemberRoute>
+              <Layout>
+                <Profile />
+              </Layout>
+            </MemberRoute>
+          }
+        />
+        // Add this to your routes
+        {/* <Route path="/profile" element={<Profile />} />
 
         {/* ---------- ADMIN ROUTES (Require admin authentication) ---------- */}
         <Route
@@ -190,7 +202,6 @@ const App = () => {
             </AdminRoute>
           }
         />
-
         {/* Redirect admin root to dashboard */}
         <Route
           path="/admin"

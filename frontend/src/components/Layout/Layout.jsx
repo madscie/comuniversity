@@ -22,6 +22,7 @@ import {
 
 import { FaDesktop } from "react-icons/fa";
 import { PiArticleNyTimes } from "react-icons/pi";
+import ProfileDropdown from "../../pages/public/Profile/ProfileDropdown";
 
 const navigation = [
   { name: "Home", href: "/", icon: FiHome },
@@ -82,24 +83,11 @@ const Layout = ({ children }) => {
 
                 {/* Right side items */}
                 <div className="flex items-center space-x-4">
-                  {/* Auth section */}
+                  {/* Updated auth section */}
                   {isAuthenticated ? (
-                    <div className="flex items-center space-x-4">
-                      <span className="text-sm text-gray-700 flex items-center">
-                        <FiUser className="h-5 w-5 mr-1" />
-                        Hi, {user?.name}
-                      </span>
-                      <button
-                        onClick={logout}
-                        className="flex items-center text-red-600 hover:text-red-700 text-sm font-medium"
-                      >
-                        <FiLogOut className="h-5 w-5 mr-1" />
-                        Logout
-                      </button>
-                    </div>
+                    <ProfileDropdown />
                   ) : (
                     <div className="flex items-center space-x-3">
-                      {/* REMOVE Admin Login link from here - it's now separate */}
                       <Link
                         to="/signup"
                         className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
