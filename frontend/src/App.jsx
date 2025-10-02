@@ -23,6 +23,7 @@ import UserManagementPage from "./pages/admin/Pages/UserManagementPage";
 import ManageWebinarsPage from "./pages/admin/Pages/ManageWebinarsPage";
 import BookDetail from "./pages/public/BookDetail";
 import Profile from "./pages/public/Profile/ProfilePage";
+import SingleArticlePage from "./pages/public/SingleArticlePage";
 
 const App = () => {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -94,6 +95,16 @@ const App = () => {
             <MemberRoute>
               <Layout>
                 <ArticlesPage />
+              </Layout>
+            </MemberRoute>
+          }
+        />
+        <Route
+          path="/articles/:id"
+          element={
+            <MemberRoute>
+              <Layout>
+                <SingleArticlePage />
               </Layout>
             </MemberRoute>
           }

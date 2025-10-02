@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { FiSearch, FiBook, FiUser, FiCalendar } from "react-icons/fi";
 import TextInput from "../../components/UI/TextInput";
 import Card from "../../components/UI/Card";
@@ -7,6 +7,8 @@ import Button from "../../components/UI/Button";
 
 const ArticlesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
+
+  const navigate =  useNavigate()
 
   // ✅ Mock data (replace with backend later)
   const mockArticles = [
@@ -48,6 +50,13 @@ const ArticlesPage = () => {
       article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       article.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  // Navigation function
+  const handleReadMore = (articleId) => {
+    console.log("ID",articleId);
+    
+    navigate(`/articles/${articleId}`);
+  };
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -119,11 +128,11 @@ const ArticlesPage = () => {
               </div>
 
               {/* Read More Button */}
-              <Link to={`/articles/${article._id}`}>
-                <Button variant="outline" className="w-full">
+                <Button
+                onClick={()=>handleReadMore(article._id)}
+                variant="outline" className="w-full">
                   Read More
                 </Button>
-              </Link>
             </Card>
           ))}
         </div>
