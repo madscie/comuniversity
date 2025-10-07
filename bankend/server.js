@@ -1015,7 +1015,6 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-
 // Add these for __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1023,7 +1022,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 app.use(cors({
-  origin: 'http://localhost:5173', // frontend origin
+  origin: 'http://localhost:5173',
   credentials: true
 }));
 
@@ -1074,7 +1073,6 @@ function createDatabaseAndTables() {
           console.error("Error using database:", err);
           return;
         }
-
         createAdminsTable(tempDb);
       });
     });
@@ -1110,7 +1108,7 @@ function createAdminsTable(database) {
   });
 }
 
-// Function to create books table with all required columns
+// Function to create books table - UPDATED to match your actual structure
 function createBooksTable(database) {
   const createBooksTableSQL = `
     CREATE TABLE IF NOT EXISTS books (
@@ -1128,7 +1126,7 @@ function createBooksTable(database) {
       published_year INT,
       language VARCHAR(50) DEFAULT 'English',
       tags TEXT,
-      dewey_decimal VARCHAR(50) NOT NULL,
+      dewey_decimal VARCHAR(50),
       content_type VARCHAR(50) DEFAULT 'book',
       journal_name VARCHAR(255),
       volume VARCHAR(50),
@@ -1139,10 +1137,7 @@ function createBooksTable(database) {
       reading_level VARCHAR(50),
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      PRIMARY KEY (id),
-      KEY idx_title (title),
-      KEY idx_author (author),
-      KEY idx_category (category_id)
+      PRIMARY KEY (id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
   `;
 
@@ -1210,7 +1205,6 @@ function createDefaultAdmin(database) {
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // Create uploads directory if it doesn't exist
     const uploadDir = path.join(__dirname, "uploads");
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -1218,7 +1212,6 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Generate unique filename
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
     cb(
       null,
@@ -1227,14 +1220,12 @@ const storage = multer.diskStorage({
   },
 });
 
-
 const upload = multer({
   storage: storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB limit
+    fileSize: 50 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
-    // Check file types
     if (file.fieldname === "cover_image") {
       if (file.mimetype.startsWith("image/")) {
         cb(null, true);
@@ -1291,6 +1282,8 @@ function createAndSendToken(admin, res, isDemo = false) {
   });
 }
 
+// ==================== AUTH ROUTES ====================
+
 // Admin login endpoint
 app.post("/admin/login", async (req, res) => {
   const { email, password } = req.body;
@@ -1304,7 +1297,6 @@ app.post("/admin/login", async (req, res) => {
     });
   }
 
-  // Demo mode - accept any password with admin@library.org
   if (email === "admin@library.org") {
     console.log("Demo admin login detected");
     
@@ -1352,7 +1344,6 @@ app.post("/admin/login", async (req, res) => {
     return;
   }
 
-  // Regular admin login
   const SQL = "SELECT * FROM admins WHERE email = ?";
   db.query(SQL, [email], async (err, results) => {
     if (err) {
@@ -1395,90 +1386,9 @@ app.post("/admin/login", async (req, res) => {
   });
 });
 
-// Admin registration endpoint
-app.post("/admin/register", async (req, res) => {
-  const { username, fname, lname, email, password } = req.body;
+// ==================== BOOK ROUTES ====================
 
-  console.log("Admin registration attempt for:", email);
-
-  if (!username || !fname || !lname || !email || !password) {
-    return res.status(400).json({ 
-      success: false,
-      message: "All fields are required" 
-    });
-  }
-
-  if (password.length < 6) {
-    return res.status(400).json({ 
-      success: false,
-      message: "Password must be at least 6 characters long" 
-    });
-  }
-
-  try {
-    const checkSQL = "SELECT * FROM admins WHERE email = ? OR username = ?";
-    db.query(checkSQL, [email, username], async (err, results) => {
-      if (err) {
-        console.error("Database error:", err);
-        return res.status(500).json({ 
-          success: false,
-          message: "Database error" 
-        });
-      }
-      
-      if (results.length > 0) {
-        return res.status(409).json({ 
-          success: false,
-          message: "Admin with this email or username already exists" 
-        });
-      }
-
-      const hashedPassword = await bcrypt.hash(password, 10);
-      
-      const insertSQL = "INSERT INTO admins (username, fname, lname, email, password) VALUES (?, ?, ?, ?, ?)";
-      db.query(insertSQL, [username, fname, lname, email, hashedPassword], (err, result) => {
-        if (err) {
-          console.error("Error creating admin:", err);
-          return res.status(500).json({ 
-            success: false,
-            message: "Error creating admin account" 
-          });
-        }
-        
-        console.log("New admin created:", email);
-        
-        const token = jwt.sign({ 
-          id: result.insertId, 
-          email: email,
-          role: 'admin',
-          isDemo: false
-        }, JWT_SECRET, { expiresIn: "24h" });
-        
-        res.json({
-          success: true,
-          message: "Admin account created successfully",
-          token,
-          user: {
-            id: result.insertId,
-            username: username,
-            email: email,
-            fname: fname,
-            lname: lname,
-            isDemo: false
-          }
-        });
-      });
-    });
-  } catch (error) {
-    console.error("Registration error:", error);
-    return res.status(500).json({ 
-      success: false,
-      message: "Server error" 
-    });
-  }
-});
-
-// Book upload endpoint - FIXED TAGS FIELD
+// Create new book - UPDATED to use category_id
 app.post("/api/books", upload.fields([
   { name: "cover_image", maxCount: 1 },
   { name: "content_file", maxCount: 1 },
@@ -1487,12 +1397,11 @@ app.post("/api/books", upload.fields([
     console.log("Book upload request received");
     console.log("Request body:", req.body);
 
-    // Get form data
     const {
       title,
       author,
       isbn,
-      category_id,
+      category,
       description,
       total_copies,
       available_copies,
@@ -1503,15 +1412,29 @@ app.post("/api/books", upload.fields([
       dewey_decimal,
     } = req.body;
 
-    // Validate required fields
-    if (!title || !author || !dewey_decimal || !category_id) {
+    if (!title || !author) {
       return res.status(400).json({
         success: false,
-        message: "Title, author, Dewey Decimal, and category are required",
+        message: "Title and author are required",
       });
     }
 
-    // Get file paths
+    // Map category name to category_id (simple mapping)
+    const categoryMap = {
+      'Arts': 1,
+      'Science': 2, 
+      'Technology': 3,
+      'Fiction': 4,
+      'History': 5,
+      'Literature': 6,
+      'Mathematics': 7,
+      'Physics': 8,
+      'Chemistry': 9,
+      'Biology': 10
+    };
+    
+    const category_id = categoryMap[category] || 1; // Default to 1 if not found
+
     const cover_image = req.files?.["cover_image"]?.[0]
       ? `/uploads/${req.files["cover_image"][0].filename}`
       : null;
@@ -1519,7 +1442,6 @@ app.post("/api/books", upload.fields([
       ? `/uploads/${req.files["content_file"][0].filename}`
       : null;
 
-    // Insert into database - FIXED: tags is TEXT, not JSON
     const query = `
       INSERT INTO books (
         title, author, isbn, category_id, description, total_copies, available_copies,
@@ -1531,7 +1453,7 @@ app.post("/api/books", upload.fields([
       title,
       author,
       isbn || null,
-      parseInt(category_id),
+      category_id,
       description || "",
       parseInt(total_copies) || 1,
       parseInt(available_copies) || 1,
@@ -1540,8 +1462,8 @@ app.post("/api/books", upload.fields([
       publisher || "",
       published_year ? parseInt(published_year) : null,
       language || "English",
-      tags || "", // Store as plain text, not JSON
-      dewey_decimal,
+      tags || "",
+      dewey_decimal || "",
     ];
 
     db.query(query, values, (err, result) => {
@@ -1554,7 +1476,6 @@ app.post("/api/books", upload.fields([
         });
       }
 
-      // Get the inserted book
       db.query(
         "SELECT * FROM books WHERE id = ?",
         [result.insertId],
@@ -1587,7 +1508,7 @@ app.post("/api/books", upload.fields([
   }
 });
 
-// Get all books endpoint - FIXED RESPONSE STRUCTURE
+// Get all books
 app.get("/api/books", (req, res) => {
   const query = "SELECT * FROM books ORDER BY created_at DESC";
   
@@ -1600,12 +1521,11 @@ app.get("/api/books", (req, res) => {
       });
     }
 
-    // Return just the array of books for the frontend
     res.json(results);
   });
 });
 
-// Get book by ID endpoint
+// Get book by ID
 app.get("/api/books/:id", (req, res) => {
   const bookId = req.params.id;
   const query = "SELECT * FROM books WHERE id = ?";
@@ -1630,7 +1550,219 @@ app.get("/api/books/:id", (req, res) => {
   });
 });
 
-// Search books endpoint
+// UPDATE BOOK - FIXED to use category_id instead of category
+app.put("/api/books/:id", upload.fields([
+  { name: "cover_image", maxCount: 1 },
+  { name: "content_file", maxCount: 1 },
+]), async (req, res) => {
+  try {
+    const bookId = req.params.id;
+    console.log("Updating book ID:", bookId);
+    console.log("Request body:", req.body);
+
+    // Check if book exists
+    const bookCheck = await new Promise((resolve, reject) => {
+      db.query("SELECT * FROM books WHERE id = ?", [bookId], (err, results) => {
+        if (err) reject(err);
+        else resolve(results);
+      });
+    });
+
+    if (bookCheck.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Book not found"
+      });
+    }
+
+    const {
+      title,
+      author,
+      isbn,
+      category,
+      description,
+      total_copies,
+      available_copies,
+      publisher,
+      published_year,
+      language
+    } = req.body;
+
+    // Map category name to category_id
+    const categoryMap = {
+      'Arts': 1,
+      'Science': 2, 
+      'Technology': 3,
+      'Fiction': 4,
+      'History': 5,
+      'Literature': 6,
+      'Mathematics': 7,
+      'Physics': 8,
+      'Chemistry': 9,
+      'Biology': 10
+    };
+    
+    const category_id = category ? (categoryMap[category] || 1) : undefined;
+
+    let updateFields = [];
+    let updateValues = [];
+
+    // Add fields that are provided
+    if (title !== undefined) { 
+      updateFields.push("title = ?"); 
+      updateValues.push(title); 
+    }
+    if (author !== undefined) { 
+      updateFields.push("author = ?"); 
+      updateValues.push(author); 
+    }
+    if (isbn !== undefined) { 
+      updateFields.push("isbn = ?"); 
+      updateValues.push(isbn); 
+    }
+    if (category_id !== undefined) { 
+      updateFields.push("category_id = ?"); 
+      updateValues.push(category_id); 
+    }
+    if (description !== undefined) { 
+      updateFields.push("description = ?"); 
+      updateValues.push(description); 
+    }
+    if (total_copies !== undefined) { 
+      updateFields.push("total_copies = ?"); 
+      updateValues.push(parseInt(total_copies)); 
+    }
+    if (available_copies !== undefined) { 
+      updateFields.push("available_copies = ?"); 
+      updateValues.push(parseInt(available_copies)); 
+    }
+    if (publisher !== undefined) { 
+      updateFields.push("publisher = ?"); 
+      updateValues.push(publisher); 
+    }
+    if (published_year !== undefined) { 
+      updateFields.push("published_year = ?"); 
+      updateValues.push(published_year ? parseInt(published_year) : null); 
+    }
+    if (language !== undefined) { 
+      updateFields.push("language = ?"); 
+      updateValues.push(language); 
+    }
+
+    // Handle file uploads
+    if (req.files?.["cover_image"]?.[0]) {
+      const cover_image = `/uploads/${req.files["cover_image"][0].filename}`;
+      updateFields.push("cover_image = ?");
+      updateValues.push(cover_image);
+    }
+
+    if (req.files?.["content_file"]?.[0]) {
+      const file_url = `/uploads/${req.files["content_file"][0].filename}`;
+      updateFields.push("file_url = ?");
+      updateValues.push(file_url);
+    }
+
+    if (updateFields.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No fields to update"
+      });
+    }
+
+    console.log("Update fields:", updateFields);
+    console.log("Update values:", updateValues);
+
+    // Add book ID to values
+    updateValues.push(bookId);
+
+    const updateQuery = `UPDATE books SET ${updateFields.join(", ")} WHERE id = ?`;
+
+    db.query(updateQuery, updateValues, (err, result) => {
+      if (err) {
+        console.error("Database update error:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Database error",
+          error: err.message,
+        });
+      }
+
+      if (result.affectedRows === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Book not found or no changes made"
+        });
+      }
+
+      // Get the updated book
+      db.query("SELECT * FROM books WHERE id = ?", [bookId], (err, bookResults) => {
+        if (err) {
+          console.error("Database error:", err);
+          return res.status(500).json({
+            success: false,
+            message: "Database error",
+            error: err.message,
+          });
+        }
+
+        console.log("Book updated successfully:", bookId);
+        res.json({
+          success: true,
+          message: "Book updated successfully",
+          book: bookResults[0]
+        });
+      });
+    });
+
+  } catch (error) {
+    console.error("Error updating book:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+});
+
+// Delete book
+app.delete("/api/books/:id", (req, res) => {
+  const bookId = req.params.id;
+  
+  db.query("SELECT * FROM books WHERE id = ?", [bookId], (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({
+        success: false,
+        message: "Database error"
+      });
+    }
+
+    if (results.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Book not found"
+      });
+    }
+
+    db.query("DELETE FROM books WHERE id = ?", [bookId], (err, result) => {
+      if (err) {
+        console.error("Database error:", err);
+        return res.status(500).json({
+          success: false,
+          message: "Database error"
+        });
+      }
+
+      console.log("Book deleted successfully:", bookId);
+      res.json({
+        success: true,
+        message: "Book deleted successfully"
+      });
+    });
+  });
+});
+
+// Search books
 app.get("/api/books/search", (req, res) => {
   const { q } = req.query;
   
@@ -1665,6 +1797,36 @@ app.get("/api/books/search", (req, res) => {
   );
 });
 
+// ==================== UTILITY ROUTES ====================
+
+// Debug table structure
+app.get("/api/debug/table-structure", (req, res) => {
+  const query = "DESCRIBE books";
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Error describing table:", err);
+      return res.status(500).json({ 
+        success: false,
+        message: "Database error",
+        error: err.message
+      });
+    }
+    
+    res.json({
+      tableStructure: results,
+      columns: results.map(col => ({
+        field: col.Field,
+        type: col.Type,
+        null: col.Null,
+        key: col.Key,
+        default: col.Default,
+        extra: col.Extra
+      }))
+    });
+  });
+});
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   db.query("SELECT 1", (err) => {
@@ -1692,11 +1854,30 @@ app.get("/api/test", (req, res) => {
   });
 });
 
+// Debug routes endpoint
+app.get("/api/books/debug/routes", (req, res) => {
+  res.json({
+    availableRoutes: [
+      'POST /api/books',
+      'GET /api/books', 
+      'GET /api/books/:id',
+      'PUT /api/books/:id',
+      'DELETE /api/books/:id',
+      'GET /api/books/search',
+      'GET /api/books/debug/routes',
+      'GET /api/debug/table-structure'
+    ],
+    message: 'PUT route is now available for editing books'
+  });
+});
+
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`API test: http://localhost:${PORT}/api/test`);
+  console.log(`Debug routes: http://localhost:${PORT}/api/books/debug/routes`);
+  console.log(`Table structure: http://localhost:${PORT}/api/debug/table-structure`);
 });
 
 // Handle graceful shutdown

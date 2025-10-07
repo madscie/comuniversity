@@ -11,6 +11,7 @@ import DashboardPage from "./pages/admin/DashboardPage";
 import AddBookPage from "./pages/admin/AddBookPage";
 import ManageBooksPage from "./pages/admin/ManageBooksPage";
 import ProtectedRoute from "./components/ProtectedRoute";
+import BookReaderPage from "./components/Modals/BookReaderModal";
 
 const App = () => {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -27,6 +28,8 @@ const App = () => {
           <Route path="/" element={<HomePage />} />
           <Route path="/browse" element={<BrowsePage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/search" element={<SearchPage />} />
+          <Route path="/reader/:bookId" element={<BookReaderPage />} /> 
 
           {/* Admin Login (Public) */}
           <Route path="/admin/login" element={<AdminLoginPage />} />

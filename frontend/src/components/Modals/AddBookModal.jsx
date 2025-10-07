@@ -92,8 +92,8 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
       console.log('Starting book upload...');
       console.log('Form data:', formData);
       
-      // Use the bookAPI directly with the formData object
-      const newBook = await bookAPI.create(formData);
+      // FIXED: Use the correct method name - createBook instead of create
+      const newBook = await bookAPI.createBook(formData);
       onBookAdded(newBook);
       onClose();
       resetForm();
