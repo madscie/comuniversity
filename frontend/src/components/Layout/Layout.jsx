@@ -84,7 +84,7 @@ const Layout = ({ children }) => {
                     <div className="flex items-center space-x-4">
                       <span className="text-sm text-gray-700 flex items-center">
                         <FiUser className="h-5 w-5 mr-1" />
-                        Hi, {user?.name}
+                        Hi, {user?.firstName} {user?.lastName}
                       </span>
                       <button
                         onClick={logout}

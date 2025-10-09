@@ -19,14 +19,12 @@ console.log('Database config:', {
 
 const pool = mysql.createPool(dbConfig);
 
-// Test database connection
 const testConnection = async () => {
   try {
     const connection = await pool.getConnection();
     console.log('✅ Database connected successfully');
     connection.release();
-    
-    // Test query to verify database access
+
     const [rows] = await pool.query('SELECT 1 as test');
     console.log('✅ Database test query successful');
     return true;
@@ -37,8 +35,5 @@ const testConnection = async () => {
   }
 };
 
-// Export the pool directly so db.execute() works
-module.exports = pool;
-
-// Also export testConnection separately if needed elsewhere
-module.exports.testConnection = testConnection;
+// ✅ FIX: export both pool and testConnection correctly
+module.exports = { pool, testConnection };

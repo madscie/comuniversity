@@ -28,26 +28,4 @@ router.post(
   adminController.login
 );
 
-// Comment out problematic routes temporarily
-// router.get(
-//   '/users',
-//   authenticateToken,
-//   adminController.getAllUsers
-// );
-
-// router.delete(
-//   '/users/:userId',
-//   authenticateToken,
-//   adminController.deleteUser
-// );
-
-// Add a simple test route
-// router.get('/test', (req, res) => {
-//   res.json({ 
-//     success: true, 
-//     message: 'Admin routes are working!',
-//     timestamp: new Date().toISOString()
-//   });
-// });
-
 module.exports = router;

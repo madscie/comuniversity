@@ -1,4 +1,3 @@
-// src/components/AdminRoute.jsx
 import { useAuthStore } from "../store/authStore";
 import { Navigate, useLocation } from "react-router-dom";
 import { FiLoader } from "react-icons/fi";
@@ -21,7 +20,8 @@ const AdminRoute = ({ children }) => {
     return <Navigate to="/admin/login" state={{ from: location }} replace />;
   }
 
-  if (user && !user.isAdmin) {
+  // FIX: Check role instead of isAdmin
+  if (!user || user.role !== "ADMIN") {
     return <Navigate to="/" replace />;
   }
 

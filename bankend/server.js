@@ -20,7 +20,7 @@ app.use(express.urlencoded({ extended: true }));
 const initializeDatabase = async () => {
   console.log('🔌 Initializing database connection...');
   const connected = await testConnection();
-  
+
   if (connected) {
     try {
       await createTables();
@@ -34,33 +34,33 @@ const initializeDatabase = async () => {
 };
 
 // Routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRoutes);   // includes /login and /register
 app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ 
-    success: true, 
+  res.json({
+    success: true,
     message: 'Communiversity API is running',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 });
 
 // Error handling middleware
 app.use(errorHandler);
 
-// Handle 404
+// Catch-all for 404
 app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
-    message: 'Endpoint not found'
+    message: 'Endpoint not found',
   });
 });
 
 // Start server after database initialization
 const startServer = async () => {
   await initializeDatabase();
-  
+
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📚 Communiversity Library API`);
@@ -68,7 +68,7 @@ const startServer = async () => {
   });
 };
 
-startServer().catch(error => {
+startServer().catch((error) => {
   console.error('Failed to start server:', error);
   process.exit(1);
 });
