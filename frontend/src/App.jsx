@@ -13,15 +13,13 @@ import ManageBooksPage from "./pages/admin/ManageBooksPage";
 import AboutPage from "./pages/public/AboutPage";
 import SignUp from "./pages/user/SignUp";
 import ArticlesPage from "./pages/public/ArticlesPage";
-
-// Import the new protected route components
 import MemberRoute from "./components/MemberRoute";
 import AdminRoute from "./components/AdminRoute";
-
-// Import the new pages we're working on
+import ProfilePage from "./pages/user/ProfilePage";
 import WebinarsPage from "./pages/public/webinars/WebinarsPage";
-// import ChildrenPage from "./pages/public/ChildrenPage"; // To be created later
 import Login from "./pages/user/Login";
+import SettingsPage from "./pages/user/SettingsPage";
+
 
 const App = () => {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -61,10 +59,7 @@ const App = () => {
             path="/search"
             element={
               <MemberRoute>
-
                 <SearchPage />
-
-                
               </MemberRoute>
             }
           />
@@ -84,8 +79,6 @@ const App = () => {
               </MemberRoute>
             }
           />
-
-          {/* NEW FEATURES WE'RE ADDING */}
           <Route
             path="/webinars"
             element={
@@ -94,14 +87,24 @@ const App = () => {
               </MemberRoute>
             }
           />
-          {/* <Route
-            path="/children"
+          {/* PROFILE ROUTE - MOVED INSIDE Routes */}
+          <Route
+            path="/profile"
             element={
               <MemberRoute>
-                <ChildrenPage />
+                <ProfilePage />
               </MemberRoute>
             }
-          /> }
+          />
+
+          <Route
+            path="/settings"
+              element={
+               <MemberRoute>
+                <SettingsPage />
+              </MemberRoute>
+            }
+          />
 
           {/* ---------- PROTECTED ADMIN ROUTES ---------- */}
           <Route
