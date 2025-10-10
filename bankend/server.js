@@ -1004,7 +1004,6 @@ export default app;*/
 
 
 
-// server/index.js (Backend)
 import express from "express";
 import mysql from "mysql2";
 import cors from "cors";
@@ -1015,7 +1014,6 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 
-// Add these for __dirname equivalent in ES modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -1034,7 +1032,6 @@ const db = mysql.createConnection({
   database: "comversity"
 });
 
-// Connect to database
 db.connect((err) => {
   if (err) {
     console.error("Database connection failed:", err);
@@ -1047,7 +1044,6 @@ db.connect((err) => {
 
 const JWT_SECRET = "your_secure_jwt_secret_key_change_in_production";
 
-// Function to create database if it doesn't exist
 function createDatabaseAndTables() {
   const tempDb = mysql.createConnection({
     host: "localhost",
@@ -1079,7 +1075,6 @@ function createDatabaseAndTables() {
   });
 }
 
-// Function to create admins table
 function createAdminsTable(database) {
   const createTableSQL = `
     CREATE TABLE IF NOT EXISTS admins (
@@ -1108,7 +1103,6 @@ function createAdminsTable(database) {
   });
 }
 
-// Function to create books table - UPDATED to match your actual structure
 function createBooksTable(database) {
   const createBooksTableSQL = `
     CREATE TABLE IF NOT EXISTS books (
@@ -1150,7 +1144,6 @@ function createBooksTable(database) {
   });
 }
 
-// Function to create tables if they don't exist
 function createTablesIfNotExist() {
   const createTableSQL = `
     CREATE TABLE IF NOT EXISTS admins (
@@ -1179,7 +1172,6 @@ function createTablesIfNotExist() {
   });
 }
 
-// Function to create default admin account
 function createDefaultAdmin(database) {
   const hashedPassword = bcrypt.hashSync("admin123", 10);
   
@@ -1253,7 +1245,6 @@ const upload = multer({
   },
 });
 
-// Serve uploaded files statically
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Helper function to create JWT token and send response
@@ -1283,8 +1274,6 @@ function createAndSendToken(admin, res, isDemo = false) {
 }
 
 // ==================== AUTH ROUTES ====================
-
-// Admin login endpoint
 app.post("/admin/login", async (req, res) => {
   const { email, password } = req.body;
 
@@ -1386,9 +1375,24 @@ app.post("/admin/login", async (req, res) => {
   });
 });
 
-// ==================== BOOK ROUTES ====================
+// ==================== CONTENT TYPE ROUTES ====================
+app.get("/api/content-types", (req, res) => {
+  const query = "SELECT * FROM content_types ORDER BY name";
+  
+  db.query(query, (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ 
+        success: false,
+        message: "Database error" 
+      });
+    }
 
-// Create new book - UPDATED to use category_id
+    res.json(results);
+  });
+});
+
+// ==================== BOOK ROUTES ====================
 app.post("/api/books", upload.fields([
   { name: "cover_image", maxCount: 1 },
   { name: "content_file", maxCount: 1 },
@@ -1396,6 +1400,7 @@ app.post("/api/books", upload.fields([
   try {
     console.log("Book upload request received");
     console.log("Request body:", req.body);
+    console.log("Files:", req.files);
 
     const {
       title,
@@ -1410,6 +1415,14 @@ app.post("/api/books", upload.fields([
       language,
       tags,
       dewey_decimal,
+      content_type,
+      journal_name,
+      volume,
+      issue,
+      pages,
+      doi,
+      age_group,
+      reading_level
     } = req.body;
 
     if (!title || !author) {
@@ -1419,7 +1432,7 @@ app.post("/api/books", upload.fields([
       });
     }
 
-    // Map category name to category_id (simple mapping)
+    // Map category name to category_id
     const categoryMap = {
       'Arts': 1,
       'Science': 2, 
@@ -1430,10 +1443,11 @@ app.post("/api/books", upload.fields([
       'Mathematics': 7,
       'Physics': 8,
       'Chemistry': 9,
-      'Biology': 10
+      'Biology': 10,
+      'Children': 7
     };
     
-    const category_id = categoryMap[category] || 1; // Default to 1 if not found
+    const category_id = categoryMap[category] || 1;
 
     const cover_image = req.files?.["cover_image"]?.[0]
       ? `/uploads/${req.files["cover_image"][0].filename}`
@@ -1445,8 +1459,9 @@ app.post("/api/books", upload.fields([
     const query = `
       INSERT INTO books (
         title, author, isbn, category_id, description, total_copies, available_copies,
-        cover_image, file_url, publisher, published_year, language, tags, dewey_decimal
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        cover_image, file_url, publisher, published_year, language, tags, dewey_decimal,
+        content_type, journal_name, volume, issue, pages, doi, age_group, reading_level
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -1464,7 +1479,17 @@ app.post("/api/books", upload.fields([
       language || "English",
       tags || "",
       dewey_decimal || "",
+      content_type || "book",
+      journal_name || null,
+      volume || null,
+      issue || null,
+      pages || null,
+      doi || null,
+      age_group || null,
+      reading_level || null
     ];
+
+    console.log("Inserting book with values:", values);
 
     db.query(query, values, (err, result) => {
       if (err) {
@@ -1508,9 +1533,41 @@ app.post("/api/books", upload.fields([
   }
 });
 
-// Get all books
+// Get all books with filtering by content type
 app.get("/api/books", (req, res) => {
-  const query = "SELECT * FROM books ORDER BY created_at DESC";
+  const { content_type } = req.query;
+  let query = "SELECT * FROM books WHERE 1=1";
+  const params = [];
+
+  if (content_type) {
+    query += " AND content_type = ?";
+    params.push(content_type);
+  }
+
+  query += " ORDER BY created_at DESC";
+  
+  db.query(query, params, (err, results) => {
+    if (err) {
+      console.error("Database error:", err);
+      return res.status(500).json({ 
+        success: false,
+        message: "Database error" 
+      });
+    }
+
+    res.json(results);
+  });
+});
+
+// Get children's books specifically
+app.get("/api/books/children", (req, res) => {
+  const query = `
+    SELECT * FROM books 
+    WHERE content_type = 'children' 
+    OR age_group IS NOT NULL 
+    OR reading_level IS NOT NULL
+    ORDER BY created_at DESC
+  `;
   
   db.query(query, (err, results) => {
     if (err) {
@@ -1550,7 +1607,7 @@ app.get("/api/books/:id", (req, res) => {
   });
 });
 
-// UPDATE BOOK - FIXED to use category_id instead of category
+// Update book
 app.put("/api/books/:id", upload.fields([
   { name: "cover_image", maxCount: 1 },
   { name: "content_file", maxCount: 1 },
@@ -1560,7 +1617,6 @@ app.put("/api/books/:id", upload.fields([
     console.log("Updating book ID:", bookId);
     console.log("Request body:", req.body);
 
-    // Check if book exists
     const bookCheck = await new Promise((resolve, reject) => {
       db.query("SELECT * FROM books WHERE id = ?", [bookId], (err, results) => {
         if (err) reject(err);
@@ -1585,7 +1641,15 @@ app.put("/api/books/:id", upload.fields([
       available_copies,
       publisher,
       published_year,
-      language
+      language,
+      content_type,
+      journal_name,
+      volume,
+      issue,
+      pages,
+      doi,
+      age_group,
+      reading_level
     } = req.body;
 
     // Map category name to category_id
@@ -1599,7 +1663,8 @@ app.put("/api/books/:id", upload.fields([
       'Mathematics': 7,
       'Physics': 8,
       'Chemistry': 9,
-      'Biology': 10
+      'Biology': 10,
+      'Children': 7
     };
     
     const category_id = category ? (categoryMap[category] || 1) : undefined;
@@ -1608,46 +1673,23 @@ app.put("/api/books/:id", upload.fields([
     let updateValues = [];
 
     // Add fields that are provided
-    if (title !== undefined) { 
-      updateFields.push("title = ?"); 
-      updateValues.push(title); 
-    }
-    if (author !== undefined) { 
-      updateFields.push("author = ?"); 
-      updateValues.push(author); 
-    }
-    if (isbn !== undefined) { 
-      updateFields.push("isbn = ?"); 
-      updateValues.push(isbn); 
-    }
-    if (category_id !== undefined) { 
-      updateFields.push("category_id = ?"); 
-      updateValues.push(category_id); 
-    }
-    if (description !== undefined) { 
-      updateFields.push("description = ?"); 
-      updateValues.push(description); 
-    }
-    if (total_copies !== undefined) { 
-      updateFields.push("total_copies = ?"); 
-      updateValues.push(parseInt(total_copies)); 
-    }
-    if (available_copies !== undefined) { 
-      updateFields.push("available_copies = ?"); 
-      updateValues.push(parseInt(available_copies)); 
-    }
-    if (publisher !== undefined) { 
-      updateFields.push("publisher = ?"); 
-      updateValues.push(publisher); 
-    }
-    if (published_year !== undefined) { 
-      updateFields.push("published_year = ?"); 
-      updateValues.push(published_year ? parseInt(published_year) : null); 
-    }
-    if (language !== undefined) { 
-      updateFields.push("language = ?"); 
-      updateValues.push(language); 
-    }
+    const fields = {
+      title, author, isbn, category_id, description, 
+      total_copies, available_copies, publisher, published_year, language,
+      content_type, journal_name, volume, issue, pages, doi, age_group, reading_level
+    };
+
+    Object.keys(fields).forEach(field => {
+      if (fields[field] !== undefined) {
+        if (field === 'total_copies' || field === 'available_copies' || field === 'published_year') {
+          updateFields.push(`${field} = ?`);
+          updateValues.push(parseInt(fields[field]));
+        } else {
+          updateFields.push(`${field} = ?`);
+          updateValues.push(fields[field]);
+        }
+      }
+    });
 
     // Handle file uploads
     if (req.files?.["cover_image"]?.[0]) {
@@ -1764,7 +1806,7 @@ app.delete("/api/books/:id", (req, res) => {
 
 // Search books
 app.get("/api/books/search", (req, res) => {
-  const { q } = req.query;
+  const { q, content_type } = req.query;
   
   if (!q) {
     return res.status(400).json({ 
@@ -1773,33 +1815,34 @@ app.get("/api/books/search", (req, res) => {
     });
   }
 
-  const searchQuery = `
+  let searchQuery = `
     SELECT * FROM books 
-    WHERE title LIKE ? OR author LIKE ? OR isbn LIKE ? OR description LIKE ?
-    ORDER BY title
+    WHERE (title LIKE ? OR author LIKE ? OR isbn LIKE ? OR description LIKE ?)
   `;
   const searchValue = `%${q}%`;
+  const params = [searchValue, searchValue, searchValue, searchValue];
 
-  db.query(
-    searchQuery,
-    [searchValue, searchValue, searchValue, searchValue],
-    (err, results) => {
-      if (err) {
-        console.error("Search error:", err);
-        return res.status(500).json({ 
-          success: false,
-          message: "Database error" 
-        });
-      }
+  if (content_type) {
+    searchQuery += ` AND content_type = ?`;
+    params.push(content_type);
+  }
 
-      res.json(results);
+  searchQuery += ' ORDER BY title';
+
+  db.query(searchQuery, params, (err, results) => {
+    if (err) {
+      console.error("Search error:", err);
+      return res.status(500).json({ 
+        success: false,
+        message: "Database error" 
+      });
     }
-  );
+
+    res.json(results);
+  });
 });
 
 // ==================== UTILITY ROUTES ====================
-
-// Debug table structure
 app.get("/api/debug/table-structure", (req, res) => {
   const query = "DESCRIBE books";
   
@@ -1827,7 +1870,6 @@ app.get("/api/debug/table-structure", (req, res) => {
   });
 });
 
-// Health check endpoint
 app.get("/health", (req, res) => {
   db.query("SELECT 1", (err) => {
     if (err) {
@@ -1845,7 +1887,6 @@ app.get("/health", (req, res) => {
   });
 });
 
-// API test endpoint
 app.get("/api/test", (req, res) => {
   res.json({ 
     success: true,
@@ -1854,33 +1895,13 @@ app.get("/api/test", (req, res) => {
   });
 });
 
-// Debug routes endpoint
-app.get("/api/books/debug/routes", (req, res) => {
-  res.json({
-    availableRoutes: [
-      'POST /api/books',
-      'GET /api/books', 
-      'GET /api/books/:id',
-      'PUT /api/books/:id',
-      'DELETE /api/books/:id',
-      'GET /api/books/search',
-      'GET /api/books/debug/routes',
-      'GET /api/debug/table-structure'
-    ],
-    message: 'PUT route is now available for editing books'
-  });
-});
-
 const PORT = process.env.PORT || 3002;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log(`Health check: http://localhost:${PORT}/health`);
   console.log(`API test: http://localhost:${PORT}/api/test`);
-  console.log(`Debug routes: http://localhost:${PORT}/api/books/debug/routes`);
-  console.log(`Table structure: http://localhost:${PORT}/api/debug/table-structure`);
 });
 
-// Handle graceful shutdown
 process.on('SIGINT', () => {
   console.log('Shutting down server...');
   db.end((err) => {

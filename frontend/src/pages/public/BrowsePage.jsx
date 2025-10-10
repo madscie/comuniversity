@@ -6,9 +6,11 @@ import {
   FiChevronRight,
   FiHome,
   FiArrowLeft,
+  FiLoader,
 } from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
+import { bookAPI } from "../../services/api";
 
 const BrowsePage = () => {
   const navigate = useNavigate();
@@ -16,6 +18,10 @@ const BrowsePage = () => {
   const urlCategory = searchParams.get("category") || "";
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [allBooks, setAllBooks] = useState([]);
+  const [categoryBooks, setCategoryBooks] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [booksLoading, setBooksLoading] = useState(false);
 
   // Main Dewey Decimal Categories
   const deweyCategories = [
@@ -25,7 +31,8 @@ const BrowsePage = () => {
       description: "Computer science, information, general reference works",
       color: "from-blue-500 to-blue-600",
       icon: "📚",
-      books: 250,
+      apiName: "general-works",
+      deweyCode: "000"
     },
     {
       number: "100-199",
@@ -33,7 +40,8 @@ const BrowsePage = () => {
       description: "Ethics, logic, metaphysics, psychology",
       color: "from-purple-500 to-purple-600",
       icon: "🧠",
-      books: 180,
+      apiName: "philosophy-psychology",
+      deweyCode: "100"
     },
     {
       number: "200-299",
@@ -41,7 +49,8 @@ const BrowsePage = () => {
       description: "Christianity, other religions, mythology",
       color: "from-red-500 to-red-600",
       icon: "⛪",
-      books: 220,
+      apiName: "religion",
+      deweyCode: "200"
     },
     {
       number: "300-399",
@@ -49,7 +58,8 @@ const BrowsePage = () => {
       description: "Sociology, economics, law, politics, education",
       color: "from-green-500 to-green-600",
       icon: "🌍",
-      books: 350,
+      apiName: "social-sciences",
+      deweyCode: "300"
     },
     {
       number: "400-499",
@@ -57,7 +67,8 @@ const BrowsePage = () => {
       description: "Grammar, linguistics, dictionaries, specific languages",
       color: "from-yellow-500 to-yellow-600",
       icon: "🗣️",
-      books: 190,
+      apiName: "language",
+      deweyCode: "400"
     },
     {
       number: "500-599",
@@ -65,7 +76,8 @@ const BrowsePage = () => {
       description: "Biology, physics, chemistry, astronomy, mathematics",
       color: "from-indigo-500 to-indigo-600",
       icon: "🔬",
-      books: 420,
+      apiName: "natural-sciences-math",
+      deweyCode: "500"
     },
     {
       number: "600-699",
@@ -73,7 +85,8 @@ const BrowsePage = () => {
       description: "Medicine, engineering, agriculture, home economics",
       color: "from-pink-500 to-pink-600",
       icon: "⚙️",
-      books: 380,
+      apiName: "technology-applied-sciences",
+      deweyCode: "600"
     },
     {
       number: "700-799",
@@ -81,7 +94,8 @@ const BrowsePage = () => {
       description: "Music, fine arts, photography, sports",
       color: "from-teal-500 to-teal-600",
       icon: "🎨",
-      books: 310,
+      apiName: "arts-recreation",
+      deweyCode: "700"
     },
     {
       number: "800-899",
@@ -89,7 +103,8 @@ const BrowsePage = () => {
       description: "Poetry, plays, novels, essays from around the world",
       color: "from-orange-500 to-orange-600",
       icon: "📖",
-      books: 480,
+      apiName: "literature",
+      deweyCode: "800"
     },
     {
       number: "900-999",
@@ -97,113 +112,129 @@ const BrowsePage = () => {
       description: "World history, geography, travel, biography",
       color: "from-gray-500 to-gray-600",
       icon: "🏛️",
-      books: 270,
+      apiName: "history-geography",
+      deweyCode: "900"
     },
   ];
 
-  // Children’s Categories
+  // Children's Categories
   const childrensCategories = [
-  {
-    number: "J 000-099",
-    name: "Children’s General Works",
-    description: "Encyclopedias, reference books for kids",
-    color: "from-blue-400 to-blue-500",
-    icon: "📘",
-    books: 120,
-  },
-  {
-    number: "J 100-199",
-    name: "Children’s Philosophy & Psychology",
-    description: "Feelings, thinking, values for young readers",
-    color: "from-purple-400 to-purple-500",
-    icon: "💭",
-    books: 80,
-  },
-  {
-    number: "J 200-299",
-    name: "Children’s Religion",
-    description: "Bible stories, world religions, mythology",
-    color: "from-red-400 to-red-500",
-    icon: "🙏",
-    books: 100,
-  },
-  {
-    number: "J 300-399",
-    name: "Children’s Social Sciences",
-    description: "Friends, community, cultures, careers",
-    color: "from-green-400 to-green-500",
-    icon: "🤝",
-    books: 150,
-  },
-  {
-    number: "J 400-499",
-    name: "Children’s Language",
-    description: "Grammar, ABCs, beginner dictionaries",
-    color: "from-yellow-400 to-yellow-500",
-    icon: "🔤",
-    books: 95,
-  },
-  {
-    number: "J 500-599",
-    name: "Children’s Natural Sciences & Math",
-    description: "Animals, space, plants, numbers",
-    color: "from-indigo-400 to-indigo-500",
-    icon: "🌱",
-    books: 200,
-  },
-  {
-    number: "J 600-699",
-    name: "Children’s Technology",
-    description: "Inventions, health, how things work",
-    color: "from-pink-400 to-pink-500",
-    icon: "🛠️",
-    books: 130,
-  },
-  {
-    number: "J 700-799",
-    name: "Children’s Arts & Recreation",
-    description: "Drawing, music, sports, crafts",
-    color: "from-teal-400 to-teal-500",
-    icon: "🎨",
-    books: 170,
-  },
-  {
-    number: "J 800-899",
-    name: "Children’s Literature",
-    description: "Stories, poems, fairy tales",
-    color: "from-orange-400 to-orange-500",
-    icon: "📖",
-    books: 220,
-  },
-  {
-    number: "J 900-999",
-    name: "Children’s History & Geography",
-    description: "History, maps, cultures of the world",
-    color: "from-gray-400 to-gray-500",
-    icon: "🌍",
-    books: 140,
-  },
-];
+    {
+      number: "J 000-099",
+      name: "Children's General Works",
+      description: "Encyclopedias, reference books for kids",
+      color: "from-blue-400 to-blue-500",
+      icon: "📘",
+      apiName: "children",
+      isChildren: true
+    },
+    {
+      number: "J FIC",
+      name: "Children's Fiction",
+      description: "Storybooks, picture books, early readers",
+      color: "from-purple-400 to-purple-500",
+      icon: "📚",
+      apiName: "children",
+      isChildren: true
+    },
+    {
+      number: "J SCI",
+      name: "Children's Science",
+      description: "Science, animals, nature for young readers",
+      color: "from-green-400 to-green-500",
+      icon: "🔬",
+      apiName: "children",
+      isChildren: true
+    },
+    {
+      number: "J ART",
+      name: "Children's Arts",
+      description: "Drawing, crafts, music for children",
+      color: "from-pink-400 to-pink-500",
+      icon: "🎨",
+      apiName: "children",
+      isChildren: true
+    }
+  ];
+
+  // Fetch all books on component mount
+  useEffect(() => {
+    fetchAllBooks();
+  }, []);
 
   // Set selected category based on URL parameter
   useEffect(() => {
     if (urlCategory) {
       const category =
-        deweyCategories.find((cat) => cat.number === urlCategory) ||
-        childrensCategories.find((cat) => cat.number === urlCategory);
+        deweyCategories.find((cat) => cat.apiName === urlCategory) ||
+        childrensCategories.find((cat) => cat.apiName === urlCategory);
       if (category) {
-        setSelectedCategory(category);
+        handleCategorySelect(category);
       }
     }
-  }, [urlCategory]);
+  }, [urlCategory, allBooks]);
 
-  const handleCategorySelect = (category) => {
+  const fetchAllBooks = async () => {
+    setLoading(true);
+    try {
+      console.log("📚 Fetching all books for browse page...");
+      const books = await bookAPI.getAll();
+      console.log("✅ Books fetched for browse:", books);
+      setAllBooks(books);
+    } catch (error) {
+      console.error("❌ Error fetching books:", error);
+      setAllBooks([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCategorySelect = async (category) => {
+    console.log("🎯 Selected category:", category);
     setSelectedCategory(category);
-    setSearchParams({ category: category.number });
+    setSearchParams({ category: category.apiName });
+    
+    // Filter books for this category
+    setBooksLoading(true);
+    try {
+      let filteredBooks = [];
+      
+      if (category.isChildren) {
+        // Filter for children's books
+        filteredBooks = allBooks.filter(book => 
+          book.content_type === 'children' || 
+          book.age_group || 
+          book.reading_level ||
+          (book.category && book.category.toLowerCase().includes('children'))
+        );
+        console.log("🧒 Children's books filtered:", filteredBooks);
+      } else if (category.deweyCode) {
+        // Filter by Dewey Decimal code
+        filteredBooks = allBooks.filter(book => 
+          book.dewey_decimal && 
+          book.dewey_decimal.startsWith(category.deweyCode.charAt(0))
+        );
+        console.log("🔢 Dewey books filtered:", filteredBooks);
+      } else {
+        // Filter by category name
+        filteredBooks = allBooks.filter(book => 
+          book.category && 
+          book.category.toLowerCase().includes(category.apiName.replace('-', ' '))
+        );
+      }
+      
+      setCategoryBooks(filteredBooks);
+    } catch (error) {
+      console.error("❌ Error filtering category books:", error);
+      setCategoryBooks([]);
+    } finally {
+      setBooksLoading(false);
+    }
   };
 
   const handleClearSelection = () => {
     setSelectedCategory(null);
+    setCategoryBooks([]);
     setSearchParams({});
   };
 
@@ -216,12 +247,52 @@ const BrowsePage = () => {
 
   const handleViewAllBooks = () => {
     if (selectedCategory) {
-      navigate(`/search?category=${selectedCategory.number}`);
+      navigate(`/search?category=${selectedCategory.apiName}`);
+    } else {
+      navigate('/search');
     }
   };
 
   const handleAdvancedSearch = () => {
     navigate("/search");
+  };
+
+  const handleBookClick = (book) => {
+    navigate(`/book/${book.id}`);
+  };
+
+  // Helper function to get book count for a category
+  const getBookCountForCategory = (category) => {
+    if (!allBooks.length) return 0;
+    
+    if (category.isChildren) {
+      return allBooks.filter(book => 
+        book.content_type === 'children' || 
+        book.age_group || 
+        book.reading_level ||
+        (book.category && book.category.toLowerCase().includes('children'))
+      ).length;
+    } else if (category.deweyCode) {
+      return allBooks.filter(book => 
+        book.dewey_decimal && 
+        book.dewey_decimal.startsWith(category.deweyCode.charAt(0))
+      ).length;
+    } else {
+      return allBooks.filter(book => 
+        book.category && 
+        book.category.toLowerCase().includes(category.apiName.replace('-', ' '))
+      ).length;
+    }
+  };
+
+  // Calculate total books
+  const totalBooks = allBooks.length;
+
+  // Get image URL
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return null;
+    if (imagePath.startsWith('http')) return imagePath;
+    return `http://localhost:3002${imagePath}`;
   };
 
   return (
@@ -246,8 +317,10 @@ const BrowsePage = () => {
           </h1>
           <p className="text-xl text-gray-700 max-w-3xl mx-auto">
             Explore{" "}
-            <span className="font-semibold text-blue-600">2,500+ books</span>{" "}
-            organized by the Dewey Decimal Classification System
+            <span className="font-semibold text-blue-600">
+              {loading ? "..." : `${totalBooks}+ books`}
+            </span>{" "}
+            organized by categories and subjects
           </p>
         </div>
 
@@ -273,6 +346,17 @@ const BrowsePage = () => {
           </form>
         </div>
 
+        {/* Debug Info */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-3 bg-yellow-100 rounded-lg">
+            <p className="text-sm text-yellow-800">
+              <strong>Debug:</strong> {allBooks.length} books loaded | 
+              Selected: {selectedCategory?.name || 'None'} | 
+              Category Books: {categoryBooks.length}
+            </p>
+          </div>
+        )}
+
         {/* Back Button when category is selected */}
         {selectedCategory && (
           <div className="mb-6">
@@ -290,6 +374,9 @@ const BrowsePage = () => {
         {/* Dewey Categories Grid - Hidden when a category is selected */}
         {!selectedCategory && (
           <>
+            <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">
+              Main Library Collection
+            </h2>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
               {deweyCategories.map((category) => (
                 <Card
@@ -317,7 +404,11 @@ const BrowsePage = () => {
 
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">
-                      {category.books} books
+                      {loading ? (
+                        <FiLoader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        `${getBookCountForCategory(category)} books`
+                      )}
                     </span>
                     <div className="flex items-center text-blue-600 group-hover:text-blue-700">
                       <span className="text-sm font-medium">Explore</span>
@@ -328,9 +419,9 @@ const BrowsePage = () => {
               ))}
             </div>
 
-            {/* Children’s Section */}
+            {/* Children's Section */}
             <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">
-              Children’s Section
+              Children's Section
             </h2>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-12">
@@ -360,7 +451,11 @@ const BrowsePage = () => {
 
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-500">
-                      {category.books} books
+                      {loading ? (
+                        <FiLoader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        `${getBookCountForCategory(category)} books`
+                      )}
                     </span>
                     <div className="flex items-center text-blue-600 group-hover:text-blue-700">
                       <span className="text-sm font-medium">Explore</span>
@@ -373,64 +468,156 @@ const BrowsePage = () => {
           </>
         )}
 
-        {/* Selected Category Details */}
+        {/* Selected Category Details with Books */}
         {selectedCategory && (
-          <Card className="mb-12 border-0 bg-gradient-to-r from-blue-50 to-purple-50 shadow-xl">
-            <div className="text-center p-8">
-              <div
-                className={`w-20 h-20 rounded-2xl bg-gradient-to-r ${selectedCategory.color} flex items-center justify-center text-white text-3xl mb-6 mx-auto`}
-              >
-                {selectedCategory.icon}
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                {selectedCategory.number} - {selectedCategory.name}
-              </h2>
-              <p className="text-gray-700 text-lg mb-6 max-w-2xl mx-auto">
-                {selectedCategory.description}
-              </p>
-              <div className="flex flex-col sm:flex-row justify-center gap-4">
-                <Button
-                  variant="primary"
-                  className="px-6 py-3"
-                  onClick={handleViewAllBooks}
+          <div className="space-y-8">
+            <Card className="border-0 bg-gradient-to-r from-blue-50 to-purple-50 shadow-xl">
+              <div className="text-center p-8">
+                <div
+                  className={`w-20 h-20 rounded-2xl bg-gradient-to-r ${selectedCategory.color} flex items-center justify-center text-white text-3xl mb-6 mx-auto`}
                 >
-                  <FiBook className="mr-2 h-5 w-5" />
-                  View All {selectedCategory.books} Books
-                </Button>
-                <Button
-                  variant="secondary"
-                  className="px-6 py-3"
-                  onClick={handleAdvancedSearch}
-                >
-                  <FiSearch className="mr-2 h-5 w-5" />
-                  Advanced Search in {selectedCategory.number}
-                </Button>
+                  {selectedCategory.icon}
+                </div>
+                <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                  {selectedCategory.number} - {selectedCategory.name}
+                </h2>
+                <p className="text-gray-700 text-lg mb-6 max-w-2xl mx-auto">
+                  {selectedCategory.description}
+                </p>
+                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                  <Button
+                    variant="primary"
+                    className="px-6 py-3"
+                    onClick={handleViewAllBooks}
+                  >
+                    <FiBook className="mr-2 h-5 w-5" />
+                    View All {categoryBooks.length} Books
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="px-6 py-3"
+                    onClick={handleAdvancedSearch}
+                  >
+                    <FiSearch className="mr-2 h-5 w-5" />
+                    Advanced Search
+                  </Button>
+                </div>
               </div>
+            </Card>
+
+            {/* Books in this Category */}
+            <div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-6">
+                Books in this Category ({categoryBooks.length})
+              </h3>
+              
+              {booksLoading ? (
+                <div className="flex justify-center items-center py-12">
+                  <FiLoader className="h-8 w-8 animate-spin text-blue-600" />
+                  <span className="ml-3 text-gray-600">Loading books...</span>
+                </div>
+              ) : categoryBooks.length > 0 ? (
+                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {categoryBooks.map((book) => (
+                    <Card
+                      key={book.id}
+                      className="cursor-pointer hover:shadow-lg transition-shadow duration-300"
+                      onClick={() => handleBookClick(book)}
+                    >
+                      <div className="flex space-x-4">
+                        {book.cover_image ? (
+                          <img
+                            src={getImageUrl(book.cover_image)}
+                            alt={book.title}
+                            className="w-20 h-24 object-cover rounded-lg"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                            }}
+                          />
+                        ) : null}
+                        {!book.cover_image && (
+                          <div className="w-20 h-24 bg-gray-200 rounded-lg flex items-center justify-center">
+                            <FiBook className="h-8 w-8 text-gray-400" />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1 line-clamp-2">
+                            {book.title}
+                          </h4>
+                          <p className="text-sm text-gray-600 mb-2">
+                            by {book.author}
+                          </p>
+                          <p className="text-xs text-gray-500 line-clamp-2">
+                            {book.description || "No description available"}
+                          </p>
+                          <div className="flex justify-between items-center mt-2">
+                            <span className="text-xs text-gray-500">
+                              {book.category || "General"}
+                            </span>
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              book.available_copies > 0 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {book.available_copies || 0} available
+                            </span>
+                          </div>
+                          {book.age_group && (
+                            <div className="mt-1">
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                Age: {book.age_group}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card className="text-center py-12 border-0 bg-yellow-50">
+                  <FiBook className="h-12 w-12 text-yellow-500 mx-auto mb-4" />
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                    No books found in this category
+                  </h4>
+                  <p className="text-gray-600 mb-4">
+                    There are currently no books available in the {selectedCategory.name} category.
+                  </p>
+                  <Button
+                    variant="primary"
+                    onClick={handleClearSelection}
+                  >
+                    Browse Other Categories
+                  </Button>
+                </Card>
+              )}
             </div>
-          </Card>
+          </div>
         )}
 
         {/* Statistics */}
-        <Card className="text-center border-0 bg-white/80 backdrop-blur-sm shadow-md">
+        <Card className="text-center border-0 bg-white/80 backdrop-blur-sm shadow-md mt-12">
           <h3 className="text-2xl font-bold text-gray-900 mb-6">
             Collection Overview
           </h3>
           <div className="grid md:grid-cols-4 gap-6">
             <div>
               <div className="text-3xl font-bold text-blue-600 mb-2">
-                2,500+
+                {loading ? "..." : totalBooks}
               </div>
               <div className="text-gray-600">Total Books</div>
             </div>
             <div>
-              <div className="text-3xl font-bold text-green-600 mb-2">10</div>
+              <div className="text-3xl font-bold text-green-600 mb-2">
+                {deweyCategories.length + childrensCategories.length}
+              </div>
               <div className="text-gray-600">Main Categories</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-purple-600 mb-2">
-                100+
+                {loading ? "..." : allBooks.filter(book => book.available_copies > 0).length}
               </div>
-              <div className="text-gray-600">Subcategories</div>
+              <div className="text-gray-600">Available Now</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-orange-600 mb-2">

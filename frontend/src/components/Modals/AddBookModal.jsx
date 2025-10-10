@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
-import { bookAPI } from '../../services/api';
+import React, { useState, useEffect } from 'react';
+import { bookAPI, getContentTypes } from '../../services/api';
 
 const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
   const [contentType, setContentType] = useState('book');
+  const [contentTypes, setContentTypes] = useState([]);
   const [formData, setFormData] = useState({
     title: '',
     author: '',
     isbn: '',
-    category_id: '',
+    category: '',
     description: '',
     total_copies: 1,
     available_copies: 1,
@@ -18,6 +19,7 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
     language: 'English',
     tags: '',
     dewey_decimal: '',
+    content_type: 'book',
     // Article-specific fields
     journal_name: '',
     volume: '',
@@ -32,14 +34,20 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
   const [imagePreview, setImagePreview] = useState(null);
   const [errors, setErrors] = useState({});
 
-  const contentTypes = [
-    { value: 'book', label: 'Book' },
-    { value: 'article', label: 'Article' },
-    { value: 'journal', label: 'Journal' },
-    { value: 'children', label: "Children's Section" },
-    { value: 'thesis', label: 'Thesis/Dissertation' },
-    { value: 'report', label: 'Report' }
-  ];
+  useEffect(() => {
+    const loadContentTypes = async () => {
+      try {
+        const types = await getContentTypes();
+        setContentTypes(types);
+      } catch (error) {
+        console.error('Error loading content types:', error);
+      }
+    };
+    
+    if (isOpen) {
+      loadContentTypes();
+    }
+  }, [isOpen]);
 
   const categories = [
     { id: 1, name: 'Fiction' },
@@ -48,9 +56,25 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
     { id: 4, name: 'Technology' },
     { id: 5, name: 'History' },
     { id: 6, name: 'Art' },
-    { id: 7, name: 'Business' },
-    { id: 8, name: 'Education' },
-    { id: 9, name: 'Literature' }
+    { id: 7, name: 'Children' },
+    { id: 8, name: 'Educational' },
+    { id: 9, name: 'Reference' }
+  ];
+
+  const ageGroups = [
+    { value: '', label: 'Select Age Group' },
+    { value: '0-3', label: '0-3 years' },
+    { value: '4-6', label: '4-6 years' },
+    { value: '7-9', label: '7-9 years' },
+    { value: '10-12', label: '10-12 years' },
+    { value: '13+', label: '13+ years' }
+  ];
+
+  const readingLevels = [
+    { value: '', label: 'Select Reading Level' },
+    { value: 'Beginner', label: 'Beginner' },
+    { value: 'Intermediate', label: 'Intermediate' },
+    { value: 'Advanced', label: 'Advanced' }
   ];
 
   const validateForm = () => {
@@ -58,8 +82,7 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
     
     if (!formData.title.trim()) newErrors.title = 'Title is required';
     if (!formData.author.trim()) newErrors.author = 'Author is required';
-    if (!formData.category_id) newErrors.category_id = 'Category is required';
-    if (!formData.dewey_decimal.trim()) newErrors.dewey_decimal = 'Dewey Decimal is required';
+    if (!formData.category) newErrors.category = 'Category is required';
     
     if (contentType === 'book' && !formData.isbn.trim()) {
       newErrors.isbn = 'ISBN is required for books';
@@ -71,10 +94,15 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
       newErrors.available_copies = 'Available copies cannot exceed total copies';
     }
     
-    if (!formData.content_file) {
-      newErrors.content_file = 'Content file is required';
-    } else if (formData.content_file.size > 50 * 1024 * 1024) {
-      newErrors.content_file = 'File size must be less than 50MB';
+    // Children's section validation
+    if (contentType === 'children') {
+      if (!formData.age_group) newErrors.age_group = 'Age group is required for children\'s content';
+      if (!formData.reading_level) newErrors.reading_level = 'Reading level is required for children\'s content';
+    }
+
+    // Article validation
+    if (contentType === 'article') {
+      if (!formData.journal_name) newErrors.journal_name = 'Journal name is required for articles';
     }
 
     setErrors(newErrors);
@@ -92,8 +120,10 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
       console.log('Starting book upload...');
       console.log('Form data:', formData);
       
-      // FIXED: Use the correct method name - createBook instead of create
-      const newBook = await bookAPI.createBook(formData);
+      const newBook = await bookAPI.createBook({
+        ...formData,
+        content_type: contentType
+      });
       onBookAdded(newBook);
       onClose();
       resetForm();
@@ -155,6 +185,7 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
     setContentType(newType);
     setFormData(prev => ({
       ...prev,
+      content_type: newType,
       journal_name: '',
       volume: '',
       issue: '',
@@ -170,7 +201,7 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
       title: '',
       author: '',
       isbn: '',
-      category_id: '',
+      category: '',
       description: '',
       total_copies: 1,
       available_copies: 1,
@@ -181,6 +212,7 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
       language: 'English',
       tags: '',
       dewey_decimal: '',
+      content_type: 'book',
       journal_name: '',
       volume: '',
       issue: '',
@@ -228,7 +260,7 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 {contentTypes.map(type => (
-                  <option key={type.value} value={type.value}>{type.label}</option>
+                  <option key={type.id} value={type.name}>{type.name} - {type.description}</option>
                 ))}
               </select>
             </div>
@@ -289,54 +321,94 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
 
               {/* Dewey Decimal */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dewey Decimal *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Dewey Decimal</label>
                 <input
                   type="text"
                   name="dewey_decimal"
-                  required
                   value={formData.dewey_decimal}
                   onChange={handleChange}
-                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.dewey_decimal ? 'border-red-500' : 'border-gray-300'
-                  }`}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter Dewey Decimal code"
                 />
-                {errors.dewey_decimal && <p className="text-red-500 text-sm mt-1">{errors.dewey_decimal}</p>}
               </div>
 
               {/* Category */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
                 <select
-                  name="category_id"
+                  name="category"
                   required
-                  value={formData.category_id}
+                  value={formData.category}
                   onChange={handleChange}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.category_id ? 'border-red-500' : 'border-gray-300'
+                    errors.category ? 'border-red-500' : 'border-gray-300'
                   }`}
                 >
                   <option value="">Select Category</option>
                   {categories.map(category => (
-                    <option key={category.id} value={category.id}>{category.name}</option>
+                    <option key={category.id} value={category.name}>{category.name}</option>
                   ))}
                 </select>
-                {errors.category_id && <p className="text-red-500 text-sm mt-1">{errors.category_id}</p>}
+                {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
               </div>
+
+              {/* Children's section specific fields */}
+              {contentType === 'children' && (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Age Group *</label>
+                    <select
+                      name="age_group"
+                      required
+                      value={formData.age_group}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.age_group ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    >
+                      {ageGroups.map(age => (
+                        <option key={age.value} value={age.value}>{age.label}</option>
+                      ))}
+                    </select>
+                    {errors.age_group && <p className="text-red-500 text-sm mt-1">{errors.age_group}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reading Level *</label>
+                    <select
+                      name="reading_level"
+                      required
+                      value={formData.reading_level}
+                      onChange={handleChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.reading_level ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    >
+                      {readingLevels.map(level => (
+                        <option key={level.value} value={level.value}>{level.label}</option>
+                      ))}
+                    </select>
+                    {errors.reading_level && <p className="text-red-500 text-sm mt-1">{errors.reading_level}</p>}
+                  </div>
+                </>
+              )}
 
               {/* Article-specific fields */}
               {(contentType === 'article' || contentType === 'journal') && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Journal Name</label>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Journal Name *</label>
                     <input
                       type="text"
                       name="journal_name"
+                      required={contentType === 'article'}
                       value={formData.journal_name}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.journal_name ? 'border-red-500' : 'border-gray-300'
+                      }`}
                       placeholder="Enter journal name"
                     />
+                    {errors.journal_name && <p className="text-red-500 text-sm mt-1">{errors.journal_name}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Volume</label>
@@ -381,41 +453,6 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter DOI"
                     />
-                  </div>
-                </>
-              )}
-
-              {/* Children's section specific fields */}
-              {contentType === 'children' && (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Age Group</label>
-                    <select
-                      name="age_group"
-                      value={formData.age_group}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select Age Group</option>
-                      <option value="0-3">0-3 years</option>
-                      <option value="4-6">4-6 years</option>
-                      <option value="7-9">7-9 years</option>
-                      <option value="10-12">10-12 years</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Reading Level</label>
-                    <select
-                      name="reading_level"
-                      value={formData.reading_level}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select Reading Level</option>
-                      <option value="Beginner">Beginner</option>
-                      <option value="Intermediate">Intermediate</option>
-                      <option value="Advanced">Advanced</option>
-                    </select>
                   </div>
                 </>
               )}
@@ -595,7 +632,7 @@ const AddBookModal = ({ isOpen, onClose, onBookAdded }) => {
                     Adding...
                   </span>
                 ) : (
-                  `Add ${contentTypes.find(t => t.value === contentType)?.label}`
+                  `Add ${contentType.charAt(0).toUpperCase() + contentType.slice(1)}`
                 )}
               </button>
             </div>
