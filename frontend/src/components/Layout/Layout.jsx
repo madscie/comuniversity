@@ -21,6 +21,7 @@ import {
 } from "react-icons/fi";
 
 import { FaDesktop } from "react-icons/fa";
+import { FaUniversity } from "react-icons/fa";
 import { PiArticleNyTimes } from "react-icons/pi";
 import ProfileDropdown from "../../pages/public/Profile/ProfileDropdown";
 
@@ -32,6 +33,7 @@ const navigation = [
   // { name: "Search", href: "/search", icon: FiSearch },
   // { name: "About Us", href: "/about", icon: FiInfo },
   { name: "Webinars", href: "/webinars", icon: FaDesktop },
+// { name: "My Library", href: "/my-library", icon: FaUniversity }
 ];
 
 function classNames(...classes) {
