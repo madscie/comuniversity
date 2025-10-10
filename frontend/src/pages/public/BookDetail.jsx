@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
-import { FiArrowLeft, FiBook, FiDownload, FiHeart, FiShare2, FiStar, FiUsers, FiCalendar, FiGlobe, FiBookOpen } from "react-icons/fi";
+import { FiArrowLeft, FiBook, FiDownload, FiHeart, FiShare2, FiStar, FiUsers, FiCalendar, FiGlobe, FiBookOpen, FiDollarSign } from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
+
+// Import Download Handler Component
+import DownloadHandler from "../../components/Download/DownloadHandler";
 
 // Mock books data matching your BrowsePage structure
 const booksData = [
@@ -25,7 +28,10 @@ const booksData = [
     content: `Chapter 1: Introduction to Computing\n\nComputers have revolutionized the way we live, work, and communicate. This chapter explores the fundamental concepts of computing and its impact on society.\n\nWhat is a Computer?\nA computer is an electronic device that processes data according to a set of instructions called a program. Modern computers can perform billions of calculations per second...`,
     tags: ["Programming", "Algorithms", "Data Structures", "Beginner"],
     fileSize: "45.2 MB",
-    format: "PDF, EPUB, MOBI"
+    format: "PDF, EPUB, MOBI",
+    // ADDED: Pricing information
+    isPaidContent: true,
+    price: 9.99
   },
   {
     id: 2,
@@ -46,7 +52,10 @@ const booksData = [
     content: `Chapter 1: Advanced Calculus\n\nThis chapter delves into the sophisticated world of calculus, building upon fundamental principles to explore more complex mathematical concepts...`,
     tags: ["Engineering", "Calculus", "Differential Equations", "Advanced"],
     fileSize: "67.8 MB",
-    format: "PDF"
+    format: "PDF",
+    // ADDED: Pricing information
+    isPaidContent: true,
+    price: 12.99
   },
   {
     id: 3,
@@ -67,7 +76,10 @@ const booksData = [
     content: `Chapter 1: The Dawn of Civilization\n\nHuman civilization began in the fertile crescent of Mesopotamia, where the first cities and writing systems emerged around 3500 BCE...`,
     tags: ["Ancient History", "Archaeology", "Civilizations", "World History"],
     fileSize: "89.3 MB",
-    format: "PDF, EPUB"
+    format: "PDF, EPUB",
+    // ADDED: Pricing information - this one is free
+    isPaidContent: false,
+    price: 0
   }
 ];
 
@@ -78,6 +90,10 @@ const BookDetail = () => {
   const [isReading, setIsReading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  
+  // ADDED: Download flow states
+  const [showDownloadFlow, setShowDownloadFlow] = useState(false);
+  const [selectedFormat, setSelectedFormat] = useState('');
 
   useEffect(() => {
     const foundBook = booksData.find(b => b.id === parseInt(id));
@@ -88,6 +104,158 @@ const BookDetail = () => {
       setIsFavorite(favorites.includes(foundBook.id));
     }
   }, [id]);
+
+  // UPDATED: Free book download function with actual PDF download
+  const downloadFreeBook = async (bookId, format) => {
+    try {
+      console.log(`Downloading free book ${bookId} in ${format} format`);
+      
+      // Create a mock PDF content
+      const pdfContent = `%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<< /Length 100 >>
+stream
+BT
+/F1 18 Tf
+50 750 Td
+(${book.title}) Tj
+0 -30 Td
+(${book.author}) Tj
+0 -30 Td
+(Format: ${format}) Tj
+0 -30 Td
+(Downloaded from Commandversity Library) Tj
+ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000250 00000 n 
+0000000450 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+550
+%%EOF`;
+
+      // Create a Blob with PDF content
+      const blob = new Blob([pdfContent], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      // Create download link
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${book.title.replace(/\s+/g, '_')}_${format}.pdf`;
+      document.body.appendChild(link);
+      
+      // Trigger download
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      // Show success message
+      alert(`Successfully downloaded "${book.title}" in ${format} format!`);
+      
+      // Log the download
+      console.log(`Free download completed: Book ${bookId}, Format: ${format}`);
+      
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Download failed. Please try again.');
+    }
+  };
+
+  // UPDATED: Enhanced download handler
+  const handleDownload = (format) => {
+    if (!book) return;
+    
+    if (book.isPaidContent) {
+      // For paid books, show the download flow
+      setSelectedFormat(format);
+      setShowDownloadFlow(true);
+    } else {
+      // For free books, direct download
+      downloadFreeBook(book.id, format);
+    }
+  };
+
+  const handleReadOnline = () => {
+    setIsReading(true);
+    setCurrentPage(0);
+  };
+
+  // ADDED: Download completion handler
+  const handleDownloadComplete = () => {
+    setShowDownloadFlow(false);
+    setSelectedFormat('');
+    // Optional: Show success message or update UI
+  };
+
+  // ADDED: Download cancellation handler
+  const handleDownloadCancel = () => {
+    setShowDownloadFlow(false);
+    setSelectedFormat('');
+  };
+
+  const toggleFavorite = () => {
+    if (!book) return;
+    
+    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
+    if (isFavorite) {
+      const newFavorites = favorites.filter(favId => favId !== book.id);
+      localStorage.setItem('favorites', JSON.stringify(newFavorites));
+    } else {
+      favorites.push(book.id);
+      localStorage.setItem('favorites', JSON.stringify(favorites));
+    }
+    setIsFavorite(!isFavorite);
+  };
+
+  const handleShare = () => {
+    if (!book) return;
+    
+    if (navigator.share) {
+      navigator.share({
+        title: book.title,
+        text: book.description,
+        url: window.location.href,
+      });
+    } else {
+      navigator.clipboard.writeText(window.location.href);
+      alert('Link copied to clipboard!');
+    }
+  };
+
+  const pages = book?.content.split('\n\n') || [];
+
+  const renderStars = (rating) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <FiStar
+        key={i}
+        className={`h-5 w-5 ${
+          i < Math.floor(rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'
+        }`}
+      />
+    ));
+  };
 
   if (!book) {
     return (
@@ -103,54 +271,6 @@ const BookDetail = () => {
       </div>
     );
   }
-
-  const handleReadOnline = () => {
-    setIsReading(true);
-    setCurrentPage(0);
-  };
-
-  const handleDownload = (format) => {
-    alert(`Downloading "${book.title}" in ${format} format...`);
-    // In a real app, this would trigger an actual download
-  };
-
-  const toggleFavorite = () => {
-    const favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
-    if (isFavorite) {
-      const newFavorites = favorites.filter(favId => favId !== book.id);
-      localStorage.setItem('favorites', JSON.stringify(newFavorites));
-    } else {
-      favorites.push(book.id);
-      localStorage.setItem('favorites', JSON.stringify(favorites));
-    }
-    setIsFavorite(!isFavorite);
-  };
-
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: book.title,
-        text: book.description,
-        url: window.location.href,
-      });
-    } else {
-      navigator.clipboard.writeText(window.location.href);
-      alert('Link copied to clipboard!');
-    }
-  };
-
-  const pages = book.content.split('\n\n');
-
-  const renderStars = (rating) => {
-    return Array.from({ length: 5 }, (_, i) => (
-      <FiStar
-        key={i}
-        className={`h-5 w-5 ${
-          i < Math.floor(rating) ? 'text-yellow-400 fill-current' : 'text-gray-300'
-        }`}
-      />
-    ));
-  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
@@ -190,15 +310,17 @@ const BookDetail = () => {
         {/* Book Header */}
         <Card className="mb-8 border-0 shadow-xl">
           <div className="flex flex-col lg:flex-row">
-            {/* Book Cover */}
+            {/* Book Cover - FIXED: Shadow issue resolved */}
             <div className="lg:w-1/3 p-8 flex justify-center">
               <div className="relative group">
-                <img
-                  src={book.coverImage}
-                  alt={book.title}
-                  className="w-64 h-80 object-cover rounded-2xl shadow-2xl transform group-hover:scale-105 transition-transform duration-300"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                <div className="relative overflow-hidden rounded-2xl shadow-2xl">
+                  <img
+                    src={book.coverImage}
+                    alt={book.title}
+                    className="w-64 h-80 object-cover transform group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                </div>
               </div>
             </div>
 
@@ -227,8 +349,8 @@ const BookDetail = () => {
 
               <p className="text-gray-700 text-lg leading-relaxed mb-8">{book.description}</p>
 
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-4">
+              {/* UPDATED: Action Buttons with Pricing */}
+              <div className="flex flex-wrap gap-4 mb-6">
                 <Button
                   variant="primary"
                   onClick={handleReadOnline}
@@ -237,23 +359,62 @@ const BookDetail = () => {
                   <FiBookOpen className="mr-2 h-5 w-5" />
                   Read Online
                 </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => handleDownload('PDF')}
-                  className="flex items-center px-6 py-3"
-                >
-                  <FiDownload className="mr-2 h-5 w-5" />
-                  Download PDF
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => handleDownload('EPUB')}
-                  className="flex items-center px-6 py-3"
-                >
-                  <FiBook className="mr-2 h-5 w-5" />
-                  Download EPUB
-                </Button>
+                
+                {/* Download Buttons - Show pricing for paid content */}
+                {book.isPaidContent ? (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleDownload('PDF')}
+                      className="flex items-center px-6 py-3"
+                    >
+                      <FiDollarSign className="mr-2 h-5 w-5" />
+                      Purchase PDF - ${book.price}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleDownload('EPUB')}
+                      className="flex items-center px-6 py-3"
+                    >
+                      <FiDollarSign className="mr-2 h-5 w-5" />
+                      Purchase EPUB - ${book.price}
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleDownload('PDF')}
+                      className="flex items-center px-6 py-3"
+                    >
+                      <FiDownload className="mr-2 h-5 w-5" />
+                      Download PDF (Free)
+                    </Button>
+                    {book.format.includes('EPUB') && (
+                      <Button
+                        variant="outline"
+                        onClick={() => handleDownload('EPUB')}
+                        className="flex items-center px-6 py-3"
+                      >
+                        <FiBook className="mr-2 h-5 w-5" />
+                        Download EPUB (Free)
+                      </Button>
+                    )}
+                  </>
+                )}
               </div>
+
+              {/* ADDED: Price information for paid books */}
+              {book.isPaidContent && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <FiDollarSign className="h-5 w-5 text-yellow-600 mr-2" />
+                    <span className="text-yellow-800 font-medium">
+                      This is a premium book. Purchase required for download.
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </Card>
@@ -279,6 +440,13 @@ const BookDetail = () => {
                   <span className="text-gray-600">Pages:</span>
                   <span className="font-medium">{book.pages}</span>
                 </div>
+                {/* ADDED: Access type */}
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Access:</span>
+                  <span className={`font-medium ${book.isPaidContent ? 'text-orange-600' : 'text-green-600'}`}>
+                    {book.isPaidContent ? `$${book.price} (Premium)` : 'Free'}
+                  </span>
+                </div>
               </div>
             </div>
           </Card>
@@ -301,6 +469,10 @@ const BookDetail = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">File Size:</span>
                   <span className="font-medium">{book.fileSize}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Available Formats:</span>
+                  <span className="font-medium">{book.format}</span>
                 </div>
               </div>
             </div>
@@ -416,6 +588,57 @@ const BookDetail = () => {
               >
                 Next Page
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* UPDATED: Download Flow Modal with Scrollable Content */}
+      {showDownloadFlow && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[95vh] flex flex-col overflow-hidden">
+            {/* Header - Fixed */}
+            <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
+              <h2 className="text-2xl font-bold text-gray-900">
+                Purchase & Download
+              </h2>
+              <Button
+                variant="ghost"
+                onClick={handleDownloadCancel}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                Close
+              </Button>
+            </div>
+            
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto">
+              <div className="p-6">
+                {/* Book Summary */}
+                <div className="flex items-center space-x-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                  <img
+                    src={book.coverImage}
+                    alt={book.title}
+                    className="w-16 h-20 object-cover rounded-lg flex-shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-gray-900 truncate">{book.title}</h3>
+                    <p className="text-gray-600 text-sm">by {book.author}</p>
+                    <p className="text-green-600 font-semibold">${book.price} • {selectedFormat} format</p>
+                  </div>
+                </div>
+
+                {/* Download Handler Component */}
+                <DownloadHandler 
+                  bookId={book.id}
+                  bookTitle={book.title}
+                  bookAuthor={book.author}
+                  price={book.price}
+                  format={selectedFormat}
+                  onComplete={handleDownloadComplete}
+                  onCancel={handleDownloadCancel}
+                />
+              </div>
             </div>
           </div>
         </div>
