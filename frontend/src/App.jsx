@@ -24,6 +24,7 @@ import ManageWebinarsPage from "./pages/admin/Pages/ManageWebinarsPage";
 import BookDetail from "./pages/public/BookDetail";
 import Profile from "./pages/public/Profile/ProfilePage";
 import SingleArticlePage from "./pages/public/SingleArticlePage";
+import MyLibraryPage from "./pages/public/MyLibraryPage";
 
 const App = () => {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -135,6 +136,16 @@ const App = () => {
             <MemberRoute>
               <Layout>
                 <Profile />
+              </Layout>
+            </MemberRoute>
+          }
+        />
+        <Route
+          path="/my-library"
+          element={
+            <MemberRoute>
+              <Layout>
+                <MyLibraryPage />
               </Layout>
             </MemberRoute>
           }
