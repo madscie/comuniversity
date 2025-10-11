@@ -1,7 +1,6 @@
 import { Fragment } from "react";
 import { Disclosure, Menu, Transition } from "@headlessui/react";
 import { useAuthStore } from "../../store/authStore";
-
 import { Link, useLocation } from "react-router-dom";
 import {
   FiHome,
@@ -12,14 +11,14 @@ import {
   FiBarChart2,
   FiMenu,
   FiX,
-  FiInfo, //Added icon for About Us
-  FiUserPlus, // Added icon for Sign Up
+  FiInfo,
+  FiUserPlus,
   FiArchive,
   FiTwitter,
   FiFacebook,
   FiLinkedin,
+  FiDollarSign, // Added for affiliate
 } from "react-icons/fi";
-
 import { FaDesktop } from "react-icons/fa";
 import { FaUniversity } from "react-icons/fa";
 import { PiArticleNyTimes } from "react-icons/pi";
@@ -29,11 +28,9 @@ const navigation = [
   { name: "Home", href: "/", icon: FiHome },
   { name: "Browse", href: "/browse", icon: FiBookOpen },
   { name: "Articles", href: "/articles", icon: PiArticleNyTimes },
-
-  // { name: "Search", href: "/search", icon: FiSearch },
-  // { name: "About Us", href: "/about", icon: FiInfo },
   { name: "Webinars", href: "/webinars", icon: FaDesktop },
-// { name: "My Library", href: "/my-library", icon: FaUniversity }
+  // { name: "My Library", href: "/my-library", icon: FaUniversity },
+  // Affiliate link - only show if user is affiliate or can become one
 ];
 
 function classNames(...classes) {
@@ -43,6 +40,32 @@ function classNames(...classes) {
 const Layout = ({ children }) => {
   const { user, isAuthenticated, logout } = useAuthStore();
   const location = useLocation();
+
+  // Dynamic navigation based on user status
+  const getNavigation = () => {
+    const baseNav = [...navigation];
+
+    // Add affiliate link if user is affiliate or can apply
+    if (isAuthenticated && user) {
+      if (user.isAffiliate || user.affiliateStatus === "pending") {
+        baseNav.push({
+          name: "Affiliate",
+          href: "/affiliate-dashboard",
+          icon: FiDollarSign,
+        });
+      } else if (user.affiliateStatus === "not_applied") {
+        baseNav.push({
+          name: "Become Affiliate",
+          href: "/affiliate-signup",
+          icon: FiDollarSign,
+        });
+      }
+    }
+
+    return baseNav;
+  };
+
+  const currentNavigation = getNavigation();
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -62,7 +85,7 @@ const Layout = ({ children }) => {
 
                   {/* Desktop navigation */}
                   <div className="hidden sm:ml-6 sm:flex sm:space-x-4">
-                    {navigation.map((item) => {
+                    {currentNavigation.map((item) => {
                       const isActive = location.pathname === item.href;
                       return (
                         <Link
@@ -85,7 +108,6 @@ const Layout = ({ children }) => {
 
                 {/* Right side items */}
                 <div className="flex items-center space-x-4">
-                  {/* Updated auth section */}
                   {isAuthenticated ? (
                     <ProfileDropdown />
                   ) : (
@@ -118,7 +140,7 @@ const Layout = ({ children }) => {
             {/* Mobile menu */}
             <Disclosure.Panel className="sm:hidden">
               <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t">
-                {navigation.map((item) => {
+                {currentNavigation.map((item) => {
                   const isActive = location.pathname === item.href;
                   return (
                     <Disclosure.Button
@@ -138,7 +160,6 @@ const Layout = ({ children }) => {
                   );
                 })}
 
-                {/* Add Sign Up to mobile menu when not authenticated */}
                 {!isAuthenticated && (
                   <>
                     <Disclosure.Button
@@ -186,7 +207,7 @@ const Layout = ({ children }) => {
               Quick Links
             </h4>
             <ul className="space-y-2 text-sm">
-              {navigation.map((item) => (
+              {currentNavigation.map((item) => (
                 <li key={item.name}>
                   <Link
                     to={item.href}
