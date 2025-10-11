@@ -25,6 +25,11 @@ import BookDetail from "./pages/public/BookDetail";
 import Profile from "./pages/public/Profile/ProfilePage";
 import SingleArticlePage from "./pages/public/SingleArticlePage";
 import MyLibraryPage from "./pages/public/MyLibraryPage";
+// Add these affiliate imports
+import AffiliateSignup from "./pages/affiliate/AffiliateSignup";
+import AffiliateDashboard from "./pages/affiliate/AffiliateDashboard";
+import AffiliateStatus from "./pages/affiliate/AffiliateStatus";
+import CheckoutDownloadPage from "./pages/payments/CheckoutPage";
 
 const App = () => {
   const checkAuth = useAuthStore((state) => state.checkAuth);
@@ -34,7 +39,6 @@ const App = () => {
     checkAuth();
   }, [checkAuth]);
 
-  // Simple loading state
   if (!hasCheckedAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -42,6 +46,7 @@ const App = () => {
       </div>
     );
   }
+
   return (
     <Router>
       <Routes>
@@ -49,6 +54,7 @@ const App = () => {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<SignUp />} />
         <Route path="/admin/login" element={<AdminLoginPage />} />
+
         {/* ---------- MEMBER ROUTES (Require user authentication) ---------- */}
         <Route
           path="/"
@@ -150,8 +156,48 @@ const App = () => {
             </MemberRoute>
           }
         />
-        // Add this to your routes
-        {/* <Route path="/profile" element={<Profile />} />
+        <Route
+          path="/checkout/:bookId"
+          element={
+            <MemberRoute>
+              <Layout>
+                <CheckoutDownloadPage />
+              </Layout>
+            </MemberRoute>
+          }
+        />
+
+        {/* ---------- AFFILIATE ROUTES ---------- */}
+        <Route
+          path="/affiliate-signup"
+          element={
+            <MemberRoute>
+              <Layout>
+                <AffiliateSignup />
+              </Layout>
+            </MemberRoute>
+          }
+        />
+        <Route
+          path="/affiliate-dashboard"
+          element={
+            <MemberRoute>
+              <Layout>
+                <AffiliateDashboard />
+              </Layout>
+            </MemberRoute>
+          }
+        />
+        <Route
+          path="/affiliate-status"
+          element={
+            <MemberRoute>
+              <Layout>
+                <AffiliateStatus />
+              </Layout>
+            </MemberRoute>
+          }
+        />
 
         {/* ---------- ADMIN ROUTES (Require admin authentication) ---------- */}
         <Route
@@ -224,6 +270,7 @@ const App = () => {
             </AdminRoute>
           }
         />
+
         {/* Redirect admin root to dashboard */}
         <Route
           path="/admin"
