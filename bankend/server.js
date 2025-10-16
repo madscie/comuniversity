@@ -2,11 +2,12 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
 
-const { testConnection } = require('./config/database');
-const { createTables } = require('./utils/databaseSetup');
-const authRoutes = require('./routes/auth');
-const adminRoutes = require('./routes/admin');
-const errorHandler = require('./middleware/errorHandler');
+const { pool, testConnection } = require('./config/database'); // import pool & testConnection
+const { createTables } = require('./utils/databaseSetup'); // create users/admin tables
+const authRoutes = require('./routes/auth'); // login/register routes
+const adminRoutes = require('./routes/admin'); // admin endpoints
+const webinarsRoutes = require('./routes/webinars'); // webinars endpoints
+const errorHandler = require('./middleware/errorHandler'); // error middleware
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -16,11 +17,10 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Initialize database
+// Initialize Database
 const initializeDatabase = async () => {
   console.log('🔌 Initializing database connection...');
   const connected = await testConnection();
-
   if (connected) {
     try {
       await createTables();
@@ -34,10 +34,11 @@ const initializeDatabase = async () => {
 };
 
 // Routes
-app.use('/api/auth', authRoutes);   // includes /login and /register
+app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/webinars', webinarsRoutes);
 
-// Health check endpoint
+// Health check
 app.get('/api/health', (req, res) => {
   res.json({
     success: true,
@@ -46,29 +47,23 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Error handling middleware
+// Error handling
 app.use(errorHandler);
 
-// Catch-all for 404
+// Catch-all 404
 app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Endpoint not found',
-  });
+  res.status(404).json({ success: false, message: 'Endpoint not found' });
 });
 
-// Start server after database initialization
+// Start server
 const startServer = async () => {
   await initializeDatabase();
-
   app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📚 Communiversity Library API`);
-    console.log(`🔗 http://localhost:${PORT}`);
   });
 };
 
-startServer().catch((error) => {
+startServer().catch(error => {
   console.error('Failed to start server:', error);
   process.exit(1);
 });
