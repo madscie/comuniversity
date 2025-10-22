@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuthStore } from "../../../store/authStore";
 import {
   FiUser,
@@ -23,14 +23,32 @@ const Profile = () => {
   const [formData, setFormData] = useState({
     name: user?.name || "",
     email: user?.email || "",
-    bio: user?.bio || "Book enthusiast and lifelong learner",
-    joinDate: user?.joinDate
-      ? new Date(user.joinDate).toLocaleDateString("en-US", {
-          month: "long",
-          year: "numeric",
-        })
-      : "January 2024",
+    bio: user?.bio || "",
   });
+  const [readingStats, setReadingStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadProfileData();
+  }, [user]);
+
+  const loadProfileData = async () => {
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API calls
+      // const statsResponse = await fetch('/api/user/reading-stats');
+      // const statsData = await statsResponse.json();
+      // setReadingStats(statsData);
+      
+      // Temporary empty state until backend is ready
+      setReadingStats(null);
+    } catch (error) {
+      console.error("Error loading profile data:", error);
+      setReadingStats(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Get affiliate data from user store
   const affiliateData = {
@@ -45,16 +63,35 @@ const Profile = () => {
       : null,
   };
 
-  const stats = [
-    { label: "Books Read", value: "24", icon: FiBook },
-    { label: "Currently Reading", value: "3", icon: FiBook },
-    { label: "Want to Read", value: "12", icon: FiBook },
+  // Default reading stats structure
+  const defaultStats = [
+    { label: "Books Read", value: "0", icon: FiBook },
+    { label: "Currently Reading", value: "0", icon: FiBook },
+    { label: "Want to Read", value: "0", icon: FiBook },
   ];
 
-  const handleSave = () => {
-    console.log("Saving profile:", formData);
-    setIsEditing(false);
-    // In a real app, you would update the user data in your store/backend here
+  const displayStats = readingStats ? [
+    { label: "Books Read", value: readingStats.booksRead || "0", icon: FiBook },
+    { label: "Currently Reading", value: readingStats.currentlyReading || "0", icon: FiBook },
+    { label: "Want to Read", value: readingStats.wantToRead || "0", icon: FiBook },
+  ] : defaultStats;
+
+  const handleSave = async () => {
+    try {
+      // TODO: Replace with actual API call
+      // await fetch('/api/user/profile', {
+      //   method: 'PUT',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(formData)
+      // });
+      
+      console.log("Saving profile:", formData);
+      setIsEditing(false);
+      // In a real app, you would update the user data in your store/backend here
+    } catch (error) {
+      console.error("Error saving profile:", error);
+      alert("Failed to save profile. Please try again.");
+    }
   };
 
   const handleApplyAffiliate = () => {
@@ -111,6 +148,19 @@ const Profile = () => {
 
   const currentStatus = statusConfig[affiliateData.status];
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading profile...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -148,7 +198,10 @@ const Profile = () => {
                     </p>
                     <p className="text-gray-500 text-sm flex items-center">
                       <FiCalendar className="h-4 w-4 mr-2" />
-                      Member since {formData.joinDate}
+                      Member since {user?.joinDate ? new Date(user.joinDate).toLocaleDateString("en-US", {
+                        month: "long",
+                        year: "numeric",
+                      }) : "Recently"}
                     </p>
                     {user?.role === "admin" && (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 mt-1">
@@ -184,6 +237,7 @@ const Profile = () => {
                         }
                         rows="3"
                         className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Tell us about yourself..."
                       />
                     </div>
                     <div className="flex space-x-3">
@@ -198,7 +252,9 @@ const Profile = () => {
                   </div>
                 ) : (
                   <div>
-                    <p className="text-gray-700 mb-4">{formData.bio}</p>
+                    <p className="text-gray-700 mb-4">
+                      {formData.bio || "No bio provided yet."}
+                    </p>
                     <Button onClick={() => setIsEditing(true)}>
                       Edit Profile
                     </Button>
@@ -300,7 +356,7 @@ const Profile = () => {
                 Reading Stats
               </h3>
               <div className="space-y-4">
-                {stats.map((stat, index) => (
+                {displayStats.map((stat, index) => (
                   <div
                     key={index}
                     className="flex items-center justify-between"
@@ -315,6 +371,11 @@ const Profile = () => {
                   </div>
                 ))}
               </div>
+              {!readingStats && (
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Reading stats will appear as you use the platform
+                </p>
+              )}
             </Card>
 
             {/* Quick Actions */}

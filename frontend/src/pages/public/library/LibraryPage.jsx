@@ -1,4 +1,3 @@
-// pages/library/LibraryPage.jsx
 import { useState, useEffect } from "react";
 import { FiBook, FiDownload, FiSearch, FiCalendar, FiEye } from "react-icons/fi";
 import Card from "../../../components/UI/Card";
@@ -11,19 +10,26 @@ const LibraryPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load purchased books from localStorage
-    const loadPurchases = () => {
-      setLoading(true);
-      setTimeout(() => {
-        const userLibrary = JSON.parse(localStorage.getItem('userLibrary') || '[]');
-        setPurchases(userLibrary);
-        setFilteredPurchases(userLibrary);
-        setLoading(false);
-      }, 1000);
-    };
-
     loadPurchases();
   }, []);
+
+  const loadPurchases = async () => {
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/user/library');
+      // const libraryData = await response.json();
+      // setPurchases(libraryData);
+      
+      // Temporary empty state until backend is ready
+      setPurchases([]);
+    } catch (error) {
+      console.error("Error loading library:", error);
+      setPurchases([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Filter purchases based on search term
@@ -34,23 +40,32 @@ const LibraryPage = () => {
     setFilteredPurchases(filtered);
   }, [searchTerm, purchases]);
 
-  const handleDownload = (purchase) => {
-    // Mock download functionality
-    console.log(`Downloading: ${purchase.title}`);
-    
-    // In a real app, this would trigger file download
-    alert(`Starting download: ${purchase.title}.${purchase.format.toLowerCase()}`);
-    
-    // Track download in localStorage
-    const downloads = JSON.parse(localStorage.getItem('downloadHistory') || '[]');
-    downloads.push({
-      id: Math.random().toString(36).substr(2, 9),
-      bookId: purchase.bookId,
-      title: purchase.title,
-      downloadedAt: new Date().toISOString(),
-      format: purchase.format
-    });
-    localStorage.setItem('downloadHistory', JSON.stringify(downloads));
+  const handleDownload = async (purchase) => {
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch(`/api/books/${purchase.bookId}/download`, {
+      //   method: 'POST',
+      //   headers: { 'Authorization': `Bearer ${userToken}` }
+      // });
+      
+      // if (response.ok) {
+      //   const blob = await response.blob();
+      //   const url = window.URL.createObjectURL(blob);
+      //   const a = document.createElement('a');
+      //   a.href = url;
+      //   a.download = `${purchase.title}.${purchase.format.toLowerCase()}`;
+      //   document.body.appendChild(a);
+      //   a.click();
+      //   window.URL.revokeObjectURL(url);
+      //   document.body.removeChild(a);
+      // }
+      
+      console.log(`Downloading: ${purchase.title}`);
+      alert(`Download functionality will be available when backend is implemented.`);
+    } catch (error) {
+      console.error("Error downloading book:", error);
+      alert("Failed to download book. Please try again.");
+    }
   };
 
   const formatDate = (dateString) => {
@@ -91,19 +106,19 @@ const LibraryPage = () => {
           </Card>
           <Card className="p-4 text-center">
             <div className="text-2xl font-bold text-green-600">
-              {purchases.filter(p => p.format.includes('PDF')).length}
+              {purchases.filter(p => p.format?.includes('PDF')).length}
             </div>
             <div className="text-sm text-gray-600">PDF Books</div>
           </Card>
           <Card className="p-4 text-center">
             <div className="text-2xl font-bold text-purple-600">
-              {purchases.filter(p => p.format.includes('EPUB')).length}
+              {purchases.filter(p => p.format?.includes('EPUB')).length}
             </div>
             <div className="text-sm text-gray-600">EPUB Books</div>
           </Card>
           <Card className="p-4 text-center">
             <div className="text-2xl font-bold text-orange-600">
-              ${purchases.reduce((total, p) => total + p.price, 0).toFixed(2)}
+              ${purchases.reduce((total, p) => total + (p.price || 0), 0).toFixed(2)}
             </div>
             <div className="text-sm text-gray-600">Total Spent</div>
           </Card>
@@ -148,16 +163,16 @@ const LibraryPage = () => {
                   <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
                     <div className="flex items-center">
                       <FiCalendar className="h-4 w-4 mr-1" />
-                      {formatDate(purchase.purchaseDate)}
+                      {purchase.purchaseDate ? formatDate(purchase.purchaseDate) : 'Recently'}
                     </div>
                     <div className="font-medium text-gray-900">
-                      ${purchase.price}
+                      ${purchase.price || '0.00'}
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                      {purchase.format}
+                      {purchase.format || 'PDF'}
                     </span>
                     <div className="flex space-x-2">
                       <Button
@@ -194,64 +209,19 @@ const LibraryPage = () => {
           </Card>
         )}
 
-        {/* Download History */}
+        {/* Download History - Will be implemented with backend */}
         {purchases.length > 0 && (
           <div className="mt-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Download History</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Downloads</h2>
             <Card>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Book
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Downloaded
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Format
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {JSON.parse(localStorage.getItem('downloadHistory') || '[]')
-                      .slice(0, 5)
-                      .map((download) => (
-                      <tr key={download.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {download.title}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDate(download.downloadedAt)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {download.format}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload({
-                              ...download,
-                              bookId: download.bookId,
-                              title: download.title,
-                              format: download.format
-                            })}
-                          >
-                            <FiDownload className="h-4 w-4 mr-1" />
-                            Download Again
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="p-8 text-center">
+                <FiDownload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  Download History
+                </h3>
+                <p className="text-gray-600">
+                  Your download history will appear here once you start downloading books.
+                </p>
               </div>
             </Card>
           </div>

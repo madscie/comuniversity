@@ -17,55 +17,39 @@ import {
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
 
-// Import centralized book data and helper functions
-import {
-  booksData,
-  getBookById,
-  isBookPaidContent,
-  getFreeBooks,
-  getPaidBooks,
-} from "../../data/BookData";
-
-// Import download utilities
-import {
-  handleBookDownload,
-  hasUserPurchasedBook,
-} from "../../utils/HandleBookDownload";
-
 const BookDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [book, setBook] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isReading, setIsReading] = useState(false);
   const [currentPage, setCurrentPage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [showDownloadFlow, setShowDownloadFlow] = useState(false);
   const [selectedFormat, setSelectedFormat] = useState("");
+  const [relatedBooks, setRelatedBooks] = useState([]);
 
   useEffect(() => {
-    const loadBookData = () => {
-      // Use centralized book data
-      const foundBook = getBookById(parseInt(id));
-
-      if (foundBook) {
-        setBook(foundBook);
-
-        // DEBUG: Check book status with helper functions
-        console.log("Book Details:", {
-          title: foundBook.title,
-          price: foundBook.price,
-          isPaidContent: isBookPaidContent(foundBook),
-          requiresPayment: foundBook.price > 0,
-        });
-
-        // Check purchase status
-        const purchased = hasUserPurchasedBook(id);
-        setHasPurchased(purchased);
-
-        // Check favorites
-        const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-        setIsFavorite(favorites.includes(foundBook.id));
+    const loadBookData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        // TODO: Replace with actual API calls
+        // const bookResponse = await bookAPI.getById(id);
+        // const relatedResponse = await bookAPI.getRelatedBooks(id, bookResponse.data.category);
+        
+        // For now, set empty until backend is ready
+        setBook(null);
+        setRelatedBooks([]);
+        
+      } catch (err) {
+        console.error("Error loading book:", err);
+        setError("Failed to load book details. Please try again.");
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -75,6 +59,10 @@ const BookDetail = () => {
   }, [id]);
 
   const handleReadOnline = () => {
+    if (!book?.content) {
+      alert("Book content not available yet.");
+      return;
+    }
     setIsReading(true);
     setCurrentPage(0);
   };
@@ -82,38 +70,60 @@ const BookDetail = () => {
   const handleDownload = async (format) => {
     if (!book) return;
 
-    // Check purchase status for paid books USING HELPER FUNCTION
-    if (isBookPaidContent(book) && !hasPurchased) {
-      const confirmPurchase = window.confirm(
-        `You need to purchase "${book.title}" to download it. Would you like to buy it now for $${book.price}?`
-      );
-      if (confirmPurchase) {
-        navigate(`/checkout/${book.id}`);
-      }
-      return;
-    }
-
-    // Handle download
     try {
-      await handleBookDownload(book, format);
-    } catch (error) {
-      console.error("Download failed:", error);
+      // TODO: Replace with actual API call
+      // const response = await downloadAPI.downloadBook(book.id, format);
+      // Handle the download response (blob, redirect, etc.)
+      
+      console.log(`Downloading ${book.title} in ${format} format`);
+      // Temporary implementation
+      alert(`Download functionality for ${format} format will be implemented with backend integration.`);
+      
+    } catch (err) {
+      console.error("Download failed:", err);
       alert("Download failed. Please try again.");
     }
   };
 
-  const toggleFavorite = () => {
+  const handlePurchase = () => {
+    if (!book) return;
+    
+    // TODO: Replace with actual purchase flow
+    // navigate(`/checkout/${book.id}`);
+    
+    console.log("Initiating purchase for:", book.id);
+    alert("Purchase flow will be implemented with backend integration.");
+  };
+
+  const toggleFavorite = async () => {
     if (!book) return;
 
-    const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
-    if (isFavorite) {
-      const newFavorites = favorites.filter((favId) => favId !== book.id);
-      localStorage.setItem("favorites", JSON.stringify(newFavorites));
-    } else {
-      favorites.push(book.id);
+    try {
+      // TODO: Replace with actual API call
+      // if (isFavorite) {
+      //   await favoritesAPI.remove(book.id);
+      // } else {
+      //   await favoritesAPI.add(book.id);
+      // }
+      
+      const newFavoriteStatus = !isFavorite;
+      setIsFavorite(newFavoriteStatus);
+      
+      // Temporary local storage for UI feedback
+      const favorites = JSON.parse(localStorage.getItem("favorites") || "[]");
+      if (newFavoriteStatus) {
+        favorites.push(book.id);
+      } else {
+        const index = favorites.indexOf(book.id);
+        if (index > -1) {
+          favorites.splice(index, 1);
+        }
+      }
       localStorage.setItem("favorites", JSON.stringify(favorites));
+      
+    } catch (err) {
+      console.error("Failed to update favorites:", err);
     }
-    setIsFavorite(!isFavorite);
   };
 
   const handleShare = () => {
@@ -141,17 +151,6 @@ const BookDetail = () => {
     setSelectedFormat("");
   };
 
-  // Temporary debug function to simulate purchase for testing
-  const simulatePurchase = () => {
-    const purchases = JSON.parse(localStorage.getItem("purchases") || "{}");
-    purchases[id] = true;
-    localStorage.setItem("purchases", JSON.stringify(purchases));
-    setHasPurchased(true);
-    alert("Purchase simulated for testing! You can now download the book.");
-  };
-
-  const pages = book?.content ? book.content.split("\n\n") : [];
-
   const renderStars = (rating) => {
     return Array.from({ length: 5 }, (_, i) => (
       <FiStar
@@ -165,15 +164,27 @@ const BookDetail = () => {
     ));
   };
 
-  if (!book) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+        <Card className="text-center p-8">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Loading Book...</h2>
+          <p className="text-gray-600">Please wait while we load the book details.</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (error || !book) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
         <Card className="text-center p-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Book Not Found
+            {error ? "Error Loading Book" : "Book Not Found"}
           </h2>
           <p className="text-gray-600 mb-6">
-            The book you're looking for doesn't exist.
+            {error || "The book you're looking for doesn't exist."}
           </p>
           <Button onClick={() => navigate("/browse")}>
             <FiArrowLeft className="mr-2" />
@@ -183,6 +194,8 @@ const BookDetail = () => {
       </div>
     );
   }
+
+  const pages = book.content ? book.content.split("\n\n") : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
@@ -247,12 +260,12 @@ const BookDetail = () => {
                 {/* Payment Status Badge */}
                 <span
                   className={`ml-2 inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                    isBookPaidContent(book)
+                    book.price > 0
                       ? "bg-orange-100 text-orange-800"
                       : "bg-green-100 text-green-800"
                   }`}
                 >
-                  {isBookPaidContent(book)
+                  {book.price > 0
                     ? `Premium - $${book.price}`
                     : "Free Access"}
                 </span>
@@ -281,8 +294,8 @@ const BookDetail = () => {
                 {book.description}
               </p>
 
-              {/* Purchase Status - UPDATED WITH HELPER FUNCTION */}
-              {hasPurchased && isBookPaidContent(book) && (
+              {/* Purchase Status */}
+              {hasPurchased && book.price > 0 && (
                 <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                   <p className="text-green-700 font-medium">
                     ✓ You own this book - Ready to download!
@@ -296,13 +309,14 @@ const BookDetail = () => {
                   variant="primary"
                   onClick={handleReadOnline}
                   className="flex items-center px-6 py-3"
+                  disabled={!book.content}
                 >
                   <FiBookOpen className="mr-2 h-5 w-5" />
-                  Read Online
+                  {book.content ? "Read Online" : "Read Online (Coming Soon)"}
                 </Button>
 
-                {/* Download Buttons - UPDATED WITH HELPER FUNCTIONS */}
-                {isBookPaidContent(book) ? (
+                {/* Download Buttons */}
+                {book.price > 0 ? (
                   <>
                     {hasPurchased ? (
                       <>
@@ -326,10 +340,9 @@ const BookDetail = () => {
                         )}
                       </>
                     ) : (
-                      // In BookDetail.jsx, update the purchase button:
                       <Button
                         variant="secondary"
-                        onClick={() => navigate(`/checkout/${book.id}`)}
+                        onClick={handlePurchase}
                         className="flex items-center px-6 py-3 bg-green-600 hover:bg-green-700"
                       >
                         <FiDollarSign className="mr-2 h-5 w-5" />
@@ -361,8 +374,8 @@ const BookDetail = () => {
                 )}
               </div>
 
-              {/* Access information - UPDATED WITH HELPER FUNCTION */}
-              {isBookPaidContent(book) && !hasPurchased && (
+              {/* Access information */}
+              {book.price > 0 && !hasPurchased && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                   <div className="flex items-center">
                     <FiDollarSign className="h-5 w-5 text-yellow-600 mr-2" />
@@ -372,24 +385,6 @@ const BookDetail = () => {
                   </div>
                 </div>
               )}
-
-              {/* Debug button for testing purchases - REMOVE IN PRODUCTION */}
-              {process.env.NODE_ENV === "development" &&
-                isBookPaidContent(book) &&
-                !hasPurchased && (
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-blue-700 text-sm mb-2">
-                      [DEV] Test purchase flow:
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={simulatePurchase}
-                      className="text-xs py-1"
-                    >
-                      Simulate Purchase for Testing
-                    </Button>
-                  </div>
-                )}
             </div>
           </div>
         </Card>
@@ -417,19 +412,14 @@ const BookDetail = () => {
                   <span className="text-gray-600">Pages:</span>
                   <span className="font-medium">{book.pages || "N/A"}</span>
                 </div>
-                {/* UPDATED: Access type with helper function */}
                 <div className="flex justify-between">
                   <span className="text-gray-600">Access:</span>
                   <span
                     className={`font-medium ${
-                      isBookPaidContent(book)
-                        ? "text-orange-600"
-                        : "text-green-600"
+                      book.price > 0 ? "text-orange-600" : "text-green-600"
                     }`}
                   >
-                    {isBookPaidContent(book)
-                      ? `$${book.price} (Premium)`
-                      : "Free"}
+                    {book.price > 0 ? `$${book.price} (Premium)` : "Free"}
                   </span>
                 </div>
               </div>
@@ -489,16 +479,14 @@ const BookDetail = () => {
         </div>
 
         {/* Related Books */}
-        <Card className="border-0 shadow-xl">
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              Related Books
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {booksData
-                .filter((b) => b.id !== book.id && b.category === book.category)
-                .slice(0, 3)
-                .map((relatedBook) => (
+        {relatedBooks.length > 0 && (
+          <Card className="border-0 shadow-xl">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                Related Books
+              </h2>
+              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {relatedBooks.map((relatedBook) => (
                   <Link
                     key={relatedBook.id}
                     to={`/books/${relatedBook.id}`}
@@ -525,17 +513,14 @@ const BookDetail = () => {
                                 {relatedBook.rating || 0}
                               </span>
                             </div>
-                            {/* Payment status for related books */}
                             <span
                               className={`text-xs px-2 py-1 rounded-full mt-1 inline-block ${
-                                isBookPaidContent(relatedBook)
+                                relatedBook.price > 0
                                   ? "bg-orange-100 text-orange-800"
                                   : "bg-green-100 text-green-800"
                               }`}
                             >
-                              {isBookPaidContent(relatedBook)
-                                ? `$${relatedBook.price}`
-                                : "Free"}
+                              {relatedBook.price > 0 ? `$${relatedBook.price}` : "Free"}
                             </span>
                           </div>
                         </div>
@@ -543,16 +528,10 @@ const BookDetail = () => {
                     </Card>
                   </Link>
                 ))}
-              {booksData.filter(
-                (b) => b.id !== book.id && b.category === book.category
-              ).length === 0 && (
-                <div className="col-span-3 text-center py-4 text-gray-500">
-                  No related books found in the same category.
-                </div>
-              )}
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        )}
       </div>
 
       {/* Reading Modal */}
@@ -605,60 +584,6 @@ const BookDetail = () => {
               >
                 Next Page
               </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Download Flow Modal */}
-      {showDownloadFlow && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[95vh] flex flex-col overflow-hidden">
-            {/* Header - Fixed */}
-            <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Purchase & Download
-              </h2>
-              <Button
-                variant="ghost"
-                onClick={handleDownloadCancel}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                Close
-              </Button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto">
-              <div className="p-6">
-                {/* Book Summary */}
-                <div className="flex items-center space-x-4 mb-6 p-4 bg-gray-50 rounded-lg">
-                  <img
-                    src={book.coverImage}
-                    alt={book.title}
-                    className="w-16 h-20 object-cover rounded-lg flex-shrink-0"
-                  />
-                  <div className="min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate">
-                      {book.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm">by {book.author}</p>
-                    <p className="text-green-600 font-semibold">
-                      ${book.price} • {selectedFormat} format
-                    </p>
-                  </div>
-                </div>
-
-                {/* Download Handler - You'll need to create this component */}
-                <div className="text-center p-6">
-                  <p className="text-gray-600 mb-4">
-                    Download functionality would be implemented here.
-                  </p>
-                  <Button variant="primary" onClick={handleDownloadComplete}>
-                    Complete Download
-                  </Button>
-                </div>
-              </div>
             </div>
           </div>
         </div>

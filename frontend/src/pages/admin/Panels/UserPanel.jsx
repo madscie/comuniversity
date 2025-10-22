@@ -1,4 +1,4 @@
-// src/components/admin/UsersPanel.jsx
+import { useState, useEffect } from "react";
 import {
   FiUser,
   FiMail,
@@ -9,40 +9,44 @@ import {
 import Card from "../../../components/UI/Card";
 
 const UsersPanel = () => {
-  const users = [
-    {
-      id: 1,
-      name: "Sarah Johnson",
-      email: "sarah@email.com",
-      joined: "2023-10-15",
-      status: "Active",
-      books: 3,
-    },
-    {
-      id: 2,
-      name: "Michael Chen",
-      email: "michael@email.com",
-      joined: "2023-09-22",
-      status: "Active",
-      books: 1,
-    },
-    {
-      id: 3,
-      name: "Emma Wilson",
-      email: "emma@email.com",
-      joined: "2023-11-05",
-      status: "Inactive",
-      books: 0,
-    },
-    {
-      id: 4,
-      name: "David Brown",
-      email: "david@email.com",
-      joined: "2023-08-12",
-      status: "Active",
-      books: 5,
-    },
-  ];
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/admin/users');
+      // const data = await response.json();
+      // setUsers(data);
+      
+      // Temporary empty state until backend is ready
+      setUsers([]);
+    } catch (error) {
+      console.error("Error loading users:", error);
+      // Empty state on error
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    const options = { year: "numeric", month: "short", day: "numeric" };
+    return new Date(dateString).toLocaleDateString("en-US", options);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -74,44 +78,60 @@ const UsersPanel = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                        {user.name.charAt(0)}
-                      </div>
-                      <div className="ml-4">
-                        <div className="font-medium text-gray-900">
-                          {user.name}
-                        </div>
-                      </div>
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="px-6 py-12 text-center">
+                    <div className="text-gray-500">
+                      <FiUser className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        No users found
+                      </h3>
+                      <p className="text-gray-600">
+                        No users are currently registered in the system.
+                      </p>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {user.email}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {user.joined}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    {user.status === "Active" ? (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        <FiCheckCircle className="h-3 w-3 mr-1" />
-                        Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                        <FiXCircle className="h-3 w-3 mr-1" />
-                        Inactive
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-gray-600">
-                    {user.books} books
-                  </td>
                 </tr>
-              ))}
+              ) : (
+                users.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
+                          {user.name.charAt(0)}
+                        </div>
+                        <div className="ml-4">
+                          <div className="font-medium text-gray-900">
+                            {user.name}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                      {user.email}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                      {formatDate(user.joined)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {user.status === "Active" ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <FiCheckCircle className="h-3 w-3 mr-1" />
+                          Active
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                          <FiXCircle className="h-3 w-3 mr-1" />
+                          Inactive
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-gray-600">
+                      {user.books || 0} books
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

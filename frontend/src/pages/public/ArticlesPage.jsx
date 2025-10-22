@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { FiSearch, FiBook, FiUser, FiCalendar } from "react-icons/fi";
 import TextInput from "../../components/UI/TextInput";
@@ -7,45 +7,37 @@ import Button from "../../components/UI/Button";
 
 const ArticlesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate();
 
-  const navigate =  useNavigate()
+  useEffect(() => {
+    fetchArticles();
+  }, []);
 
-  // ✅ Mock data (replace with backend later)
-  const mockArticles = [
-    {
-      _id: "1",
-      title: "The Future of Digital Libraries",
-      description:
-        "Explore how digital libraries are transforming knowledge access worldwide through open resources and AI-driven discovery.",
-      author: "Eunice L.",
-      createdAt: "2025-09-01T12:00:00Z",
-      image:
-        "https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?w=800",
-    },
-    {
-      _id: "2",
-      title: "Mastering the Dewey Decimal System",
-      description:
-        "A beginner-friendly guide to understanding and applying the Dewey Decimal System for organizing books.",
-      author: "James M.",
-      createdAt: "2025-08-15T10:30:00Z",
-      image:
-        "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=800",
-    },
-    {
-      _id: "3",
-      title: "The Rise of E-Books in Education",
-      description:
-        "Why e-books are becoming the primary tool for modern education and how institutions are adapting to this shift.",
-      author: "Linda K.",
-      createdAt: "2025-07-20T08:15:00Z",
-      image:
-        "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?w=800",
-    },
-  ];
+  const fetchArticles = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // TODO: Replace with actual API call
+      // const response = await articlesAPI.getAll();
+      // setArticles(response.data);
+      
+      // For now, set empty array until backend is ready
+      setArticles([]);
+      
+    } catch (err) {
+      console.error("Error fetching articles:", err);
+      setError("Failed to load articles. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  // ✅ Filter articles locally
-  const filteredArticles = mockArticles.filter(
+  // Filter articles based on search query
+  const filteredArticles = articles.filter(
     (article) =>
       article.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       article.description.toLowerCase().includes(searchQuery.toLowerCase())
@@ -53,10 +45,29 @@ const ArticlesPage = () => {
 
   // Navigation function
   const handleReadMore = (articleId) => {
-    console.log("ID",articleId);
-    
     navigate(`/articles/${articleId}`);
   };
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-12">
+        <div className="text-center mb-12">
+          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+            <span className="inline-flex items-center">
+              <FiBook className="mr-3 text-blue-600" />
+              Articles
+            </span>
+          </h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Dive into curated articles from our digital library community.
+          </p>
+        </div>
+        <div className="flex justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-12">
@@ -73,6 +84,20 @@ const ArticlesPage = () => {
         </p>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-center">
+          <p className="text-red-700">{error}</p>
+          <Button 
+            variant="primary" 
+            onClick={fetchArticles}
+            className="mt-2"
+          >
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Search */}
       <div className="max-w-xl mx-auto mb-10">
         <form onSubmit={(e) => e.preventDefault()} className="relative group">
@@ -88,8 +113,23 @@ const ArticlesPage = () => {
       </div>
 
       {/* Articles Grid */}
-      {filteredArticles.length === 0 ? (
-        <p className="text-center text-gray-500">No articles found.</p>
+      {filteredArticles.length === 0 && !loading ? (
+        <div className="text-center py-12">
+          <div className="mx-auto bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl mb-6 w-24 h-24 flex items-center justify-center">
+            <FiBook className="h-12 w-12 text-blue-600" />
+          </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-2">
+            No Articles Found
+          </h3>
+          <p className="text-gray-600 mb-6">
+            {searchQuery ? "No articles match your search." : "No articles available yet. Check back soon!"}
+          </p>
+          {searchQuery && (
+            <Button variant="primary" onClick={() => setSearchQuery("")}>
+              Clear Search
+            </Button>
+          )}
+        </div>
       ) : (
         <div className="grid md:grid-cols-3 gap-8">
           {filteredArticles.map((article) => (
@@ -128,11 +168,13 @@ const ArticlesPage = () => {
               </div>
 
               {/* Read More Button */}
-                <Button
-                onClick={()=>handleReadMore(article._id)}
-                variant="outline" className="w-full">
-                  Read More
-                </Button>
+              <Button
+                onClick={() => handleReadMore(article._id)}
+                variant="outline" 
+                className="w-full"
+              >
+                Read More
+              </Button>
             </Card>
           ))}
         </div>

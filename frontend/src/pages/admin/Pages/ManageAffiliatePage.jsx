@@ -43,79 +43,20 @@ const ManageAffiliatesPage = () => {
     loadAffiliates();
   }, []);
 
-  const loadAffiliates = () => {
+  const loadAffiliates = async () => {
     setIsLoading(true);
     try {
-      // Get affiliates from localStorage via authStore
-      const allUsers = JSON.parse(localStorage.getItem("users") || "[]");
-      const affiliateApplications = JSON.parse(
-        localStorage.getItem("affiliateApplications") || "[]"
-      );
-      const referrals = JSON.parse(localStorage.getItem("referrals") || "[]");
-
-      // Combine user data with affiliate applications
-      const affiliateData = allUsers.map((user) => {
-        const application = affiliateApplications.find(
-          (app) => app.userId === user.id
-        );
-        const userReferrals = referrals.filter(
-          (ref) => ref.affiliateCode === user.affiliateCode
-        );
-        const stats = getAffiliateStats(user.affiliateCode);
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          code: user.affiliateCode,
-          joinDate: user.affiliateSince
-            ? new Date(user.affiliateSince).toISOString().split("T")[0]
-            : null,
-          applicationDate:
-            application?.applicationDate || user.joinDate?.split("T")[0],
-          referrals: userReferrals.length,
-          earnings: stats.totalEarnings,
-          status: user.affiliateStatus || "not_applied",
-          motivation: application?.motivation || "No motivation provided",
-          promotionChannels: application?.promotionChannels || [],
-          performance: getPerformanceLevel(stats),
-          userData: user,
-        };
-      });
-
-      // Add pending applications from users who aren't affiliates yet
-      const pendingApplications = affiliateApplications
-        .filter(
-          (app) =>
-            !allUsers.some(
-              (user) =>
-                user.id === app.userId && user.affiliateStatus === "approved"
-            )
-        )
-        .map((app) => {
-          const user = allUsers.find((u) => u.id === app.userId);
-          return {
-            id: app.id,
-            name: user?.name || "Unknown User",
-            email: user?.email || "Unknown Email",
-            code: null,
-            joinDate: null,
-            applicationDate: app.applicationDate,
-            referrals: 0,
-            earnings: 0,
-            status: "pending",
-            motivation: app.motivation,
-            promotionChannels: app.promotionChannels,
-            performance: null,
-            userData: user,
-          };
-        });
-
-      setAffiliates([...affiliateData, ...pendingApplications]);
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/admin/affiliates');
+      // const data = await response.json();
+      // setAffiliates(data);
+      
+      // Temporary empty state until backend is ready
+      setAffiliates([]);
     } catch (error) {
       console.error("Error loading affiliates:", error);
-      // Fallback to mock data if no real data exists
-      setAffiliates(getMockAffiliateData());
+      // Empty state on error
+      setAffiliates([]);
     } finally {
       setIsLoading(false);
     }
@@ -128,102 +69,6 @@ const ManageAffiliatesPage = () => {
     if (conversionRate >= 60) return "good";
     if (conversionRate >= 40) return "average";
     return "poor";
-  };
-
-  const getMockAffiliateData = () => {
-    return [
-      {
-        id: 1,
-        name: "Sarah Johnson",
-        email: "sarah@example.com",
-        code: "SARAH25",
-        joinDate: "2024-01-15",
-        applicationDate: "2024-01-10",
-        referrals: 12,
-        earnings: 240,
-        status: "approved",
-        motivation:
-          "I have a large following of book lovers on my blog and would love to share this amazing library with them.",
-        promotionChannels: ["Blog/Website", "Social Media"],
-        performance: "excellent",
-      },
-      {
-        id: 2,
-        name: "Mike Chen",
-        email: "mike@example.com",
-        code: "MIKE30",
-        joinDate: "2024-02-01",
-        applicationDate: "2024-01-28",
-        referrals: 8,
-        earnings: 160,
-        status: "approved",
-        motivation:
-          "As an educator, I frequently recommend learning resources to my students.",
-        promotionChannels: ["Email List", "Social Media"],
-        performance: "good",
-      },
-      {
-        id: 3,
-        name: "Emily Davis",
-        email: "emily@example.com",
-        code: "EMILY35",
-        joinDate: "2024-03-15",
-        applicationDate: "2024-03-10",
-        referrals: 3,
-        earnings: 30,
-        status: "approved",
-        motivation:
-          "I run a book club and this would be perfect for our members.",
-        promotionChannels: ["Social Media", "Email List"],
-        performance: "average",
-      },
-      {
-        id: 4,
-        name: "Alex Rodriguez",
-        email: "alex@example.com",
-        code: null,
-        joinDate: null,
-        applicationDate: "2024-03-18",
-        referrals: 0,
-        earnings: 0,
-        status: "pending",
-        motivation:
-          "I'm a book influencer on Instagram with 50K followers focused on self-development books.",
-        promotionChannels: ["Social Media", "YouTube"],
-        performance: null,
-      },
-      {
-        id: 5,
-        name: "Jessica Brown",
-        email: "jessica@example.com",
-        code: null,
-        joinDate: null,
-        applicationDate: "2024-03-20",
-        referrals: 0,
-        earnings: 0,
-        status: "pending",
-        motivation:
-          "I have a popular podcast about digital education and would love to feature your library.",
-        promotionChannels: ["Podcast", "Social Media"],
-        performance: null,
-      },
-      {
-        id: 6,
-        name: "David Wilson",
-        email: "david@example.com",
-        code: null,
-        joinDate: null,
-        applicationDate: "2024-03-05",
-        referrals: 0,
-        earnings: 0,
-        status: "rejected",
-        motivation: "I want to make money online quickly.",
-        promotionChannels: ["Social Media"],
-        performance: null,
-        rejectionReason:
-          "Application lacked specific promotion plan and seemed focused only on quick earnings.",
-      },
-    ];
   };
 
   const filteredAffiliates = affiliates.filter((affiliate) => {
@@ -247,68 +92,76 @@ const ManageAffiliatesPage = () => {
       .join("");
   };
 
-  const handleApprove = (affiliateId) => {
-    const code = generateCode();
-
-    // Update in authStore
-    const affiliate = affiliates.find((aff) => aff.id === affiliateId);
-    if (affiliate?.userData) {
-      updateAffiliateStatus("approved", code);
+  const handleApprove = async (affiliateId) => {
+    try {
+      // TODO: Replace with actual API call
+      // await fetch(`/api/admin/affiliates/${affiliateId}/approve`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ code: generateCode() })
+      // });
+      
+      // Update local state temporarily
+      setAffiliates((prev) =>
+        prev.map((aff) =>
+          aff.id === affiliateId
+            ? {
+                ...aff,
+                status: "approved",
+                code: generateCode(),
+                joinDate: new Date().toISOString().split("T")[0],
+              }
+            : aff
+        )
+      );
+      setShowApproveModal(false);
+      setSelectedAffiliate(null);
+    } catch (error) {
+      console.error("Error approving affiliate:", error);
+      alert("Failed to approve affiliate. Please try again.");
     }
-
-    // Update local state
-    setAffiliates((prev) =>
-      prev.map((aff) =>
-        aff.id === affiliateId
-          ? {
-              ...aff,
-              status: "approved",
-              code: code,
-              joinDate: new Date().toISOString().split("T")[0],
-            }
-          : aff
-      )
-    );
-    setShowApproveModal(false);
-    setSelectedAffiliate(null);
   };
 
-  const handleReject = (affiliateId, reason) => {
-    // Update in authStore
-    const affiliate = affiliates.find((aff) => aff.id === affiliateId);
-    if (affiliate?.userData) {
-      updateAffiliateStatus("rejected");
+  const handleReject = async (affiliateId, reason) => {
+    try {
+      // TODO: Replace with actual API call
+      // await fetch(`/api/admin/affiliates/${affiliateId}/reject`, {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ reason })
+      // });
+      
+      // Update local state temporarily
+      setAffiliates((prev) =>
+        prev.map((aff) =>
+          aff.id === affiliateId
+            ? { ...aff, status: "rejected", rejectionReason: reason }
+            : aff
+        )
+      );
+      setShowRejectModal(false);
+      setSelectedAffiliate(null);
+    } catch (error) {
+      console.error("Error rejecting affiliate:", error);
+      alert("Failed to reject affiliate. Please try again.");
     }
-
-    // Update local state
-    setAffiliates((prev) =>
-      prev.map((aff) =>
-        aff.id === affiliateId
-          ? { ...aff, status: "rejected", rejectionReason: reason }
-          : aff
-      )
-    );
-    setShowRejectModal(false);
-    setSelectedAffiliate(null);
   };
 
-  const handleDelete = (affiliateId) => {
-    // Remove from applications if it's a pending application
-    const affiliateApplications = JSON.parse(
-      localStorage.getItem("affiliateApplications") || "[]"
-    );
-    const updatedApplications = affiliateApplications.filter(
-      (app) => app.id !== affiliateId
-    );
-    localStorage.setItem(
-      "affiliateApplications",
-      JSON.stringify(updatedApplications)
-    );
-
-    // Update local state
-    setAffiliates((prev) => prev.filter((aff) => aff.id !== affiliateId));
-    setShowDeleteModal(false);
-    setSelectedAffiliate(null);
+  const handleDelete = async (affiliateId) => {
+    try {
+      // TODO: Replace with actual API call
+      // await fetch(`/api/admin/affiliates/${affiliateId}`, {
+      //   method: 'DELETE'
+      // });
+      
+      // Update local state temporarily
+      setAffiliates((prev) => prev.filter((aff) => aff.id !== affiliateId));
+      setShowDeleteModal(false);
+      setSelectedAffiliate(null);
+    } catch (error) {
+      console.error("Error deleting affiliate:", error);
+      alert("Failed to delete affiliate. Please try again.");
+    }
   };
 
   const handleCopyCode = (code) => {
@@ -451,7 +304,7 @@ const ManageAffiliatesPage = () => {
         <Card className="p-4 text-center">
           <FiBarChart2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
           <div className="text-2xl font-bold text-green-600">
-            ${stats.totalEarnings}
+            ${stats.totalEarnings.toFixed(2)}
           </div>
           <div className="text-sm text-gray-600">Total Earnings Paid</div>
         </Card>
@@ -547,7 +400,7 @@ const ManageAffiliatesPage = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
-                      {affiliate.promotionChannels.map((channel, index) => (
+                      {affiliate.promotionChannels?.map((channel, index) => (
                         <span
                           key={index}
                           className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"
@@ -555,7 +408,7 @@ const ManageAffiliatesPage = () => {
                           {channel}
                         </span>
                       ))}
-                      {affiliate.promotionChannels.length === 0 && (
+                      {(!affiliate.promotionChannels || affiliate.promotionChannels.length === 0) && (
                         <span className="text-xs text-gray-500">
                           None specified
                         </span>
@@ -563,10 +416,10 @@ const ManageAffiliatesPage = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {affiliate.referrals}
+                    {affiliate.referrals || 0}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    ${affiliate.earnings.toFixed(2)}
+                    ${(affiliate.earnings || 0).toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     {getStatusBadge(affiliate.status)}
@@ -681,7 +534,7 @@ const ManageAffiliatesPage = () => {
                 Motivation
               </label>
               <p className="mt-1 text-sm text-gray-900 bg-gray-50 p-3 rounded">
-                {selectedAffiliate.motivation}
+                {selectedAffiliate.motivation || "No motivation provided"}
               </p>
             </div>
 
@@ -690,7 +543,7 @@ const ManageAffiliatesPage = () => {
                 Promotion Channels
               </label>
               <div className="mt-1 flex flex-wrap gap-2">
-                {selectedAffiliate.promotionChannels.map((channel, index) => (
+                {selectedAffiliate.promotionChannels?.map((channel, index) => (
                   <span
                     key={index}
                     className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
@@ -698,7 +551,7 @@ const ManageAffiliatesPage = () => {
                     {channel}
                   </span>
                 ))}
-                {selectedAffiliate.promotionChannels.length === 0 && (
+                {(!selectedAffiliate.promotionChannels || selectedAffiliate.promotionChannels.length === 0) && (
                   <span className="text-sm text-gray-500">
                     No channels specified
                   </span>

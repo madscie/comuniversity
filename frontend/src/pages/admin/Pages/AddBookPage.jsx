@@ -1,3 +1,4 @@
+// src/pages/admin/AddBookPage.jsx
 const AddBookPage = () => {
   return (
     <div>
@@ -6,4 +7,5 @@ const AddBookPage = () => {
     </div>
   );
 };
+
 export default AddBookPage;

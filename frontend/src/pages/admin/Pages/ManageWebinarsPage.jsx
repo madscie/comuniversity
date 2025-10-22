@@ -20,62 +20,28 @@ const ManageWebinarsPage = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingWebinar, setEditingWebinar] = useState(null);
 
-  // Mock data for webinars
-  const mockWebinars = [
-    {
-      id: 1,
-      title: "Introduction to Digital Literacy",
-      description:
-        "Learn the fundamentals of digital literacy and how to navigate online resources effectively.",
-      date: "2023-11-15T14:00:00",
-      duration: "60 mins",
-      speaker: "Dr. Sarah Johnson",
-      maxAttendees: 100,
-      currentAttendees: 78,
-      isUpcoming: true,
-      joinLink: "https://meet.google.com/abc-def-ghi",
-      recordingLink: null,
-      status: "scheduled",
-    },
-    {
-      id: 2,
-      title: "Advanced Research Techniques",
-      description:
-        "Discover advanced methods for academic research using digital library resources.",
-      date: "2023-11-20T16:30:00",
-      duration: "90 mins",
-      speaker: "Prof. Michael Chen",
-      maxAttendees: 50,
-      currentAttendees: 45,
-      isUpcoming: true,
-      joinLink: "https://meet.google.com/jkl-mno-pqr",
-      recordingLink: null,
-      status: "scheduled",
-    },
-    {
-      id: 3,
-      title: "Children's Literature in the Digital Age",
-      description:
-        "Exploring how children's literature has evolved with digital technology.",
-      date: "2023-10-10T10:00:00",
-      duration: "45 mins",
-      speaker: "Emily Rodriguez",
-      maxAttendees: 75,
-      currentAttendees: 62,
-      isUpcoming: false,
-      joinLink: null,
-      recordingLink: "https://youtube.com/recording-123",
-      status: "completed",
-    },
-  ];
-
   useEffect(() => {
-    // Simulate API fetch
-    setTimeout(() => {
-      setWebinars(mockWebinars);
-      setLoading(false);
-    }, 800);
+    loadWebinars();
   }, []);
+
+  const loadWebinars = async () => {
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/admin/webinars');
+      // const data = await response.json();
+      // setWebinars(data);
+      
+      // Temporary empty state until backend is ready
+      setWebinars([]);
+    } catch (error) {
+      console.error("Error loading webinars:", error);
+      // Empty state on error
+      setWebinars([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatDate = (dateString) => {
     const options = {
@@ -94,9 +60,20 @@ const ManageWebinarsPage = () => {
       webinar.speaker.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const handleDeleteWebinar = (id) => {
+  const handleDeleteWebinar = async (id) => {
     if (window.confirm("Are you sure you want to delete this webinar?")) {
-      setWebinars(webinars.filter((webinar) => webinar.id !== id));
+      try {
+        // TODO: Replace with actual API call
+        // await fetch(`/api/admin/webinars/${id}`, {
+        //   method: 'DELETE'
+        // });
+        
+        // Update local state temporarily
+        setWebinars(webinars.filter((webinar) => webinar.id !== id));
+      } catch (error) {
+        console.error("Error deleting webinar:", error);
+        alert("Failed to delete webinar. Please try again.");
+      }
     }
   };
 
@@ -110,26 +87,46 @@ const ManageWebinarsPage = () => {
     setShowModal(true);
   };
 
-  const handleSaveWebinar = (webinarData) => {
-    if (editingWebinar) {
-      // Update existing webinar
-      setWebinars(
-        webinars.map((w) =>
-          w.id === editingWebinar.id ? { ...w, ...webinarData } : w
-        )
-      );
-    } else {
-      // Add new webinar
-      const newWebinar = {
-        id: Math.max(...webinars.map((w) => w.id)) + 1,
-        ...webinarData,
-        currentAttendees: 0,
-        isUpcoming: true,
-        status: "scheduled",
-      };
-      setWebinars([...webinars, newWebinar]);
+  const handleSaveWebinar = async (webinarData) => {
+    try {
+      if (editingWebinar) {
+        // Update existing webinar
+        // await fetch(`/api/admin/webinars/${editingWebinar.id}`, {
+        //   method: 'PUT',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify(webinarData)
+        // });
+        
+        // Update local state temporarily
+        setWebinars(
+          webinars.map((w) =>
+            w.id === editingWebinar.id ? { ...w, ...webinarData } : w
+          )
+        );
+      } else {
+        // Add new webinar
+        // const response = await fetch('/api/admin/webinars', {
+        //   method: 'POST',
+        //   headers: { 'Content-Type': 'application/json' },
+        //   body: JSON.stringify(webinarData)
+        // });
+        // const newWebinar = await response.json();
+        
+        // Update local state temporarily
+        const newWebinar = {
+          id: Math.max(...webinars.map((w) => w.id), 0) + 1,
+          ...webinarData,
+          currentAttendees: 0,
+          isUpcoming: true,
+          status: "scheduled",
+        };
+        setWebinars([...webinars, newWebinar]);
+      }
+      setShowModal(false);
+    } catch (error) {
+      console.error("Error saving webinar:", error);
+      alert("Failed to save webinar. Please try again.");
     }
-    setShowModal(false);
   };
 
   if (loading) {
@@ -171,126 +168,125 @@ const ManageWebinarsPage = () => {
 
       {/* Webinars Grid */}
       <div className="grid gap-6">
-        {filteredWebinars.map((webinar) => (
-          <Card
-            key={webinar.id}
-            className="p-6 hover:shadow-lg transition-shadow"
-          >
-            <div className="flex flex-col md:flex-row gap-6">
-              <div className="flex-shrink-0">
-                <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                  <FiVideo className="h-8 w-8 text-blue-600" />
-                </div>
-              </div>
-
-              <div className="flex-grow">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-xl font-bold text-gray-900">
-                    {webinar.title}
-                  </h3>
-                  <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      webinar.status === "scheduled"
-                        ? "bg-green-100 text-green-800"
-                        : webinar.status === "completed"
-                        ? "bg-gray-100 text-gray-800"
-                        : "bg-yellow-100 text-yellow-800"
-                    }`}
-                  >
-                    {webinar.status}
-                  </span>
-                </div>
-
-                <p className="text-gray-600 mb-4">{webinar.description}</p>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                  <div className="flex items-center text-gray-700">
-                    <FiCalendar className="mr-2 text-blue-600" />
-                    <span>{formatDate(webinar.date)}</span>
+        {filteredWebinars.length === 0 ? (
+          <Card className="text-center py-12">
+            <div className="mx-auto bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl mb-6 w-24 h-24 flex items-center justify-center">
+              <FiVideo className="h-12 w-12 text-blue-600" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              No Webinars Found
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {searchTerm
+                ? "Try adjusting your search terms"
+                : "Get started by creating your first webinar"}
+            </p>
+            <Button onClick={handleAddWebinar}>
+              <FiPlus className="mr-2" />
+              Add Webinar
+            </Button>
+          </Card>
+        ) : (
+          filteredWebinars.map((webinar) => (
+            <Card
+              key={webinar.id}
+              className="p-6 hover:shadow-lg transition-shadow"
+            >
+              <div className="flex flex-col md:flex-row gap-6">
+                <div className="flex-shrink-0">
+                  <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                    <FiVideo className="h-8 w-8 text-blue-600" />
                   </div>
-                  <div className="flex items-center text-gray-700">
-                    <FiClock className="mr-2 text-blue-600" />
-                    <span>{webinar.duration}</span>
-                  </div>
-                  <div className="flex items-center text-gray-700">
-                    <FiUsers className="mr-2 text-blue-600" />
-                    <span>
-                      {webinar.currentAttendees}/{webinar.maxAttendees}{" "}
-                      attendees
+                </div>
+
+                <div className="flex-grow">
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="text-xl font-bold text-gray-900">
+                      {webinar.title}
+                    </h3>
+                    <span
+                      className={`px-2 py-1 text-xs font-medium rounded-full ${
+                        webinar.status === "scheduled"
+                          ? "bg-green-100 text-green-800"
+                          : webinar.status === "completed"
+                          ? "bg-gray-100 text-gray-800"
+                          : "bg-yellow-100 text-yellow-800"
+                      }`}
+                    >
+                      {webinar.status}
                     </span>
                   </div>
-                </div>
 
-                <div className="text-gray-700 mb-4">
-                  <span className="font-medium">Speaker:</span>{" "}
-                  {webinar.speaker}
-                </div>
+                  <p className="text-gray-600 mb-4">{webinar.description}</p>
 
-                <div className="flex flex-wrap gap-3">
-                  {webinar.isUpcoming ? (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="flex items-center text-gray-700">
+                      <FiCalendar className="mr-2 text-blue-600" />
+                      <span>{formatDate(webinar.date)}</span>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <FiClock className="mr-2 text-blue-600" />
+                      <span>{webinar.duration}</span>
+                    </div>
+                    <div className="flex items-center text-gray-700">
+                      <FiUsers className="mr-2 text-blue-600" />
+                      <span>
+                        {webinar.currentAttendees || 0}/{webinar.maxAttendees}{" "}
+                        attendees
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="text-gray-700 mb-4">
+                    <span className="font-medium">Speaker:</span>{" "}
+                    {webinar.speaker}
+                  </div>
+
+                  <div className="flex flex-wrap gap-3">
+                    {webinar.isUpcoming ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => window.open(webinar.joinLink, "_blank")}
+                      >
+                        <FiExternalLink className="mr-1" />
+                        Join Link
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() =>
+                          window.open(webinar.recordingLink, "_blank")
+                        }
+                      >
+                        <FiVideo className="mr-1" />
+                        Recording
+                      </Button>
+                    )}
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => window.open(webinar.joinLink, "_blank")}
+                      variant="primary"
+                      onClick={() => handleEditWebinar(webinar)}
                     >
-                      <FiExternalLink className="mr-1" />
-                      Join Link
+                      <FiEdit className="mr-1" />
+                      Edit
                     </Button>
-                  ) : (
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() =>
-                        window.open(webinar.recordingLink, "_blank")
-                      }
+                      variant="danger"
+                      onClick={() => handleDeleteWebinar(webinar.id)}
                     >
-                      <FiVideo className="mr-1" />
-                      Recording
+                      <FiTrash2 className="mr-1" />
+                      Delete
                     </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={() => handleEditWebinar(webinar)}
-                  >
-                    <FiEdit className="mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="danger"
-                    onClick={() => handleDeleteWebinar(webinar.id)}
-                  >
-                    <FiTrash2 className="mr-1" />
-                    Delete
-                  </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))
+        )}
       </div>
-
-      {/* Empty State */}
-      {filteredWebinars.length === 0 && (
-        <Card className="text-center py-12">
-          <div className="mx-auto bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl mb-6 w-24 h-24 flex items-center justify-center">
-            <FiVideo className="h-12 w-12 text-blue-600" />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">
-            No Webinars Found
-          </h3>
-          <p className="text-gray-600 mb-6">
-            {searchTerm
-              ? "Try adjusting your search terms"
-              : "Get started by creating your first webinar"}
-          </p>
-          <Button onClick={handleAddWebinar}>
-            <FiPlus className="mr-2" />
-            Add Webinar
-          </Button>
-        </Card>
-      )}
 
       {/* Webinar Modal */}
       {showModal && (
@@ -317,13 +313,17 @@ const WebinarModal = ({ webinar, onSave, onClose }) => {
     joinLink: webinar?.joinLink || "",
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    const dateTime = new Date(`${formData.date}T${formData.time}`);
-    onSave({
-      ...formData,
-      date: dateTime.toISOString(),
-    });
+    try {
+      const dateTime = new Date(`${formData.date}T${formData.time}`);
+      await onSave({
+        ...formData,
+        date: dateTime.toISOString(),
+      });
+    } catch (error) {
+      console.error("Error submitting webinar form:", error);
+    }
   };
 
   return (

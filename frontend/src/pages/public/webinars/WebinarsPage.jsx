@@ -6,67 +6,60 @@ import Button from "../../../components/UI/Button";
 const WebinarsPage = () => {
   const [webinars, setWebinars] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("upcoming");
 
-  // Mock data for webinars
-  const mockWebinars = [
-    {
-      id: 1,
-      title: "Introduction to Digital Literacy",
-      description:
-        "Learn the fundamentals of digital literacy and how to navigate online resources effectively.",
-      date: "2023-11-15T14:00:00",
-      duration: "60 mins",
-      speaker: "Dr. Sarah Johnson",
-      isUpcoming: true,
-      joinLink: "https://meet.google.com/abc-def-ghi",
-      recordingLink: null,
-    },
-    {
-      id: 2,
-      title: "Advanced Research Techniques",
-      description:
-        "Discover advanced methods for academic research using digital library resources.",
-      date: "2023-11-20T16:30:00",
-      duration: "90 mins",
-      speaker: "Prof. Michael Chen",
-      isUpcoming: true,
-      joinLink: "https://meet.google.com/jkl-mno-pqr",
-      recordingLink: null,
-    },
-    {
-      id: 3,
-      title: "Children's Literature in the Digital Age",
-      description:
-        "Exploring how children's literature has evolved with digital technology.",
-      date: "2023-10-10T10:00:00",
-      duration: "45 mins",
-      speaker: "Emily Rodriguez",
-      isUpcoming: false,
-      joinLink: null,
-      recordingLink: "https://youtube.com/recording-123",
-    },
-    {
-      id: 4,
-      title: "Preserving Cultural Heritage Through Digital Archives",
-      description:
-        "How digital libraries are helping preserve cultural heritage for future generations.",
-      date: "2023-09-05T11:30:00",
-      duration: "75 mins",
-      speaker: "Dr. James Williams",
-      isUpcoming: false,
-      joinLink: null,
-      recordingLink: "https://youtube.com/recording-456",
-    },
-  ];
-
   useEffect(() => {
-    // Simulate API fetch
-    setTimeout(() => {
-      setWebinars(mockWebinars);
-      setLoading(false);
-    }, 800);
+    fetchWebinars();
   }, []);
+
+  const fetchWebinars = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // TODO: Replace with actual API call
+      // const response = await webinarAPI.getAll();
+      // setWebinars(response.data);
+      
+      // For now, set empty array until backend is ready
+      setWebinars([]);
+      
+    } catch (err) {
+      console.error("Error fetching webinars:", err);
+      setError("Failed to load webinars. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleJoinWebinar = async (webinarId) => {
+    try {
+      // TODO: Replace with actual API call
+      // const response = await webinarAPI.generateJoinLink(webinarId);
+      // window.open(response.data.joinLink, "_blank");
+      
+      console.log("Join webinar:", webinarId);
+      // Temporary: Will be replaced with actual join logic
+    } catch (err) {
+      console.error("Error joining webinar:", err);
+      setError("Failed to join webinar. Please try again.");
+    }
+  };
+
+  const handleWatchRecording = async (webinarId) => {
+    try {
+      // TODO: Replace with actual API call
+      // const response = await webinarAPI.getRecording(webinarId);
+      // window.open(response.data.recordingLink, "_blank");
+      
+      console.log("Watch recording for webinar:", webinarId);
+      // Temporary: Will be replaced with actual recording logic
+    } catch (err) {
+      console.error("Error accessing recording:", err);
+      setError("Failed to access recording. Please try again.");
+    }
+  };
 
   const formatDate = (dateString) => {
     const options = {
@@ -79,16 +72,28 @@ const WebinarsPage = () => {
     return new Date(dateString).toLocaleDateString("en-US", options);
   };
 
-  const upcomingWebinars = webinars.filter((webinar) => webinar.isUpcoming);
-  const pastWebinars = webinars.filter((webinar) => !webinar.isUpcoming);
+  // Determine if webinar is upcoming based on date
+  const isWebinarUpcoming = (webinar) => {
+    const webinarDate = new Date(webinar.date);
+    const now = new Date();
+    return webinarDate > now;
+  };
+
+  const upcomingWebinars = webinars.filter((webinar) => isWebinarUpcoming(webinar));
+  const pastWebinars = webinars.filter((webinar) => !isWebinarUpcoming(webinar));
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Webinars</h1>
-            <p className="text-xl text-gray-700">Loading upcoming events...</p>
+            <span className="text-transparent text-7xl font-bold bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+              Webinars Section
+            </span>
+            <p className="text-xl text-gray-700 max-w-3xl mx-auto">
+              Join our live educational sessions or watch recordings of past
+              webinars to expand your knowledge.
+            </p>
           </div>
           <div className="flex justify-center">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
@@ -102,7 +107,6 @@ const WebinarsPage = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
-          {/* <h1 className="text-6xl font-bold text-gray-900 mb-4"></h1> */}
           <span className="text-transparent text-7xl font-bold bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
             Webinars Section
           </span>
@@ -111,6 +115,20 @@ const WebinarsPage = () => {
             webinars to expand your knowledge.
           </p>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-center">
+            <p className="text-red-700">{error}</p>
+            <Button 
+              variant="primary" 
+              onClick={fetchWebinars}
+              className="mt-2"
+            >
+              Retry
+            </Button>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex justify-center mb-10">
@@ -174,10 +192,10 @@ const WebinarsPage = () => {
                       </div>
                     </div>
 
-                    {webinar.isUpcoming ? (
+                    {isWebinarUpcoming(webinar) ? (
                       <Button
                         variant="gradient"
-                        onClick={() => window.open(webinar.joinLink, "_blank")}
+                        onClick={() => handleJoinWebinar(webinar.id)}
                         className="flex items-center"
                       >
                         <FiExternalLink className="mr-2" />
@@ -186,9 +204,7 @@ const WebinarsPage = () => {
                     ) : (
                       <Button
                         variant="outline"
-                        onClick={() =>
-                          window.open(webinar.recordingLink, "_blank")
-                        }
+                        onClick={() => handleWatchRecording(webinar.id)}
                         className="flex items-center"
                       >
                         <FiVideo className="mr-2" />

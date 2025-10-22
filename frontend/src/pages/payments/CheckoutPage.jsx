@@ -1,4 +1,3 @@
-// pages/checkout/CheckoutDownloadPage.jsx
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -15,7 +14,6 @@ import {
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
 import { useAuthStore } from "../../store/authStore";
-import { booksData, getBookById } from "../../data/BookData";
 import DownloadHandler from "../../components/Download/DownloadHandler";
 
 const CheckoutDownloadPage = () => {
@@ -33,26 +31,20 @@ const CheckoutDownloadPage = () => {
       setLoading(true);
       console.log("Fetching book with ID:", bookId);
 
-      setTimeout(() => {
-        try {
-          const foundBook = getBookById(parseInt(bookId));
-          console.log("Found book:", foundBook);
-
-          if (!foundBook) {
-            const bookFromArray = booksData.find(
-              (b) => b.id === parseInt(bookId)
-            );
-            setBook(bookFromArray || null);
-          } else {
-            setBook(foundBook);
-          }
-        } catch (error) {
-          console.error("Error fetching book:", error);
-          setBook(null);
-        } finally {
-          setLoading(false);
-        }
-      }, 1000);
+      try {
+        // TODO: Replace with actual API call
+        // const response = await fetch(`/api/books/${bookId}`);
+        // const bookData = await response.json();
+        // setBook(bookData);
+        
+        // Temporary empty state until backend is ready
+        setBook(null);
+      } catch (error) {
+        console.error("Error fetching book:", error);
+        setBook(null);
+      } finally {
+        setLoading(false);
+      }
     };
 
     if (bookId) {
@@ -164,7 +156,7 @@ const CheckoutDownloadPage = () => {
                   Select Download Format
                 </label>
                 <div className="flex space-x-3">
-                  {book.format.includes("PDF") && (
+                  {book.format?.includes("PDF") && (
                     <button
                       type="button"
                       className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors ${
@@ -177,7 +169,7 @@ const CheckoutDownloadPage = () => {
                       PDF
                     </button>
                   )}
-                  {book.format.includes("EPUB") && (
+                  {book.format?.includes("EPUB") && (
                     <button
                       type="button"
                       className={`px-4 py-2 border rounded-lg text-sm font-medium transition-colors ${
@@ -202,10 +194,9 @@ const CheckoutDownloadPage = () => {
                   Secure Payment
                 </h2>
               </div>
-              {/* DownloadHandler Component for Payment & Download */}
-              // In CheckoutDownloadPage.jsx
+              
               <DownloadHandler
-                bookId={book.id} // This is crucial!
+                bookId={book.id}
                 bookTitle={book.title}
                 bookAuthor={book.author}
                 price={book.price}
@@ -253,13 +244,13 @@ const CheckoutDownloadPage = () => {
                 <div className="flex items-center">
                   <FiBook className="h-5 w-5 text-green-500 mr-3" />
                   <span className="text-gray-700">
-                    Multiple formats: {book.format}
+                    Multiple format options
                   </span>
                 </div>
                 <div className="flex items-center">
                   <FiCheck className="h-5 w-5 text-green-500 mr-3" />
                   <span className="text-gray-700">
-                    30-day money-back guarantee
+                    Money-back guarantee
                   </span>
                 </div>
               </div>
@@ -296,10 +287,10 @@ const CheckoutDownloadPage = () => {
                 Need Help?
               </h2>
               <div className="space-y-2 text-sm text-gray-600">
-                <p>• 24/7 Customer Support</p>
-                <p>• Instant Download Assistance</p>
+                <p>• Customer Support Available</p>
+                <p>• Download Assistance</p>
                 <p>• Format Compatibility Help</p>
-                <p>• Money-back Guarantee</p>
+                <p>• Satisfaction Guarantee</p>
               </div>
             </Card>
           </div>

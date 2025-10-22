@@ -1,4 +1,3 @@
-// pages/affiliate/AffiliateStatus.jsx
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -21,48 +20,37 @@ const AffiliateStatus = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Simulate loading application data
-    const loadApplicationData = () => {
-      setIsLoading(true);
+    loadApplicationData();
+  }, [user]);
 
-      // Get application data from localStorage or use current user data
-      const affiliateApplications = JSON.parse(
-        localStorage.getItem("affiliateApplications") || "[]"
-      );
-      const userApplication = affiliateApplications.find(
-        (app) => app.userId === user?.id
-      );
+  const loadApplicationData = async () => {
+    setIsLoading(true);
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch(`/api/affiliate/application/${user?.id}`);
+      // const applicationData = await response.json();
+      // setApplication(applicationData);
 
-      if (userApplication) {
+      // Temporary empty state until backend is ready
+      if (user?.affiliateStatus) {
         setApplication({
-          ...userApplication,
-          status: user?.affiliateStatus || "pending",
-          submittedDate:
-            userApplication.applicationDate ||
-            new Date().toISOString().split("T")[0],
-        });
-      } else {
-        // Create a mock application based on user data
-        setApplication({
-          id: user?.id,
-          status: user?.affiliateStatus || "pending",
-          submittedDate:
-            user?.joinDate?.split("T")[0] ||
-            new Date().toISOString().split("T")[0],
-          motivation:
-            "Your affiliate application is being reviewed by our team.",
-          promotionChannels: ["Social Media", "Other"],
+          status: user.affiliateStatus,
+          submittedDate: user.joinDate?.split("T")[0] || new Date().toISOString().split("T")[0],
+          // These will come from the actual application data in the backend
+          motivation: "",
+          promotionChannels: [],
           estimatedReviewTime: "24-48 hours",
         });
+      } else {
+        setApplication(null);
       }
-
+    } catch (error) {
+      console.error("Error loading application data:", error);
+      setApplication(null);
+    } finally {
       setIsLoading(false);
-    };
-
-    if (user) {
-      loadApplicationData();
     }
-  }, [user]);
+  };
 
   const getStatusConfig = (status) => {
     const configs = {
@@ -71,13 +59,12 @@ const AffiliateStatus = () => {
         color: "text-yellow-500",
         bgColor: "bg-yellow-100",
         title: "Application Under Review",
-        description:
-          "Your affiliate application is being reviewed by our team.",
+        description: "Your affiliate application is being reviewed by our team.",
         timeline: [
           {
             step: "Application Submitted",
             status: "completed",
-            date: application?.submittedDate,
+            date: application?.submittedDate || "Recently",
           },
           { step: "Under Review", status: "current", date: "In progress" },
           { step: "Decision", status: "pending", date: "Pending" },
@@ -88,16 +75,15 @@ const AffiliateStatus = () => {
         color: "text-green-500",
         bgColor: "bg-green-100",
         title: "Application Approved!",
-        description:
-          "Congratulations! Your affiliate application has been approved.",
+        description: "Congratulations! Your affiliate application has been approved.",
         timeline: [
           {
             step: "Application Submitted",
             status: "completed",
-            date: application?.submittedDate,
+            date: application?.submittedDate || "Recently",
           },
           { step: "Under Review", status: "completed", date: "Completed" },
-          { step: "Approved", status: "completed", date: "Just now" },
+          { step: "Approved", status: "completed", date: new Date().toLocaleDateString() },
         ],
       },
       rejected: {
@@ -105,16 +91,15 @@ const AffiliateStatus = () => {
         color: "text-red-500",
         bgColor: "bg-red-100",
         title: "Application Not Approved",
-        description:
-          "We're sorry, but your affiliate application was not approved at this time.",
+        description: "We're sorry, but your affiliate application was not approved at this time.",
         timeline: [
           {
             step: "Application Submitted",
             status: "completed",
-            date: application?.submittedDate,
+            date: application?.submittedDate || "Recently",
           },
           { step: "Under Review", status: "completed", date: "Completed" },
-          { step: "Not Approved", status: "completed", date: "Just now" },
+          { step: "Not Approved", status: "completed", date: new Date().toLocaleDateString() },
         ],
       },
     };
@@ -126,7 +111,6 @@ const AffiliateStatus = () => {
     if (user?.affiliateStatus === "approved") {
       navigate("/affiliate-dashboard");
     } else {
-      // If not approved but trying to access dashboard, show message
       alert(
         "Your affiliate application is still under review. You'll get access to the dashboard once approved."
       );
@@ -146,6 +130,26 @@ const AffiliateStatus = () => {
             <h3 className="text-lg font-semibold text-gray-900">
               Loading your application status...
             </h3>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (!application) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4">
+          <Card className="text-center p-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              No Application Found
+            </h3>
+            <p className="text-gray-600 mb-6">
+              You haven't submitted an affiliate application yet.
+            </p>
+            <Button onClick={() => navigate("/affiliate-signup")}>
+              Apply to Become an Affiliate
+            </Button>
           </Card>
         </div>
       </div>
@@ -211,7 +215,7 @@ const AffiliateStatus = () => {
                       Submitted On
                     </h3>
                     <p className="text-gray-600">
-                      {application?.submittedDate}
+                      {application?.submittedDate || "Date not available"}
                     </p>
                   </div>
                   <div className="text-center p-4 bg-gray-50 rounded-lg">

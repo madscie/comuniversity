@@ -20,61 +20,28 @@ const UserManagementPage = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [loading, setLoading] = useState(true);
 
-  // Mock data for users
-  const mockUsers = [
-    {
-      id: 1,
-      name: "John Doe",
-      email: "john.doe@example.com",
-      joinDate: "2024-01-15",
-      lastLogin: "2024-03-20T14:30:00",
-      status: "active",
-      role: "user",
-      booksBorrowed: 12,
-      avatar: null,
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane.smith@example.com",
-      joinDate: "2024-02-01",
-      lastLogin: "2024-03-19T10:15:00",
-      status: "active",
-      role: "premium",
-      booksBorrowed: 25,
-      avatar: null,
-    },
-    {
-      id: 3,
-      name: "Mike Johnson",
-      email: "mike.j@example.com",
-      joinDate: "2024-01-20",
-      lastLogin: "2024-03-10T16:45:00",
-      status: "inactive",
-      role: "user",
-      booksBorrowed: 3,
-      avatar: null,
-    },
-    {
-      id: 4,
-      name: "Sarah Wilson",
-      email: "sarah.wilson@example.com",
-      joinDate: "2024-03-01",
-      lastLogin: "2024-03-21T09:20:00",
-      status: "active",
-      role: "admin",
-      booksBorrowed: 8,
-      avatar: null,
-    },
-  ];
-
   useEffect(() => {
-    // Simulate API fetch
-    setTimeout(() => {
-      setUsers(mockUsers);
-      setLoading(false);
-    }, 800);
+    loadUsers();
   }, []);
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/admin/users');
+      // const data = await response.json();
+      // setUsers(data);
+      
+      // Temporary empty state until backend is ready
+      setUsers([]);
+    } catch (error) {
+      console.error("Error loading users:", error);
+      // Empty state on error
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const formatDate = (dateString) => {
     const options = { year: "numeric", month: "short", day: "numeric" };
@@ -103,23 +70,50 @@ const UserManagementPage = () => {
     return matchesSearch && matchesFilter;
   });
 
-  const handleDeleteUser = (id) => {
+  const handleDeleteUser = async (id) => {
     if (window.confirm("Are you sure you want to delete this user?")) {
-      setUsers(users.filter((user) => user.id !== id));
+      try {
+        // TODO: Replace with actual API call
+        // await fetch(`/api/admin/users/${id}`, {
+        //   method: 'DELETE'
+        // });
+        
+        // Update local state temporarily
+        setUsers(users.filter((user) => user.id !== id));
+      } catch (error) {
+        console.error("Error deleting user:", error);
+        alert("Failed to delete user. Please try again.");
+      }
     }
   };
 
-  const handleToggleStatus = (id) => {
-    setUsers(
-      users.map((user) =>
-        user.id === id
-          ? {
-              ...user,
-              status: user.status === "active" ? "inactive" : "active",
-            }
-          : user
-      )
-    );
+  const handleToggleStatus = async (id) => {
+    try {
+      const user = users.find(u => u.id === id);
+      const newStatus = user.status === "active" ? "inactive" : "active";
+      
+      // TODO: Replace with actual API call
+      // await fetch(`/api/admin/users/${id}/status`, {
+      //   method: 'PATCH',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ status: newStatus })
+      // });
+      
+      // Update local state temporarily
+      setUsers(
+        users.map((user) =>
+          user.id === id
+            ? {
+                ...user,
+                status: newStatus,
+              }
+            : user
+        )
+      );
+    } catch (error) {
+      console.error("Error updating user status:", error);
+      alert("Failed to update user status. Please try again.");
+    }
   };
 
   const getStatusBadge = (status) => {
@@ -219,99 +213,100 @@ const UserManagementPage = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
-                        <FiUser className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {user.name}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {user.email}
-                        </div>
-                      </div>
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-12 text-center">
+                    <div className="text-gray-500">
+                      <FiUser className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        No users found
+                      </h3>
+                      <p className="text-gray-600">
+                        {users.length === 0
+                          ? "No users registered yet."
+                          : "Try changing your search or filter criteria."}
+                      </p>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDate(user.joinDate)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDateTime(user.lastLogin)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadge(
-                        user.role
-                      )}`}
-                    >
-                      {user.role}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {user.booksBorrowed}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span
-                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(
-                        user.status
-                      )}`}
-                    >
-                      {user.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
-                    <button
-                      onClick={() => handleToggleStatus(user.id)}
-                      className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-                        user.status === "active"
-                          ? "text-red-600 hover:text-red-900"
-                          : "text-green-600 hover:text-green-900"
-                      }`}
-                    >
-                      {user.status === "active" ? (
-                        <FiXCircle className="mr-1" />
-                      ) : (
-                        <FiCheckCircle className="mr-1" />
-                      )}
-                      {user.status === "active" ? "Deactivate" : "Activate"}
-                    </button>
-                    <button className="text-blue-600 hover:text-blue-900">
-                      <FiEdit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteUser(user.id)}
-                      className="text-red-600 hover:text-red-900"
-                    >
-                      <FiTrash2 className="h-4 w-4" />
-                    </button>
-                  </td>
                 </tr>
-              ))}
+              ) : (
+                filteredUsers.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-full flex items-center justify-center">
+                          <FiUser className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900">
+                            {user.name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDate(user.joinDate)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {formatDateTime(user.lastLogin)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadge(
+                          user.role
+                        )}`}
+                      >
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {user.booksBorrowed || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(
+                          user.status
+                        )}`}
+                      >
+                        {user.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => handleToggleStatus(user.id)}
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                          user.status === "active"
+                            ? "text-red-600 hover:text-red-900"
+                            : "text-green-600 hover:text-green-900"
+                        }`}
+                      >
+                        {user.status === "active" ? (
+                          <FiXCircle className="mr-1" />
+                        ) : (
+                          <FiCheckCircle className="mr-1" />
+                        )}
+                        {user.status === "active" ? "Deactivate" : "Activate"}
+                      </button>
+                      <button className="text-blue-600 hover:text-blue-900">
+                        <FiEdit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(user.id)}
+                        className="text-red-600 hover:text-red-900"
+                      >
+                        <FiTrash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </Card>
-
-      {/* Empty State */}
-      {filteredUsers.length === 0 && (
-        <Card className="text-center py-12">
-          <div className="mx-auto bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl mb-6 w-24 h-24 flex items-center justify-center">
-            <FiUser className="h-12 w-12 text-blue-600" />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">
-            No Users Found
-          </h3>
-          <p className="text-gray-600">
-            {searchTerm || filterStatus !== "all"
-              ? "Try adjusting your search or filter terms"
-              : "No users registered yet"}
-          </p>
-        </Card>
-      )}
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
@@ -334,7 +329,7 @@ const UserManagementPage = () => {
         </Card>
         <Card className="p-6 text-center">
           <div className="text-2xl font-bold text-gray-900">
-            {users.reduce((sum, user) => sum + user.booksBorrowed, 0)}
+            {users.reduce((sum, user) => sum + (user.booksBorrowed || 0), 0)}
           </div>
           <div className="text-sm text-gray-600">Total Books Borrowed</div>
         </Card>
