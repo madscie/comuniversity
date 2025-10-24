@@ -164,6 +164,15 @@ export const api = {
     });
   },
 
+  uploadArticleDocument: async (file) => {
+    const formData = new FormData();
+    formData.append('document', file);
+    return apiCall('/admin/articles/upload-document', {
+      method: 'POST',
+      body: formData
+    });
+  },
+
   // Articles - Public
   getArticles: async (params = {}) => {
     const queryParams = new URLSearchParams(params).toString();
@@ -177,5 +186,57 @@ export const api = {
 
   getArticleCategories: async () => {
     return apiCall('/articles/categories');
+  },
+
+  // Webinars - Admin
+  getAdminWebinars: async () => {
+    return apiCall('/admin/webinars');
+  },
+
+  createWebinar: async (webinarData) => {
+    return apiCall('/admin/webinars', {
+      method: 'POST',
+      body: webinarData
+    });
+  },
+
+  updateWebinar: async (id, webinarData) => {
+    return apiCall(`/admin/webinars/${id}`, {
+      method: 'PUT',
+      body: webinarData
+    });
+  },
+
+  deleteWebinar: async (id) => {
+    return apiCall(`/admin/webinars/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  uploadWebinarImage: async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return apiCall('/admin/webinars/upload-image', {
+      method: 'POST',
+      body: formData
+    });
+  },
+
+  // Webinars - Public
+  getWebinars: async (params = {}) => {
+    const queryParams = new URLSearchParams(params).toString();
+    const url = queryParams ? `/webinars?${queryParams}` : '/webinars';
+    return apiCall(url);
+  },
+
+  getWebinarById: async (id) => {
+    return apiCall(`/webinars/${id}`);
+  },
+
+  registerForWebinar: async (webinarId, userData) => {
+    return apiCall(`/webinars/${webinarId}/register`, {
+      method: 'POST',
+      body: userData
+    });
   }
 };

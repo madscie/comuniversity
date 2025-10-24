@@ -1,571 +1,558 @@
-// src/pages/admin/ArticleFormModal.jsx
+// src/pages/admin/ManageArticlesPage.jsx
 import { useState, useEffect } from "react";
 import {
-  FiX,
-  FiUpload,
+  FiEdit,
+  FiTrash2,
+  FiPlus,
+  FiSearch,
+  FiEye,
   FiFileText,
-  FiDollarSign,
-  FiClock,
-  FiTag,
   FiUser,
+  FiTag,
+  FiCalendar,
+  FiBarChart2,
+  FiDollarSign,
   FiBook
 } from "react-icons/fi";
-import Modal from "../../../components/UI/Modal";
+import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
+import ArticleFormModal from "./ArticleFormModal";
+import { api } from "../../../config/api";
 
-const ArticleFormModal = ({
-  isOpen,
-  onClose,
-  article,
-  onSave,
-  isLoading,
-  categories
-}) => {
-  const [formData, setFormData] = useState({
-    title: "",
-    content: "",
-    excerpt: "",
-    author: "",
-    category: "",
-    dewey_decimal: "",
-    price: "0.00",
-    is_premium: false,
-    readTime: "5",
-    status: "draft",
-    featured: false,
-    tags: ""
-  });
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState("");
-  const [documentFile, setDocumentFile] = useState(null);
-  const [documentPreview, setDocumentPreview] = useState("");
-  const [errors, setErrors] = useState({});
+const ManageArticlesPage = () => {
+  const [articles, setArticles] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterCategory, setFilterCategory] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedArticle, setSelectedArticle] = useState(null);
+  const [saveLoading, setSaveLoading] = useState(false);
+
+  const categories = [
+    "Technology",
+    "Education",
+    "Science",
+    "Health",
+    "Business",
+    "Arts",
+    "Literature",
+    "History",
+    "Travel",
+    "Lifestyle",
+    "Other"
+  ];
 
   useEffect(() => {
-    if (article) {
-      setFormData({
-        title: article.title || "",
-        content: article.content || "",
-        excerpt: article.excerpt || "",
-        author: article.author || "",
-        category: article.category || "",
-        dewey_decimal: article.dewey_decimal || "",
-        price: parseFloat(article.price || 0).toFixed(2),
-        is_premium: Boolean(article.is_premium),
-        readTime: article.read_time?.toString() || "5",
-        status: article.status || "draft",
-        featured: Boolean(article.featured),
-        tags: Array.isArray(article.tags) ? article.tags.join(", ") : (article.tags || "")
-      });
-      setImagePreview(article.image_url || "");
-      setDocumentPreview(article.file_url ? article.file_name : "");
-    } else {
-      // Reset form for new article
-      setFormData({
-        title: "",
-        content: "",
-        excerpt: "",
-        author: "",
-        category: "",
-        dewey_decimal: "",
-        price: "0.00",
-        is_premium: false,
-        readTime: "5",
-        status: "draft",
-        featured: false,
-        tags: ""
-      });
-      setImageFile(null);
-      setImagePreview("");
-      setDocumentFile(null);
-      setDocumentPreview("");
-    }
-    setErrors({});
-  }, [article, isOpen]);
+    loadArticles();
+  }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: type === "checkbox" ? checked : value
-    }));
-  };
-
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setErrors(prev => ({ ...prev, image: 'Please select a valid image file' }));
-        return;
-      }
-
-      // Validate file size (5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, image: 'Image size must be less than 5MB' }));
-        return;
-      }
-
-      setImageFile(file);
-      setErrors(prev => ({ ...prev, image: '' }));
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target.result);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleDocumentChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file type
-      const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain'
-      ];
-      
-      if (!allowedTypes.includes(file.type)) {
-        setErrors(prev => ({ ...prev, document: 'Please select a PDF, Word, or text document' }));
-        return;
-      }
-
-      // Validate file size (10MB)
-      if (file.size > 10 * 1024 * 1024) {
-        setErrors(prev => ({ ...prev, document: 'Document size must be less than 10MB' }));
-        return;
-      }
-
-      setDocumentFile(file);
-      setErrors(prev => ({ ...prev, document: '' }));
-      setDocumentPreview(file.name);
-    }
-  };
-
-  const removeImage = () => {
-    setImageFile(null);
-    setImagePreview("");
-  };
-
-  const removeDocument = () => {
-    setDocumentFile(null);
-    setDocumentPreview("");
-  };
-
-  const validateForm = () => {
-    const newErrors = {};
-
-    if (!formData.title.trim()) newErrors.title = "Title is required";
-    if (!formData.author.trim()) newErrors.author = "Author is required";
-    if (!formData.category) newErrors.category = "Category is required";
-    if (!formData.content.trim()) newErrors.content = "Content is required";
-    if (formData.dewey_decimal && !/^\d{3}\.\d+$/.test(formData.dewey_decimal)) {
-      newErrors.dewey_decimal = "Please enter a valid Dewey Decimal (e.g., 123.45)";
-    }
-    if (formData.price && parseFloat(formData.price) < 0) {
-      newErrors.price = "Price cannot be negative";
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-
+  const loadArticles = async () => {
+    setIsLoading(true);
     try {
-      await onSave(
-        {
-          ...formData,
-          imageFile,
-          documentFile
-        },
-        article?.id
-      );
-      onClose();
+      const response = await api.getAdminArticles();
+      if (response.success) {
+        setArticles(response.data.articles || []);
+      } else {
+        console.error('Failed to load articles:', response.message);
+        setArticles([]);
+      }
     } catch (error) {
-      console.error("Error saving article:", error);
-      // Error is handled in the parent component
+      console.error("Error loading articles:", error);
+      setArticles([]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const generateExcerpt = () => {
-    if (formData.content && !formData.excerpt) {
-      const plainText = formData.content.replace(/<[^>]*>/g, '');
-      const excerpt = plainText.substring(0, 150).trim() + (plainText.length > 150 ? '...' : '');
-      setFormData(prev => ({ ...prev, excerpt }));
+  const handleAddArticle = () => {
+    setSelectedArticle(null);
+    setIsModalOpen(true);
+  };
+
+  const handleEditArticle = (article) => {
+    setSelectedArticle(article);
+    setIsModalOpen(true);
+  };
+
+  const handleSaveArticle = async (articleData, articleId) => {
+    setSaveLoading(true);
+    try {
+      // Prepare data for API - ensure all fields are properly formatted
+      const submissionData = {
+        title: articleData.title,
+        content: articleData.content,
+        excerpt: articleData.excerpt,
+        author: articleData.author,
+        category: articleData.category,
+        read_time: parseInt(articleData.readTime) || 5,
+        status: articleData.status,
+        featured: Boolean(articleData.featured),
+        tags: articleData.tags ? articleData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
+        dewey_decimal: articleData.deweyDecimal || null,
+        amount: articleData.amount ? parseFloat(articleData.amount) : null
+      };
+
+      console.log('💾 Saving article with data:', submissionData);
+
+      // Handle image upload if available
+      if (articleData.imageFile) {
+        try {
+          console.log('🖼️ Uploading article image...');
+          const uploadResponse = await api.uploadArticleImage(articleData.imageFile);
+          if (uploadResponse.success) {
+            submissionData.image_url = uploadResponse.data.imageUrl;
+            console.log('✅ Image uploaded:', uploadResponse.data.imageUrl);
+          }
+        } catch (uploadError) {
+          console.error('❌ Error uploading image:', uploadError);
+          // Continue without image - don't throw error
+        }
+      }
+
+      // Handle document upload if available
+      if (articleData.documentFile) {
+        try {
+          console.log('📄 Uploading article document...');
+          const uploadResponse = await api.uploadArticleDocument(articleData.documentFile);
+          if (uploadResponse.success) {
+            submissionData.file_url = uploadResponse.data.fileUrl;
+            submissionData.file_name = uploadResponse.data.fileName;
+            submissionData.file_type = uploadResponse.data.fileType;
+            submissionData.file_size = uploadResponse.data.fileSize;
+            console.log('✅ Document uploaded:', uploadResponse.data.fileUrl);
+          }
+        } catch (uploadError) {
+          console.error('❌ Error uploading document:', uploadError);
+          // Continue without document - don't throw error
+        }
+      }
+
+      let response;
+      if (articleId) {
+        console.log(`🔄 Updating existing article: ${articleId}`);
+        response = await api.updateArticle(articleId, submissionData);
+      } else {
+        console.log('🆕 Creating new article');
+        response = await api.createArticle(submissionData);
+      }
+
+      if (response.success) {
+        console.log('✅ Article saved successfully');
+        await loadArticles();
+        return response;
+      } else {
+        console.error('❌ Save failed:', response.message);
+        throw new Error(response.message || 'Failed to save article');
+      }
+    } catch (error) {
+      console.error("💥 Error in handleSaveArticle:", error);
+      throw new Error(error.message || "Failed to save article. Please try again.");
+    } finally {
+      setSaveLoading(false);
     }
   };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedArticle(null);
+  };
+
+  const filteredArticles = articles.filter((article) => {
+    const matchesSearch =
+      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (article.excerpt && article.excerpt.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (article.dewey_decimal && article.dewey_decimal.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const matchesCategory =
+      filterCategory === "all" || article.category === filterCategory;
+
+    const matchesStatus =
+      filterStatus === "all" || article.status === filterStatus;
+
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
+
+  const handleDelete = async (articleId) => {
+    if (window.confirm("Are you sure you want to delete this article?")) {
+      try {
+        const response = await api.deleteArticle(articleId);
+        if (response.success) {
+          setArticles(articles.filter((article) => article.id !== articleId));
+        } else {
+          throw new Error(response.message);
+        }
+      } catch (error) {
+        console.error("Error deleting article:", error);
+        alert("Failed to delete article. Please try again.");
+      }
+    }
+  };
+
+  const handleToggleStatus = async (id) => {
+    try {
+      const article = articles.find(a => a.id === id);
+      const newStatus = article.status === "published" ? "draft" : "published";
+      
+      const response = await api.updateArticle(id, { 
+        status: newStatus,
+        published_date: newStatus === "published" ? new Date().toISOString().split('T')[0] : null
+      });
+      
+      if (response.success) {
+        setArticles(
+          articles.map((article) =>
+            article.id === id
+              ? {
+                  ...article,
+                  status: newStatus,
+                  published_date: newStatus === "published" ? new Date().toISOString().split('T')[0] : article.published_date
+                }
+              : article
+          )
+        );
+      } else {
+        throw new Error(response.message);
+      }
+    } catch (error) {
+      console.error("Error updating article status:", error);
+      alert("Failed to update article status. Please try again.");
+    }
+  };
+
+  const handleToggleFeatured = async (id) => {
+    try {
+      const article = articles.find(a => a.id === id);
+      const newFeatured = !article.featured;
+      
+      const response = await api.updateArticle(id, { 
+        featured: newFeatured
+      });
+      
+      if (response.success) {
+        setArticles(
+          articles.map((article) =>
+            article.id === id
+              ? {
+                  ...article,
+                  featured: newFeatured
+                }
+              : article
+          )
+        );
+      } else {
+        throw new Error(response.message);
+      }
+    } catch (error) {
+      console.error("Error updating featured status:", error);
+      alert("Failed to update featured status. Please try again.");
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    return status === "published"
+      ? "bg-green-100 text-green-800"
+      : "bg-yellow-100 text-yellow-800";
+  };
+
+  const getCategoryBadge = (category) => {
+    const styles = {
+      Technology: "bg-blue-100 text-blue-800",
+      Education: "bg-purple-100 text-purple-800",
+      Science: "bg-green-100 text-green-800",
+      Health: "bg-red-100 text-red-800",
+      Business: "bg-indigo-100 text-indigo-800",
+      Arts: "bg-pink-100 text-pink-800",
+      Literature: "bg-orange-100 text-orange-800",
+      History: "bg-amber-100 text-amber-800",
+      Travel: "bg-teal-100 text-teal-800",
+      Lifestyle: "bg-cyan-100 text-cyan-800",
+      Other: "bg-gray-100 text-gray-800",
+    };
+    return styles[category] || "bg-gray-100 text-gray-800";
+  };
+
+  // Calculate statistics
+  const totalArticles = articles.length;
+  const publishedArticles = articles.filter(a => a.status === "published").length;
+  const draftArticles = articles.filter(a => a.status === "draft").length;
+  const totalViews = articles.reduce((sum, article) => sum + (article.views || 0), 0);
+  const featuredArticles = articles.filter(a => a.featured).length;
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center min-h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={article ? "Edit Article" : "Create New Article"}
-      size="max-w-4xl"
-    >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Title *
-              </label>
-              <input
-                type="text"
-                name="title"
-                value={formData.title}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.title ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="Enter article title"
-              />
-              {errors.title && (
-                <p className="mt-1 text-sm text-red-600">{errors.title}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Author *
-              </label>
-              <div className="relative">
-                <FiUser className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  name="author"
-                  value={formData.author}
-                  onChange={handleInputChange}
-                  className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.author ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter author name"
-                />
-              </div>
-              {errors.author && (
-                <p className="mt-1 text-sm text-red-600">{errors.author}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Category *
-              </label>
-              <select
-                name="category"
-                value={formData.category}
-                onChange={handleInputChange}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.category ? 'border-red-500' : 'border-gray-300'
-                }`}
-              >
-                <option value="">Select a category</option>
-                {categories.map(category => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-              {errors.category && (
-                <p className="mt-1 text-sm text-red-600">{errors.category}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Dewey Decimal Classification
-              </label>
-              <div className="relative">
-                <FiBook className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  name="dewey_decimal"
-                  value={formData.dewey_decimal}
-                  onChange={handleInputChange}
-                  className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.dewey_decimal ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="e.g., 123.45"
-                />
-              </div>
-              {errors.dewey_decimal && (
-                <p className="mt-1 text-sm text-red-600">{errors.dewey_decimal}</p>
-              )}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            {/* Image Upload */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Featured Image
-              </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
-                {imagePreview ? (
-                  <div className="relative">
-                    <img
-                      src={imagePreview}
-                      alt="Preview"
-                      className="mx-auto h-32 object-cover rounded"
-                    />
-                    <button
-                      type="button"
-                      onClick={removeImage}
-                      className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full"
-                    >
-                      <FiX className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <FiUpload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                    <label className="cursor-pointer">
-                      <span className="text-blue-600 hover:text-blue-500">
-                        Upload an image
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageChange}
-                        className="hidden"
-                      />
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1">
-                      PNG, JPG, GIF up to 5MB
-                    </p>
-                  </div>
-                )}
-              </div>
-              {errors.image && (
-                <p className="mt-1 text-sm text-red-600">{errors.image}</p>
-              )}
-            </div>
-
-            {/* Document Upload */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Attach Document (Optional)
-              </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                {documentPreview ? (
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center">
-                      <FiFileText className="h-6 w-6 text-gray-400 mr-2" />
-                      <span className="text-sm truncate">{documentPreview}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={removeDocument}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <FiX className="h-4 w-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="text-center">
-                    <FiFileText className="mx-auto h-6 w-6 text-gray-400 mb-2" />
-                    <label className="cursor-pointer">
-                      <span className="text-blue-600 hover:text-blue-500 text-sm">
-                        Upload document
-                      </span>
-                      <input
-                        type="file"
-                        accept=".pdf,.doc,.docx,.txt"
-                        onChange={handleDocumentChange}
-                        className="hidden"
-                      />
-                    </label>
-                    <p className="text-xs text-gray-500 mt-1">
-                      PDF, Word, Text up to 10MB
-                    </p>
-                  </div>
-                )}
-              </div>
-              {errors.document && (
-                <p className="mt-1 text-sm text-red-600">{errors.document}</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Pricing & Settings */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Price ($)
-            </label>
-            <div className="relative">
-              <FiDollarSign className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <input
-                type="number"
-                name="price"
-                step="0.01"
-                min="0"
-                value={formData.price}
-                onChange={handleInputChange}
-                className={`w-full pl-10 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.price ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-            </div>
-            {errors.price && (
-              <p className="mt-1 text-sm text-red-600">{errors.price}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Read Time (minutes)
-            </label>
-            <div className="relative">
-              <FiClock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-              <input
-                type="number"
-                name="readTime"
-                min="1"
-                value={formData.readTime}
-                onChange={handleInputChange}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Status
-            </label>
-            <select
-              name="status"
-              value={formData.status}
-              onChange={handleInputChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="draft">Draft</option>
-              <option value="published">Published</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Tags */}
+    <div>
+      <div className="flex justify-between items-center mb-6">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Tags
-          </label>
-          <div className="relative">
-            <FiTag className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+          <h1 className="text-3xl font-bold text-gray-900">Manage Articles</h1>
+          <p className="text-gray-600">Create, edit, and publish blog articles</p>
+        </div>
+        <Button onClick={handleAddArticle}>
+          <FiPlus className="mr-2" />
+          New Article
+        </Button>
+      </div>
+
+      {/* Statistics Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <Card className="p-6 text-center">
+          <FiFileText className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-gray-900">{totalArticles}</div>
+          <div className="text-sm text-gray-600">Total Articles</div>
+        </Card>
+        <Card className="p-6 text-center">
+          <div className="text-2xl font-bold text-gray-900">{publishedArticles}</div>
+          <div className="text-sm text-gray-600">Published</div>
+        </Card>
+        <Card className="p-6 text-center">
+          <div className="text-2xl font-bold text-gray-900">{draftArticles}</div>
+          <div className="text-sm text-gray-600">Drafts</div>
+        </Card>
+        <Card className="p-6 text-center">
+          <FiBarChart2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-gray-900">{totalViews}</div>
+          <div className="text-sm text-gray-600">Total Views</div>
+        </Card>
+        <Card className="p-6 text-center">
+          <div className="text-2xl font-bold text-gray-900">{featuredArticles}</div>
+          <div className="text-sm text-gray-600">Featured</div>
+        </Card>
+      </div>
+
+      {/* Search and Filters */}
+      <Card className="p-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <FiSearch className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <input
               type="text"
-              name="tags"
-              value={formData.tags}
-              onChange={handleInputChange}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="Enter tags separated by commas (e.g., technology, education, science)"
+              placeholder="Search articles by title, author, content, or Dewey Decimal..."
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <p className="mt-1 text-sm text-gray-500">
-            Separate tags with commas
-          </p>
-        </div>
-
-        {/* Excerpt */}
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <label className="block text-sm font-medium text-gray-700">
-              Excerpt
-            </label>
-            <button
-              type="button"
-              onClick={generateExcerpt}
-              className="text-sm text-blue-600 hover:text-blue-500"
-            >
-              Generate from content
-            </button>
-          </div>
-          <textarea
-            name="excerpt"
-            rows="3"
-            value={formData.excerpt}
-            onChange={handleInputChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            placeholder="Brief description of the article (will be auto-generated if empty)"
-          />
-        </div>
-
-        {/* Content */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Content *
-          </label>
-          <textarea
-            name="content"
-            rows="12"
-            value={formData.content}
-            onChange={handleInputChange}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-              errors.content ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="Write your article content here..."
-          />
-          {errors.content && (
-            <p className="mt-1 text-sm text-red-600">{errors.content}</p>
-          )}
-        </div>
-
-        {/* Checkboxes */}
-        <div className="flex space-x-6">
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              name="is_premium"
-              checked={formData.is_premium}
-              onChange={handleInputChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <span className="ml-2 text-sm text-gray-700">Premium Article</span>
-          </label>
-
-          <label className="flex items-center">
-            <input
-              type="checkbox"
-              name="featured"
-              checked={formData.featured}
-              onChange={handleInputChange}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            />
-            <span className="ml-2 text-sm text-gray-700">Featured Article</span>
-          </label>
-        </div>
-
-        {/* Form Actions */}
-        <div className="flex justify-end space-x-3 pt-6 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={onClose}
-            disabled={isLoading}
+          <select 
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
           >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={isLoading}
+            <option value="all">All Categories</option>
+            {categories.map(category => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+          <select 
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
           >
-            {isLoading ? "Saving..." : article ? "Update Article" : "Create Article"}
-          </Button>
+            <option value="all">All Status</option>
+            <option value="published">Published</option>
+            <option value="draft">Draft</option>
+          </select>
         </div>
-      </form>
-    </Modal>
+      </Card>
+
+      {/* Articles Table */}
+      <Card className="p-0 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Article
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Author
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Category
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Dewey Decimal
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Amount
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Views
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredArticles.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-6 py-12 text-center">
+                    <div className="text-gray-500">
+                      <FiFileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {articles.length === 0 ? "No articles found" : "No matching articles"}
+                      </h3>
+                      <p className="text-gray-600">
+                        {articles.length === 0
+                          ? "Get started by creating your first article."
+                          : "Try changing your search or filter criteria."}
+                      </p>
+                      {articles.length === 0 && (
+                        <Button onClick={handleAddArticle} className="mt-4">
+                          <FiPlus className="mr-2" />
+                          Create Your First Article
+                        </Button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredArticles.map((article) => (
+                  <tr key={article.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center">
+                          {article.image_url ? (
+                            <img 
+                              src={article.image_url} 
+                              alt={article.title}
+                              className="h-10 w-10 object-cover rounded"
+                            />
+                          ) : (
+                            <FiFileText className="h-5 w-5 text-blue-600" />
+                          )}
+                        </div>
+                        <div className="ml-4">
+                          <div className="text-sm font-medium text-gray-900 flex items-center">
+                            {article.title}
+                            {article.featured && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                                Featured
+                              </span>
+                            )}
+                            {article.file_url && (
+                              <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full flex items-center">
+                                <FiFileText className="h-3 w-3 mr-1" />
+                                Document
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm text-gray-500 line-clamp-2">
+                            {article.excerpt || "No excerpt available"}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex items-center">
+                        <FiUser className="h-4 w-4 text-gray-400 mr-2" />
+                        {article.author}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getCategoryBadge(
+                          article.category
+                        )}`}
+                      >
+                        {article.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex items-center">
+                        <FiBook className="h-4 w-4 text-gray-400 mr-2" />
+                        {article.dewey_decimal || "N/A"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex items-center">
+                        <FiDollarSign className="h-4 w-4 text-gray-400 mr-2" />
+                        {article.amount ? `$${parseFloat(article.amount).toFixed(2)}` : "N/A"}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span
+                        className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(
+                          article.status
+                        )}`}
+                      >
+                        {article.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex items-center">
+                        <FiBarChart2 className="h-4 w-4 text-gray-400 mr-2" />
+                        {article.views || 0}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                      <button
+                        onClick={() => handleToggleStatus(article.id)}
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                          article.status === "published"
+                            ? "text-yellow-600 hover:text-yellow-900"
+                            : "text-green-600 hover:text-green-900"
+                        }`}
+                        title={article.status === "published" ? "Mark as draft" : "Publish article"}
+                      >
+                        {article.status === "published" ? "Draft" : "Publish"}
+                      </button>
+                      <button
+                        onClick={() => handleToggleFeatured(article.id)}
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                          article.featured
+                            ? "text-gray-600 hover:text-gray-900"
+                            : "text-purple-600 hover:text-purple-900"
+                        }`}
+                        title={article.featured ? "Remove featured" : "Mark as featured"}
+                      >
+                        {article.featured ? "Unfeature" : "Feature"}
+                      </button>
+                      <button 
+                        onClick={() => handleEditArticle(article)}
+                        className="text-blue-600 hover:text-blue-900 p-1"
+                        title="Edit article"
+                      >
+                        <FiEdit className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(article.id)}
+                        className="text-red-600 hover:text-red-900 p-1"
+                        title="Delete article"
+                      >
+                        <FiTrash2 className="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+
+      {/* Article Form Modal */}
+      <ArticleFormModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        article={selectedArticle}
+        onSave={handleSaveArticle}
+        isLoading={saveLoading}
+        categories={categories}
+      />
+    </div>
   );
 };
 
-export default ArticleFormModal;
+export default ManageArticlesPage;

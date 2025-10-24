@@ -7,64 +7,90 @@ const authMiddleware = async (req, res, next) => {
     const token = req.header('Authorization')?.replace('Bearer ', '');
     
     if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'No token provided, authorization denied' 
+      return res.status(401).json({
+        success: false,
+        message: 'No token provided, access denied'
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback_secret');
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
     // Get user from database
     const [users] = await db.execute(
-      'SELECT id, name, email, role, affiliate_status as affiliateStatus, affiliate_code as affiliateCode, is_active as isActive FROM users WHERE id = ?',
+      'SELECT id, name, email, role, status FROM users WHERE id = ?',
       [decoded.userId]
     );
 
     if (users.length === 0) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Token is not valid' 
+      return res.status(401).json({
+        success: false,
+        message: 'User not found'
       });
     }
 
     const user = users[0];
 
-    // Check if user is active
-    if (!user.isActive) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Account is deactivated' 
+    if (user.status !== 'active') {
+      return res.status(401).json({
+        success: false,
+        message: 'Account is not active'
       });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
-    res.status(401).json({ 
-      success: false, 
-      message: 'Token is not valid' 
+    console.error('Auth middleware error:', error.name, error.message);
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid token'
+      });
+    }
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        message: 'Token expired'
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: 'Authentication failed'
     });
   }
 };
 
-const adminMiddleware = async (req, res, next) => {
+const adminMiddleware = (req, res, next) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied. Admin privileges required.' 
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Authentication required'
       });
     }
+
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Admin privileges required.'
+      });
+    }
+
     next();
   } catch (error) {
     console.error('Admin middleware error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error in admin validation' 
+    res.status(500).json({
+      success: false,
+      message: 'Authorization failed'
     });
   }
 };
 
-module.exports = { authMiddleware, adminMiddleware };
+module.exports = {
+  authMiddleware,
+  adminMiddleware
+};

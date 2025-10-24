@@ -13,9 +13,8 @@ import {
   FiFile,
   FiDownload,
   FiTrash2,
-  FiList,
   FiDollarSign,
-  FiLock
+  FiBook
 } from "react-icons/fi";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
@@ -27,13 +26,12 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
     excerpt: "",
     author: "",
     category: "",
-    deweyDecimal: "",
-    price: "0.00",
-    isPremium: false,
     readTime: "5",
     status: "draft",
     tags: "",
-    featured: false
+    featured: false,
+    deweyDecimal: "",
+    amount: ""
   });
   
   const [imageFile, setImageFile] = useState(null);
@@ -42,21 +40,6 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
   const [documentPreview, setDocumentPreview] = useState(null);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Dewey Decimal suggestions by category
-  const deweySuggestions = {
-    "Technology": "000-006",
-    "Education": "370-379",
-    "Science": "500-599",
-    "Health": "610-619",
-    "Business": "650-659",
-    "Arts": "700-779",
-    "Literature": "800-899",
-    "History": "900-999",
-    "Travel": "910-919",
-    "Lifestyle": "640-649",
-    "Other": "000"
-  };
 
   const allowedFileTypes = [
     'application/pdf',
@@ -74,13 +57,12 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
         excerpt: article.excerpt || "",
         author: article.author || "",
         category: article.category || "",
-        deweyDecimal: article.dewey_decimal || "",
-        price: article.price ? article.price.toString() : "0.00",
-        isPremium: article.is_premium || false,
         readTime: article.read_time?.toString() || "5",
         status: article.status || "draft",
         tags: article.tags ? article.tags.join(', ') : "",
-        featured: article.featured || false
+        featured: article.featured || false,
+        deweyDecimal: article.dewey_decimal || "",
+        amount: article.amount ? parseFloat(article.amount).toString() : ""
       });
       
       if (article.image_url) {
@@ -102,13 +84,12 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
         excerpt: "",
         author: "",
         category: "",
-        deweyDecimal: "",
-        price: "0.00",
-        isPremium: false,
         readTime: "5",
         status: "draft",
         tags: "",
-        featured: false
+        featured: false,
+        deweyDecimal: "",
+        amount: ""
       });
       setImageFile(null);
       setImagePreview("");
@@ -118,37 +99,12 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
     setErrors({});
   }, [article, isOpen]);
 
-  // Auto-suggest Dewey Decimal when category changes
-  useEffect(() => {
-    if (formData.category && !formData.deweyDecimal && deweySuggestions[formData.category]) {
-      setFormData(prev => ({
-        ...prev,
-        deweyDecimal: deweySuggestions[formData.category]
-      }));
-    }
-  }, [formData.category]);
-
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    
-    // Format price input
-    if (name === 'price') {
-      // Allow only numbers and decimal point
-      const formattedValue = value.replace(/[^\d.]/g, '');
-      // Ensure only one decimal point
-      const parts = formattedValue.split('.');
-      if (parts.length > 2) return;
-      
-      setFormData(prev => ({
-        ...prev,
-        [name]: formattedValue
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: type === 'checkbox' ? checked : value
-      }));
-    }
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
     
     if (errors[name]) {
       setErrors(prev => ({
@@ -263,14 +219,6 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
       newErrors.category = "Category is required";
     }
 
-    if (!formData.deweyDecimal.trim()) {
-      newErrors.deweyDecimal = "Dewey Decimal classification is required";
-    }
-
-    if (!formData.price || parseFloat(formData.price) < 0) {
-      newErrors.price = "Price must be a positive number";
-    }
-
     // Content is now optional since we can upload files
     if (!formData.content.trim() && !documentFile && !documentPreview) {
       newErrors.content = "Either content or a document file is required";
@@ -284,6 +232,16 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
 
     if (!formData.readTime || formData.readTime < 1) {
       newErrors.readTime = "Read time must be at least 1 minute";
+    }
+
+    // Validate amount if provided
+    if (formData.amount && isNaN(parseFloat(formData.amount))) {
+      newErrors.amount = "Amount must be a valid number";
+    }
+
+    // Validate Dewey Decimal format (optional)
+    if (formData.deweyDecimal && !/^[0-9.]*$/.test(formData.deweyDecimal)) {
+      newErrors.deweyDecimal = "Dewey Decimal must contain only numbers and dots";
     }
 
     setErrors(newErrors);
@@ -302,9 +260,6 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
     try {
       const submissionData = {
         ...formData,
-        dewey_decimal: formData.deweyDecimal,
-        price: parseFloat(formData.price) || 0,
-        is_premium: formData.isPremium,
         readTime: parseInt(formData.readTime)
       };
 
@@ -335,7 +290,7 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[95vh] flex flex-col">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 text-white flex-shrink-0">
           <div className="flex items-center justify-between">
@@ -348,7 +303,7 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
                   {article ? "Edit Article" : "Create New Article"}
                 </h2>
                 <p className="text-blue-100 opacity-90 text-sm">
-                  {article ? "Update article content and pricing" : "Create new article with classification and pricing"}
+                  {article ? "Update article content" : "Write a new blog article or upload document"}
                 </p>
               </div>
             </div>
@@ -364,8 +319,90 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
         {/* Scrollable Form Content */}
         <div className="flex-1 overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-8 bg-gray-50">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               {/* Left Column - Basic Info */}
+              <div className="xl:col-span-2 space-y-6">
+                {/* Title Field */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    <FiFileText className="mr-2 h-4 w-4 text-blue-500" />
+                    Title *
+                  </label>
+                  <input
+                    type="text"
+                    name="title"
+                    value={formData.title}
+                    onChange={handleInputChange}
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
+                      errors.title 
+                        ? "border-red-300 bg-red-50" 
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    placeholder="Enter article title"
+                  />
+                  {errors.title && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center">
+                      <FiX className="mr-1 h-3 w-3" />
+                      {errors.title}
+                    </p>
+                  )}
+                </div>
+
+                {/* Excerpt Field */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3">
+                    Excerpt *
+                    <span className="text-xs text-gray-500 ml-2 font-normal">
+                      {formData.excerpt.length}/200 characters
+                    </span>
+                  </label>
+                  <textarea
+                    name="excerpt"
+                    value={formData.excerpt}
+                    onChange={handleInputChange}
+                    rows="3"
+                    maxLength="200"
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 resize-none hover:border-gray-300 ${
+                      errors.excerpt ? "border-red-300 bg-red-50" : "border-gray-200"
+                    }`}
+                    placeholder="Brief description of the article (max 200 characters)"
+                  />
+                  {errors.excerpt && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center">
+                      <FiX className="mr-1 h-3 w-3" />
+                      {errors.excerpt}
+                    </p>
+                  )}
+                </div>
+
+                {/* Content Field - Now Optional */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3">
+                    Content
+                    <span className="text-xs text-gray-500 ml-2 font-normal">
+                      (Optional if you upload a document file)
+                    </span>
+                  </label>
+                  <textarea
+                    name="content"
+                    value={formData.content}
+                    onChange={handleInputChange}
+                    rows="8"
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 resize-none hover:border-gray-300 ${
+                      errors.content ? "border-red-300 bg-red-50" : "border-gray-200"
+                    }`}
+                    placeholder="Write your article content here... (or upload a document file below)"
+                  />
+                  {errors.content && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center">
+                      <FiX className="mr-1 h-3 w-3" />
+                      {errors.content}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Column - Media & Details */}
               <div className="space-y-6">
                 {/* Featured Image Upload */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
@@ -400,7 +437,7 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
                         </div>
                       )}
                     </div>
-                    <div className="flex-1 text-center w-full">
+                    <div className="flex-1 text-center">
                       <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-sm">
                         <FiUpload className="mr-2 h-4 w-4" />
                         Upload Image
@@ -411,7 +448,8 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
                           className="hidden"
                         />
                       </label>
-                      <p className="text-xs text-gray-600 mt-2">
+                      <p className="text-xs text-gray-600 mt-3">
+                        Supports: JPEG, PNG, GIF, WebP<br />
                         Max size: 5MB
                       </p>
                     </div>
@@ -424,210 +462,12 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
                   )}
                 </div>
 
-                {/* Title Field */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                    <FiFileText className="mr-2 h-4 w-4 text-blue-500" />
-                    Title *
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                      errors.title 
-                        ? "border-red-300 bg-red-50" 
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                    placeholder="Enter article title"
-                  />
-                  {errors.title && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center">
-                      <FiX className="mr-1 h-3 w-3" />
-                      {errors.title}
-                    </p>
-                  )}
-                </div>
-
-                {/* Author Field */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                    <FiUser className="mr-2 h-4 w-4 text-green-500" />
-                    Author *
-                  </label>
-                  <input
-                    type="text"
-                    name="author"
-                    value={formData.author}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                      errors.author 
-                        ? "border-red-300 bg-red-50" 
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                    placeholder="Enter author name"
-                  />
-                  {errors.author && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center">
-                      <FiX className="mr-1 h-3 w-3" />
-                      {errors.author}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Middle Column - Classification & Pricing */}
-              <div className="space-y-6">
-                {/* Category Field */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                    <FiTag className="mr-2 h-4 w-4 text-orange-500" />
-                    Category *
-                  </label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 appearance-none bg-white ${
-                      errors.category 
-                        ? "border-red-300 bg-red-50" 
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  >
-                    <option value="">Select a category</option>
-                    {categories.map(cat => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                  {errors.category && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center">
-                      <FiX className="mr-1 h-3 w-3" />
-                      {errors.category}
-                    </p>
-                  )}
-                </div>
-
-                {/* Dewey Decimal Field */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                    <FiList className="mr-2 h-4 w-4 text-indigo-500" />
-                    Dewey Decimal *
-                  </label>
-                  <input
-                    type="text"
-                    name="deweyDecimal"
-                    value={formData.deweyDecimal}
-                    onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                      errors.deweyDecimal 
-                        ? "border-red-300 bg-red-50" 
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                    placeholder="e.g., 005.133, 610-619"
-                  />
-                  {formData.category && deweySuggestions[formData.category] && (
-                    <p className="text-xs text-gray-600 mt-2">
-                      Suggested for {formData.category}: {deweySuggestions[formData.category]}
-                    </p>
-                  )}
-                  {errors.deweyDecimal && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center">
-                      <FiX className="mr-1 h-3 w-3" />
-                      {errors.deweyDecimal}
-                    </p>
-                  )}
-                </div>
-
-                {/* Price Field */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                    <FiDollarSign className="mr-2 h-4 w-4 text-green-500" />
-                    Price ($) *
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-3 text-gray-500">$</span>
-                    <input
-                      type="text"
-                      name="price"
-                      value={formData.price}
-                      onChange={handleInputChange}
-                      className={`w-full pl-8 pr-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                        errors.price 
-                          ? "border-red-300 bg-red-50" 
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                      placeholder="0.00"
-                    />
-                  </div>
-                  {errors.price && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center">
-                      <FiX className="mr-1 h-3 w-3" />
-                      {errors.price}
-                    </p>
-                  )}
-                </div>
-
-                {/* Premium Article Field */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <label className="flex items-center space-x-3 cursor-pointer">
-                    <div className="relative">
-                      <input
-                        type="checkbox"
-                        name="isPremium"
-                        checked={formData.isPremium}
-                        onChange={handleInputChange}
-                        className="sr-only"
-                      />
-                      <div className={`block w-14 h-8 rounded-full ${formData.isPremium ? 'bg-purple-500' : 'bg-gray-300'}`}></div>
-                      <div className={`absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${formData.isPremium ? 'transform translate-x-6' : ''}`}></div>
-                    </div>
-                    <div className="flex items-center">
-                      <FiLock className="h-4 w-4 text-purple-500 mr-2" />
-                      <span className="text-sm font-medium text-gray-900">Premium Article</span>
-                    </div>
-                  </label>
-                  <p className="text-xs text-gray-600 mt-2">
-                    Premium articles require payment to access
-                  </p>
-                </div>
-
-                {/* Read Time Field */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                    <FiClock className="mr-2 h-4 w-4 text-purple-500" />
-                    Read Time (minutes) *
-                  </label>
-                  <input
-                    type="number"
-                    name="readTime"
-                    value={formData.readTime}
-                    onChange={handleInputChange}
-                    min="1"
-                    max="60"
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                      errors.readTime 
-                        ? "border-red-300 bg-red-50" 
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                  />
-                  {errors.readTime && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center">
-                      <FiX className="mr-1 h-3 w-3" />
-                      {errors.readTime}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {/* Right Column - Status & File Upload */}
-              <div className="space-y-6">
                 {/* Document Upload Section */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                   <label className="block text-sm font-semibold text-gray-800 mb-4 flex items-center">
                     <FiFile className="mr-2 h-4 w-4 text-green-500" />
                     Document File
-                    <span className="text-xs text-gray-500 ml-2 font-normal">(Optional)</span>
+                    <span className="text-xs text-gray-500 ml-2 font-normal">(Optional - Alternative to typing content)</span>
                   </label>
                   
                   {documentPreview ? (
@@ -669,10 +509,11 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gradient-to-br from-gray-50 to-gray-100 transition-all duration-300 hover:border-green-400 hover:shadow-md">
-                      <FiFile className="h-8 w-8 text-gray-400 mb-2" />
-                      <p className="text-xs text-gray-600 mb-2 text-center">
-                        Upload document (PDF, DOC, DOCX)
+                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-6 bg-gradient-to-br from-gray-50 to-gray-100 transition-all duration-300 hover:border-green-400 hover:shadow-md">
+                      <FiFile className="h-12 w-12 text-gray-400 mb-3" />
+                      <p className="text-sm text-gray-600 mb-3 text-center">
+                        Upload a document file (PDF, DOC, DOCX)<br />
+                        This is an alternative to typing content
                       </p>
                       <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 text-sm">
                         <FiUpload className="mr-2 h-4 w-4" />
@@ -684,7 +525,8 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
                           className="hidden"
                         />
                       </label>
-                      <p className="text-xs text-gray-500 mt-2 text-center">
+                      <p className="text-xs text-gray-500 mt-3 text-center">
+                        Supports: PDF, DOC, DOCX, TXT, RTF<br />
                         Max size: 50MB
                       </p>
                     </div>
@@ -694,6 +536,150 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
                     <p className="text-red-500 text-sm mt-3 flex items-center">
                       <FiX className="mr-1 h-3 w-3" />
                       {errors.document}
+                    </p>
+                  )}
+                </div>
+
+                {/* Dewey Decimal Field */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    <FiBook className="mr-2 h-4 w-4 text-purple-500" />
+                    Dewey Decimal
+                    <span className="text-xs text-gray-500 ml-2 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="deweyDecimal"
+                    value={formData.deweyDecimal}
+                    onChange={handleInputChange}
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
+                      errors.deweyDecimal 
+                        ? "border-red-300 bg-red-50" 
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    placeholder="e.g., 025.431, 005.133"
+                  />
+                  {errors.deweyDecimal && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center">
+                      <FiX className="mr-1 h-3 w-3" />
+                      {errors.deweyDecimal}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-600 mt-2">
+                    Library classification number
+                  </p>
+                </div>
+
+                {/* Amount Field */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    <FiDollarSign className="mr-2 h-4 w-4 text-green-500" />
+                    Amount
+                    <span className="text-xs text-gray-500 ml-2 font-normal">(Optional)</span>
+                  </label>
+                  <input
+                    type="number"
+                    name="amount"
+                    value={formData.amount}
+                    onChange={handleInputChange}
+                    step="0.01"
+                    min="0"
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
+                      errors.amount 
+                        ? "border-red-300 bg-red-50" 
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    placeholder="0.00"
+                  />
+                  {errors.amount && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center">
+                      <FiX className="mr-1 h-3 w-3" />
+                      {errors.amount}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-600 mt-2">
+                    Price or cost associated with the article
+                  </p>
+                </div>
+
+                {/* Author Field */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    <FiUser className="mr-2 h-4 w-4 text-green-500" />
+                    Author *
+                  </label>
+                  <input
+                    type="text"
+                    name="author"
+                    value={formData.author}
+                    onChange={handleInputChange}
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
+                      errors.author 
+                        ? "border-red-300 bg-red-50" 
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                    placeholder="Enter author name"
+                  />
+                  {errors.author && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center">
+                      <FiX className="mr-1 h-3 w-3" />
+                      {errors.author}
+                    </p>
+                  )}
+                </div>
+
+                {/* Category Field */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    <FiTag className="mr-2 h-4 w-4 text-orange-500" />
+                    Category *
+                  </label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 appearance-none bg-white ${
+                      errors.category 
+                        ? "border-red-300 bg-red-50" 
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map(cat => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  {errors.category && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center">
+                      <FiX className="mr-1 h-3 w-3" />
+                      {errors.category}
+                    </p>
+                  )}
+                </div>
+
+                {/* Read Time Field */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
+                    <FiClock className="mr-2 h-4 w-4 text-purple-500" />
+                    Read Time (minutes) *
+                  </label>
+                  <input
+                    type="number"
+                    name="readTime"
+                    value={formData.readTime}
+                    onChange={handleInputChange}
+                    min="1"
+                    max="60"
+                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
+                      errors.readTime 
+                        ? "border-red-300 bg-red-50" 
+                        : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  />
+                  {errors.readTime && (
+                    <p className="text-red-500 text-sm mt-2 flex items-center">
+                      <FiX className="mr-1 h-3 w-3" />
+                      {errors.readTime}
                     </p>
                   )}
                 </div>
@@ -712,7 +698,7 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
                     placeholder="Enter tags separated by commas"
                   />
                   <p className="text-xs text-gray-600 mt-2">
-                    Separate tags with commas
+                    Separate multiple tags with commas (e.g., technology, education, science)
                   </p>
                 </div>
 
@@ -753,63 +739,10 @@ const ArticleFormModal = ({ isOpen, onClose, article, onSave, isLoading, categor
                     </div>
                   </label>
                   <p className="text-xs text-gray-600 mt-2">
-                    Featured articles will be highlighted
+                    Featured articles will be highlighted on the homepage
                   </p>
                 </div>
               </div>
-            </div>
-
-            {/* Excerpt Field */}
-            <div className="mt-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-              <label className="block text-sm font-semibold text-gray-800 mb-3">
-                Excerpt *
-                <span className="text-xs text-gray-500 ml-2 font-normal">
-                  {formData.excerpt.length}/200 characters
-                </span>
-              </label>
-              <textarea
-                name="excerpt"
-                value={formData.excerpt}
-                onChange={handleInputChange}
-                rows="3"
-                maxLength="200"
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 resize-none hover:border-gray-300 ${
-                  errors.excerpt ? "border-red-300 bg-red-50" : "border-gray-200"
-                }`}
-                placeholder="Brief description of the article (max 200 characters)"
-              />
-              {errors.excerpt && (
-                <p className="text-red-500 text-sm mt-2 flex items-center">
-                  <FiX className="mr-1 h-3 w-3" />
-                  {errors.excerpt}
-                </p>
-              )}
-            </div>
-
-            {/* Content Field - Now Optional */}
-            <div className="mt-6 bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-              <label className="block text-sm font-semibold text-gray-800 mb-3">
-                Content
-                <span className="text-xs text-gray-500 ml-2 font-normal">
-                  (Optional if you upload a document file)
-                </span>
-              </label>
-              <textarea
-                name="content"
-                value={formData.content}
-                onChange={handleInputChange}
-                rows="6"
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 resize-none hover:border-gray-300 ${
-                  errors.content ? "border-red-300 bg-red-50" : "border-gray-200"
-                }`}
-                placeholder="Write your article content here... (or upload a document file above)"
-              />
-              {errors.content && (
-                <p className="text-red-500 text-sm mt-2 flex items-center">
-                  <FiX className="mr-1 h-3 w-3" />
-                  {errors.content}
-                </p>
-              )}
             </div>
 
             {/* Error Message */}
