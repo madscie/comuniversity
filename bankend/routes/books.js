@@ -1,4 +1,3 @@
-// routes/books.js
 const express = require('express');
 const db = require('../config/database');
 const multer = require('multer');
@@ -24,13 +23,86 @@ const upload = multer({
   }
 });
 
-// NO AUTHENTICATION - ALL BOOK ROUTES ARE PUBLIC
-
-// GET /api/books
+// GET /api/books - Get all books (PUBLIC - for users)
 router.get('/', async (req, res) => {
   try {
-    const { category, search, page = 1, limit = 10 } = req.query;
+    const { category, search, page = 1, limit = 12 } = req.query;
     const offset = (page - 1) * limit;
+
+    console.log('📚 Fetching books with query params:', { category, search, page, limit });
+
+    // Build base query without LIMIT/OFFSET first
+    let query = `
+      SELECT id, title, author, description, isbn, category, dewey_number, price, 
+             format, cover_image, file_url, file_size, pages, publisher, 
+             published_date, language, rating, total_ratings, downloads, 
+             status, total_copies, available_copies, featured, created_at
+      FROM books 
+      WHERE status = 'available'
+    `;
+    const params = [];
+
+    if (category && category !== 'all') {
+      query += ' AND category = ?';
+      params.push(category);
+    }
+
+    if (search) {
+      query += ' AND (title LIKE ? OR author LIKE ? OR description LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    console.log('🔍 Base query:', query);
+    console.log('📊 Query parameters:', params);
+
+    // First get all books (without pagination) to handle the data
+    const [allBooks] = await db.execute(query, params);
+
+    // Apply pagination manually in JavaScript
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + parseInt(limit);
+    const paginatedBooks = allBooks.slice(startIndex, endIndex);
+
+    console.log(`✅ Found ${allBooks.length} total books, showing ${paginatedBooks.length} (page ${page})`);
+
+    res.json({
+      success: true,
+      data: {
+        books: paginatedBooks.map(book => ({
+          ...book,
+          publishedYear: book.published_date ? new Date(book.published_date).getFullYear() : null,
+          status: book.status || 'available',
+          availableCopies: book.available_copies || book.total_copies || 0,
+          totalCopies: book.total_copies || 0
+        })),
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: allBooks.length,
+          pages: Math.ceil(allBooks.length / limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get books error:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching books: ' + error.message
+    });
+  }
+});
+
+// Alternative version with SQL pagination (if you want to try this instead)
+router.get('/sql-paginated', async (req, res) => {
+  try {
+    const { category, search, page = 1, limit = 12 } = req.query;
+    const offset = (page - 1) * limit;
+
+    console.log('📚 Fetching books with SQL pagination:', { category, search, page, limit });
 
     let query = `
       SELECT id, title, author, description, isbn, category, dewey_number, price, 
@@ -54,7 +126,16 @@ router.get('/', async (req, res) => {
     }
 
     query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(parseInt(limit), offset);
+    
+    // Convert to numbers and ensure they are integers
+    const limitNum = parseInt(limit);
+    const offsetNum = parseInt(offset);
+    
+    params.push(limitNum, offsetNum);
+
+    console.log('🔍 Final query:', query);
+    console.log('📊 Query parameters:', params);
+    console.log('📊 Parameter types:', params.map(p => typeof p));
 
     const [books] = await db.execute(query, params);
 
@@ -74,88 +155,118 @@ router.get('/', async (req, res) => {
     }
 
     const [countResult] = await db.execute(countQuery, countParams);
+    const totalBooks = countResult[0].total;
+
+    console.log(`✅ Found ${books.length} books out of ${totalBooks} total`);
 
     res.json({
       success: true,
       data: {
         books: books.map(book => ({
           ...book,
-          publishedYear: book.published_date ? new Date(book.published_date).getFullYear() : null
+          publishedYear: book.published_date ? new Date(book.published_date).getFullYear() : null,
+          status: book.status || 'available',
+          availableCopies: book.available_copies || book.total_copies || 0,
+          totalCopies: book.total_copies || 0
         })),
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
-          total: countResult[0].total,
-          pages: Math.ceil(countResult[0].total / limit)
+          total: totalBooks,
+          pages: Math.ceil(totalBooks / limit)
         }
       }
     });
   } catch (error) {
-    console.error('Get books error:', error);
+    console.error('❌ Get books error:', error);
+    console.error('❌ Error stack:', error.stack);
     res.status(500).json({
       success: false,
-      message: 'Error fetching books'
+      message: 'Error fetching books: ' + error.message
     });
   }
 });
 
-// GET /api/books/categories
+// GET /api/books/categories - Get book categories (PUBLIC)
 router.get('/categories', async (req, res) => {
   try {
+    console.log('📚 Fetching book categories...');
+    
     const [categories] = await db.execute(`
       SELECT category, COUNT(*) as book_count 
       FROM books 
       WHERE status = 'available'
       GROUP BY category 
-      ORDER BY book_count DESC
+      ORDER BY category
     `);
+
+    console.log(`✅ Found ${categories.length} categories`);
 
     res.json({
       success: true,
+      message: 'Categories fetched successfully',
       data: categories
     });
   } catch (error) {
-    console.error('Get categories error:', error);
+    console.error('❌ Get categories error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching categories'
+      message: 'Error fetching categories: ' + error.message
     });
   }
 });
 
-// GET /api/books/:id
+// GET /api/books/:id - Get single book (PUBLIC)
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
+    
+    console.log(`📚 Fetching book with ID: ${id}`);
 
     const [books] = await db.execute(
-      'SELECT * FROM books WHERE id = ? AND status = "available"',
-      [id]
+      `SELECT id, title, author, description, isbn, category, dewey_number, price, 
+              format, cover_image, file_url, file_size, pages, publisher, 
+              published_date, language, rating, total_ratings, downloads, 
+              status, total_copies, available_copies, featured, created_at
+       FROM books WHERE id = ? AND status = "available"`,
+      [parseInt(id)] // Ensure ID is a number
     );
 
     if (books.length === 0) {
+      console.log(`❌ Book not found with ID: ${id}`);
       return res.status(404).json({
         success: false,
         message: 'Book not found'
       });
     }
 
+    const book = books[0];
+
+    console.log(`✅ Found book: ${book.title}`);
+
     res.json({
       success: true,
+      message: 'Book fetched successfully',
       data: {
-        book: books[0]
+        book: {
+          ...book,
+          publishedYear: book.published_date ? new Date(book.published_date).getFullYear() : null,
+          status: book.status || 'available',
+          availableCopies: book.available_copies || book.total_copies || 0,
+          totalCopies: book.total_copies || 0
+        }
       }
     });
   } catch (error) {
-    console.error('Get book error:', error);
+    console.error('❌ Get book error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching book'
+      message: 'Error fetching book: ' + error.message
     });
   }
 });
 
-// POST /api/books - Create book (for admin, but no auth for now)
+// POST /api/books - Create book (ADMIN only - but no auth for now)
 router.post('/', async (req, res) => {
   try {
     const {
@@ -190,8 +301,8 @@ router.post('/', async (req, res) => {
       `INSERT INTO books (
         title, author, description, isbn, category, dewey_number, price,
         format, pages, publisher, published_date, language, 
-        total_copies, available_copies, featured
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        total_copies, available_copies, featured, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
         author,
@@ -206,8 +317,9 @@ router.post('/', async (req, res) => {
         published_date || null,
         language || 'English',
         total_copies ? parseInt(total_copies) : 1,
-        total_copies ? parseInt(total_copies) : 1, // available_copies same as total_copies initially
-        featured ? Boolean(featured) : false
+        total_copies ? parseInt(total_copies) : 1,
+        featured ? Boolean(featured) : false,
+        'available'
       ]
     );
 
@@ -246,7 +358,7 @@ router.put('/:id', async (req, res) => {
     // Check if book exists
     const [existingBooks] = await db.execute(
       'SELECT id FROM books WHERE id = ?',
-      [id]
+      [parseInt(id)]
     );
 
     if (existingBooks.length === 0) {
@@ -289,16 +401,19 @@ router.put('/:id', async (req, res) => {
       });
     }
 
-    values.push(id);
+    values.push(parseInt(id));
 
     const query = `UPDATE books SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    
+    console.log('🔍 Update query:', query);
+    console.log('📊 Update parameters:', values);
     
     await db.execute(query, values);
 
     // Get updated book
     const [books] = await db.execute(
       'SELECT * FROM books WHERE id = ?',
-      [id]
+      [parseInt(id)]
     );
 
     console.log(`✅ Book updated: ID ${id}`);
@@ -327,7 +442,7 @@ router.delete('/:id', async (req, res) => {
     // Check if book exists
     const [existingBooks] = await db.execute(
       'SELECT id, title FROM books WHERE id = ?',
-      [id]
+      [parseInt(id)]
     );
 
     if (existingBooks.length === 0) {
@@ -342,7 +457,7 @@ router.delete('/:id', async (req, res) => {
     // Delete the book
     await db.execute(
       'DELETE FROM books WHERE id = ?',
-      [id]
+      [parseInt(id)]
     );
 
     console.log(`🗑️ Book deleted: ${bookTitle} (ID: ${id})`);
@@ -387,6 +502,97 @@ router.post('/upload-cover', upload.single('cover'), async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error uploading book cover: ' + error.message
+    });
+  }
+});
+
+// Helper function to categorize books
+const categorizeBook = (book) => {
+  if (!book.category || book.category.trim() === '') {
+    return 'Uncategorized';
+  }
+  return book.category;
+};
+
+// Update the GET /api/books endpoint to handle uncategorized books
+router.get('/', async (req, res) => {
+  try {
+    const { category, search, page = 1, limit = 12 } = req.query;
+    const offset = (page - 1) * limit;
+
+    console.log('📚 Fetching books with query params:', { category, search, page, limit });
+
+    // Build base query without LIMIT/OFFSET first
+    let query = `
+      SELECT id, title, author, description, isbn, category, dewey_number, price, 
+             format, cover_image, file_url, file_size, pages, publisher, 
+             published_date, language, rating, total_ratings, downloads, 
+             status, total_copies, available_copies, featured, created_at
+      FROM books 
+      WHERE status = 'available'
+    `;
+    const params = [];
+
+    if (category && category !== 'all') {
+      if (category === 'Uncategorized') {
+        query += ' AND (category IS NULL OR category = "" OR category = "Uncategorized")';
+      } else {
+        query += ' AND category = ?';
+        params.push(category);
+      }
+    }
+
+    if (search) {
+      query += ' AND (title LIKE ? OR author LIKE ? OR description LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+
+    query += ' ORDER BY created_at DESC';
+
+    console.log('🔍 Base query:', query);
+    console.log('📊 Query parameters:', params);
+
+    // First get all books (without pagination) to handle the data
+    const [allBooks] = await db.execute(query, params);
+
+    // Apply categorization to books
+    const categorizedBooks = allBooks.map(book => ({
+      ...book,
+      category: categorizeBook(book)
+    }));
+
+    // Apply pagination manually in JavaScript
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + parseInt(limit);
+    const paginatedBooks = categorizedBooks.slice(startIndex, endIndex);
+
+    console.log(`✅ Found ${allBooks.length} total books, showing ${paginatedBooks.length} (page ${page})`);
+
+    res.json({
+      success: true,
+      data: {
+        books: paginatedBooks.map(book => ({
+          ...book,
+          publishedYear: book.published_date ? new Date(book.published_date).getFullYear() : null,
+          status: book.status || 'available',
+          availableCopies: book.available_copies || book.total_copies || 0,
+          totalCopies: book.total_copies || 0
+        })),
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: allBooks.length,
+          pages: Math.ceil(allBooks.length / limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('❌ Get books error:', error);
+    console.error('❌ Error stack:', error.stack);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching books: ' + error.message
     });
   }
 });

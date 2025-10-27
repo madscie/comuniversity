@@ -6,66 +6,11 @@ import {
   FiChevronRight,
   FiHome,
   FiArrowLeft,
+  FiAlertCircle
 } from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
-
-// API configuration - use relative path for Vite proxy
-const API_BASE = '/api';
-
-// API call function
-const apiCall = async (url, options = {}) => {
-  const token = localStorage.getItem('token');
-  
-  const config = {
-    method: options.method || 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-  };
-
-  if (options.body) {
-    config.body = JSON.stringify(options.body);
-  }
-
-  try {
-    console.log(`Making API call to: ${url}`);
-    const response = await fetch(url, config);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error('API call error:', error);
-    throw error;
-  }
-};
-
-// API functions
-const getAllCategories = async () => {
-  try {
-    const data = await apiCall(`${API_BASE}/books/categories`);
-    return data.data || [];
-  } catch (error) {
-    console.error('Error fetching categories:', error);
-    return [];
-  }
-};
-
-const getBooksByCategory = async (category) => {
-  try {
-    const data = await apiCall(`${API_BASE}/books?category=${encodeURIComponent(category)}`);
-    return data.data?.books || [];
-  } catch (error) {
-    console.error('Error fetching books by category:', error);
-    return [];
-  }
-};
+import { api } from "../../config/api";
 
 const BrowsePage = () => {
   const navigate = useNavigate();
@@ -74,8 +19,10 @@ const BrowsePage = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryBooksCount, setCategoryBooksCount] = useState([]);
+  const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingCategory, setLoadingCategory] = useState(false);
+  const [error, setError] = useState(null);
 
   // Main Dewey Decimal Categories
   const deweyCategories = [
@@ -225,9 +172,9 @@ const BrowsePage = () => {
     },
   ];
 
-  // Load categories and book counts from API
+  // Load categories and books from API
   useEffect(() => {
-    loadCategoriesAndCounts();
+    loadCategoriesAndBooks();
   }, []);
 
   // Set selected category based on URL parameter
@@ -238,49 +185,89 @@ const BrowsePage = () => {
         childrensCategories.find((cat) => cat.number === urlCategory);
       if (category) {
         setSelectedCategory(category);
+        loadBooksByCategory(category.name);
       }
     }
   }, [urlCategory]);
 
-  const loadCategoriesAndCounts = async () => {
+  const loadCategoriesAndBooks = async () => {
     try {
       setLoading(true);
-      console.log("Loading categories from API...");
+      setError(null);
+      console.log("📚 Loading categories and books from API...");
       
-      // Get real categories from API
-      const apiCategories = await getAllCategories();
-      console.log("API categories:", apiCategories);
+      // Get books from API
+      const booksResponse = await api.getBooks();
+      console.log("📖 Books API response:", booksResponse);
       
-      // Store the API categories directly as an array
-      setCategoryBooksCount(apiCategories || []);
+      if (booksResponse.success) {
+        setBooks(booksResponse.data.books || []);
+        
+        // Get categories from API
+        const categoriesResponse = await api.getCategories();
+        console.log("📊 Categories API response:", categoriesResponse);
+        
+        if (categoriesResponse.success) {
+          setCategoryBooksCount(categoriesResponse.data || []);
+        } else {
+          // Fallback: calculate from books
+          const categoryCounts = {};
+          booksResponse.data.books.forEach(book => {
+            if (book.category) {
+              categoryCounts[book.category] = (categoryCounts[book.category] || 0) + 1;
+            }
+          });
+          
+          const categoriesArray = Object.keys(categoryCounts).map(category => ({
+            category: category,
+            book_count: categoryCounts[category]
+          }));
+          
+          setCategoryBooksCount(categoriesArray);
+        }
+      } else {
+        setError("Failed to load books from server");
+        setBooks([]);
+        setCategoryBooksCount([]);
+      }
     } catch (error) {
-      console.error('Error loading categories:', error);
-      // Set default empty array if API fails
+      console.error('❌ Error loading books:', error);
+      setError("Failed to connect to server. Please try again.");
+      setBooks([]);
       setCategoryBooksCount([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCategorySelect = async (category) => {
+  const loadBooksByCategory = async (categoryName) => {
     setLoadingCategory(true);
     try {
-      setSelectedCategory(category);
-      setSearchParams({ category: category.number });
-      
-      // Pre-load books from this category
-      const books = await getBooksByCategory(category.name);
-      console.log(`Loaded ${books.length} books from ${category.name}`);
+      const booksResponse = await api.getBooks({ category: categoryName });
+      if (booksResponse.success) {
+        setBooks(booksResponse.data.books || []);
+        console.log(`✅ Loaded ${booksResponse.data.books.length} books from ${categoryName}`);
+      } else {
+        setBooks([]);
+      }
     } catch (error) {
-      console.error('Error loading category books:', error);
+      console.error('❌ Error loading category books:', error);
+      setBooks([]);
     } finally {
       setLoadingCategory(false);
     }
   };
 
+  const handleCategorySelect = async (category) => {
+    setSelectedCategory(category);
+    setSearchParams({ category: category.number });
+    await loadBooksByCategory(category.name);
+  };
+
   const handleClearSelection = () => {
     setSelectedCategory(null);
     setSearchParams({});
+    loadCategoriesAndBooks(); // Reload all books
   };
 
   const handleSearch = (e) => {
@@ -293,6 +280,8 @@ const BrowsePage = () => {
   const handleViewAllBooks = () => {
     if (selectedCategory) {
       navigate(`/search?category=${encodeURIComponent(selectedCategory.name)}`);
+    } else {
+      navigate('/search');
     }
   };
 
@@ -302,18 +291,14 @@ const BrowsePage = () => {
 
   // Get book count for a category
   const getBookCount = (categoryName) => {
-    // Find the category in the API response
     const category = categoryBooksCount.find(
       cat => cat.category === categoryName
     );
     return category ? category.book_count : 0;
   };
 
-  // Calculate total books from all categories
-  const totalBooks = categoryBooksCount.reduce(
-    (sum, category) => sum + (category.book_count || 0), 
-    0
-  );
+  // Calculate total books
+  const totalBooks = books.length;
 
   if (loading) {
     return (
@@ -322,6 +307,21 @@ const BrowsePage = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading library categories...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 flex items-center justify-center">
+        <Card className="text-center p-8 max-w-md">
+          <FiAlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Error Loading Books</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <Button onClick={loadCategoriesAndBooks}>
+            Try Again
+          </Button>
+        </Card>
       </div>
     );
   }
@@ -442,7 +442,7 @@ const BrowsePage = () => {
             </div>
 
             {/* Children's Section */}
-            <h2 className="text-3xl font-bold text-gray-900 text-center mb-8">
+            <h2 className="text-3xl font-bold text-gray-900 text-center mb-8 mt-12">
               Children's Section
             </h2>
 
@@ -486,6 +486,55 @@ const BrowsePage = () => {
                 );
               })}
             </div>
+
+            {/* Books Preview Section */}
+            {books.length > 0 && (
+              <Card className="mb-12 border-0 shadow-xl">
+                <div className="p-6">
+                  <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                    Recently Added Books
+                  </h2>
+                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {books.slice(0, 6).map((book) => (
+                      <div key={book.id} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div className="flex items-start space-x-4">
+                          {book.cover_image ? (
+                            <img
+                              src={book.cover_image}
+                              alt={book.title}
+                              className="w-16 h-20 object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-16 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white">
+                              <FiBook className="h-6 w-6" />
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-gray-900 line-clamp-2">
+                              {book.title}
+                            </h3>
+                            <p className="text-sm text-gray-600 mt-1">
+                              by {book.author}
+                            </p>
+                            <p className="text-xs text-gray-500 mt-2">
+                              {book.category}
+                            </p>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => navigate(`/books/${book.id}`)}
+                              className="mt-2 text-blue-600 hover:text-blue-700"
+                            >
+                              View Details
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Card>
+            )}
           </>
         )}
 
@@ -511,7 +560,7 @@ const BrowsePage = () => {
                   onClick={handleViewAllBooks}
                 >
                   <FiBook className="mr-2 h-5 w-5" />
-                  View All {getBookCount(selectedCategory.name)} Books
+                  View All {books.length} Books
                 </Button>
                 <Button
                   variant="secondary"
@@ -526,6 +575,67 @@ const BrowsePage = () => {
           </Card>
         )}
 
+        {/* Books List for Selected Category */}
+        {selectedCategory && !loadingCategory && books.length > 0 && (
+          <Card className="mb-12 border-0 shadow-xl">
+            <div className="p-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6">
+                Books in {selectedCategory.name}
+              </h2>
+              <div className="space-y-4">
+                {books.map((book) => (
+                  <div key={book.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center space-x-4">
+                      {book.cover_image ? (
+                        <img
+                          src={book.cover_image}
+                          alt={book.title}
+                          className="w-12 h-16 object-cover rounded-lg"
+                        />
+                      ) : (
+                        <div className="w-12 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white">
+                          <FiBook className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-semibold text-gray-900">{book.title}</h3>
+                        <p className="text-sm text-gray-600">by {book.author}</p>
+                        <p className="text-xs text-gray-500">{book.publishedYear || 'Year not available'}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => navigate(`/books/${book.id}`)}
+                    >
+                      View Book
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Empty State */}
+        {books.length === 0 && !loadingCategory && (
+          <Card className="text-center border-0 bg-white/80 backdrop-blur-sm py-16">
+            <FiBook className="h-16 w-16 text-gray-400 mx-auto mb-6" />
+            <h3 className="text-2xl font-bold text-gray-700 mb-4">
+              No Books Available
+            </h3>
+            <p className="text-gray-600 max-w-2xl mx-auto mb-8">
+              {selectedCategory 
+                ? `No books found in the ${selectedCategory.name} category.`
+                : 'No books are currently available in the library.'
+              }
+            </p>
+            <Button variant="primary" onClick={loadCategoriesAndBooks}>
+              Refresh Library
+            </Button>
+          </Card>
+        )}
+
         {/* Statistics */}
         <Card className="text-center border-0 bg-white/80 backdrop-blur-sm shadow-md">
           <h3 className="text-2xl font-bold text-gray-900 mb-6">
@@ -534,7 +644,7 @@ const BrowsePage = () => {
           <div className="grid md:grid-cols-4 gap-6">
             <div>
               <div className="text-3xl font-bold text-blue-600 mb-2">
-                {totalBooks}+
+                {totalBooks}
               </div>
               <div className="text-gray-600">Total Books</div>
             </div>
@@ -546,9 +656,9 @@ const BrowsePage = () => {
             </div>
             <div>
               <div className="text-3xl font-bold text-purple-600 mb-2">
-                {categoryBooksCount.length}+
+                {categoryBooksCount.length}
               </div>
-              <div className="text-gray-600">Subcategories</div>
+              <div className="text-gray-600">Active Categories</div>
             </div>
             <div>
               <div className="text-3xl font-bold text-orange-600 mb-2">

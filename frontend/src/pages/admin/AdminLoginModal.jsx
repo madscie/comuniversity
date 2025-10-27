@@ -1,3 +1,4 @@
+// src/components/AdminLoginModal.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../store/authStore";
@@ -5,14 +6,14 @@ import { FiX, FiLock, FiMail } from "react-icons/fi";
 
 const AdminLoginModal = ({ isOpen, onClose }) => {
   const [credentials, setCredentials] = useState({
-    email: "",
-    password: "",
+    email: "admin@communiversity.com",
+    password: "admin123",
   });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
   const navigate = useNavigate();
-  const { adminLogin } = useAuthStore();
+  const { adminLogin, devLogin } = useAuthStore();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -20,16 +21,43 @@ const AdminLoginModal = ({ isOpen, onClose }) => {
     setError("");
 
     try {
-      // Use the adminLogin method from store with email and password
+      console.log('🛡️ Attempting admin login...');
+      
+      // Use the adminLogin method from store
       const result = await adminLogin(credentials.email, credentials.password);
 
       if (result.success) {
+        console.log('✅ Admin login successful');
+        onClose();
         navigate("/admin/dashboard");
       } else {
         setError(result.error || "Invalid admin credentials");
       }
     } catch (err) {
-      setError("Login failed. Please try again.");
+      console.error('❌ Admin login error:', err);
+      setError(err.message || "Login failed. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Development bypass for quick testing
+  const handleDevLogin = async () => {
+    setIsLoading(true);
+    setError("");
+    
+    try {
+      console.log('🚀 Using development login bypass...');
+      const result = await devLogin();
+      
+      if (result.success) {
+        console.log('✅ Development login successful');
+        onClose();
+        navigate("/admin/dashboard");
+      }
+    } catch (err) {
+      console.error('❌ Dev login error:', err);
+      setError("Development login failed");
     } finally {
       setIsLoading(false);
     }
@@ -111,6 +139,16 @@ const AdminLoginModal = ({ isOpen, onClose }) => {
             className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
           >
             {isLoading ? "Signing in..." : "Sign in as Admin"}
+          </button>
+
+          {/* Development bypass button */}
+          <button
+            type="button"
+            onClick={handleDevLogin}
+            disabled={isLoading}
+            className="w-full bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 transition-colors"
+          >
+            {isLoading ? "Signing in..." : "Development Login (Bypass)"}
           </button>
         </form>
 

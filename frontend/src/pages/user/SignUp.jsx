@@ -91,7 +91,7 @@ const SignUp = () => {
     // Real API call to /api/auth/signup
     const callSignupApi = async (userData) => {
         try {
-            const response = await fetch('/api/auth/signup', {
+            const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

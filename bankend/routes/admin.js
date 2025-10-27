@@ -690,4 +690,140 @@ router.post('/webinars/upload-image', upload.single('image'), async (req, res) =
   }
 });
 
+// GET /api/admin/users - Get all users
+router.get('/users', async (req, res) => {
+  try {
+    const [users] = await db.execute(`
+      SELECT 
+        id, name, email, role, is_active, 
+        affiliate_status, total_referrals, total_earnings,
+        join_date, last_login, bio, profile_image,
+        created_at, updated_at
+      FROM users 
+      ORDER BY created_at DESC
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        users: users.map(user => ({
+          ...user,
+          is_active: Boolean(user.is_active)
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching users'
+    });
+  }
+});
+
+// GET /api/admin/users/stats - Get user statistics
+router.get('/users/stats', async (req, res) => {
+  try {
+    const [totalUsers] = await db.execute('SELECT COUNT(*) as total FROM users');
+    const [activeUsers] = await db.execute('SELECT COUNT(*) as total FROM users WHERE is_active = 1');
+    const [premiumUsers] = await db.execute('SELECT COUNT(*) as total FROM users WHERE role = "premium"');
+    const [newUsersToday] = await db.execute(`
+      SELECT COUNT(*) as total FROM users 
+      WHERE DATE(created_at) = CURDATE()
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        totalUsers: totalUsers[0].total,
+        activeUsers: activeUsers[0].total,
+        premiumUsers: premiumUsers[0].total,
+        newUsersToday: newUsersToday[0].total
+      }
+    });
+  } catch (error) {
+    console.error('Get user stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching user statistics'
+    });
+  }
+});
+
+// PATCH /api/admin/users/:id/status - Update user status
+router.patch('/users/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!status || !['active', 'inactive'].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid status (active/inactive) is required'
+      });
+    }
+
+    const [result] = await db.execute(
+      'UPDATE users SET is_active = ? WHERE id = ?',
+      [status === 'active' ? 1 : 0, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `User ${status} successfully`
+    });
+  } catch (error) {
+    console.error('Update user status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user status'
+    });
+  }
+});
+
+// PATCH /api/admin/users/:id/role - Update user role
+router.patch('/users/:id/role', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!role || !['user', 'premium', 'admin'].includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Valid role (user/premium/admin) is required'
+      });
+    }
+
+    const [result] = await db.execute(
+      'UPDATE users SET role = ? WHERE id = ?',
+      [role, id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `User role updated to ${role} successfully`
+    });
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user role'
+    });
+  }
+});
+
 module.exports = router;

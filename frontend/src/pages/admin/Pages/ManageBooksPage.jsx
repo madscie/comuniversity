@@ -1,4 +1,3 @@
-// src/pages/admin/ManageBooksPage.jsx
 import { useState, useEffect } from "react";
 import {
   FiBook,
@@ -60,44 +59,13 @@ const ManageBooksPage = () => {
   const handleSaveBook = async (bookData, bookId) => {
     setSaveLoading(true);
     try {
-      // Prepare data for API with all new fields
-      const submissionData = {
-        title: bookData.title,
-        author: bookData.author,
-        description: bookData.description,
-        isbn: bookData.isbn,
-        category: bookData.category,
-        dewey_number: bookData.dewey_number || bookData.deweyDecimal,
-        price: parseFloat(bookData.price) || 0,
-        format: 'PDF',
-        pages: bookData.pages ? parseInt(bookData.pages) : null,
-        publisher: bookData.publisher,
-        published_date: bookData.publishedYear ? `${bookData.publishedYear}-01-01` : null,
-        language: bookData.language,
-        total_copies: parseInt(bookData.totalCopies),
-        available_copies: parseInt(bookData.totalCopies),
-        status: bookData.status
-      };
-
-      console.log('💾 Saving book with price:', submissionData.price);
-
-      // Handle cover image upload if available
-      if (bookData.coverImageFile) {
-        try {
-          const uploadResponse = await api.uploadBookCover(bookData.coverImageFile);
-          if (uploadResponse.success) {
-            submissionData.cover_image = uploadResponse.data.coverUrl;
-          }
-        } catch (uploadError) {
-          console.error('Error uploading cover:', uploadError);
-        }
-      }
+      console.log('💾 Saving book data:', bookData);
 
       let response;
       if (bookId) {
-        response = await api.updateBook(bookId, submissionData);
+        response = await api.updateBook(bookId, bookData);
       } else {
-        response = await api.createBook(submissionData);
+        response = await api.createBook(bookData);
       }
 
       if (response.success) {
@@ -187,26 +155,26 @@ const ManageBooksPage = () => {
 
   const getCategoryBadge = (category) => {
     const styles = {
-      Fiction: "bg-blue-100 text-blue-800",
-      "Science Fiction": "bg-purple-100 text-purple-800",
-      Romance: "bg-pink-100 text-pink-800",
-      Mystery: "bg-orange-100 text-orange-800",
-      Thriller: "bg-red-100 text-red-800",
-      Biography: "bg-teal-100 text-teal-800",
-      History: "bg-yellow-100 text-yellow-800",
-      Science: "bg-indigo-100 text-indigo-800",
-      Technology: "bg-cyan-100 text-cyan-800",
-      Art: "bg-rose-100 text-rose-800",
-      Cooking: "bg-amber-100 text-amber-800",
-      Travel: "bg-emerald-100 text-emerald-800",
-      Children: "bg-lime-100 text-lime-800",
-      "Young Adult": "bg-fuchsia-100 text-fuchsia-800",
-      Fantasy: "bg-violet-100 text-violet-800",
-      Horror: "bg-red-100 text-red-800",
-      Poetry: "bg-sky-100 text-sky-800",
-      Drama: "bg-rose-100 text-rose-800",
-      Comics: "bg-orange-100 text-orange-800",
-      Other: "bg-gray-100 text-gray-800",
+      "General Works": "bg-blue-100 text-blue-800",
+      "Philosophy & Psychology": "bg-purple-100 text-purple-800",
+      "Religion": "bg-red-100 text-red-800",
+      "Social Sciences": "bg-green-100 text-green-800",
+      "Language": "bg-yellow-100 text-yellow-800",
+      "Natural Sciences & Math": "bg-indigo-100 text-indigo-800",
+      "Technology & Applied Sciences": "bg-pink-100 text-pink-800",
+      "Arts & Recreation": "bg-teal-100 text-teal-800",
+      "Literature": "bg-orange-100 text-orange-800",
+      "History & Geography": "bg-gray-100 text-gray-800",
+      "Children's General Works": "bg-blue-100 text-blue-800",
+      "Children's Philosophy & Psychology": "bg-purple-100 text-purple-800",
+      "Children's Religion": "bg-red-100 text-red-800",
+      "Children's Social Sciences": "bg-green-100 text-green-800",
+      "Children's Language": "bg-yellow-100 text-yellow-800",
+      "Children's Natural Sciences & Math": "bg-indigo-100 text-indigo-800",
+      "Children's Technology": "bg-pink-100 text-pink-800",
+      "Children's Arts & Recreation": "bg-teal-100 text-teal-800",
+      "Children's Literature": "bg-orange-100 text-orange-800",
+      "Children's History & Geography": "bg-gray-100 text-gray-800",
     };
     return styles[category] || "bg-gray-100 text-gray-800";
   };

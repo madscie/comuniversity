@@ -1,4 +1,3 @@
-// pages/public/BookDetail.jsx
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -16,6 +15,7 @@ import {
 } from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
+import { api } from "../../config/api";
 
 const BookDetail = () => {
   const { id } = useParams();
@@ -27,8 +27,6 @@ const BookDetail = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
-  const [showDownloadFlow, setShowDownloadFlow] = useState(false);
-  const [selectedFormat, setSelectedFormat] = useState("");
   const [relatedBooks, setRelatedBooks] = useState([]);
 
   useEffect(() => {
@@ -37,16 +35,28 @@ const BookDetail = () => {
         setLoading(true);
         setError(null);
         
-        // TODO: Replace with actual API calls
-        // const bookResponse = await bookAPI.getById(id);
-        // const relatedResponse = await bookAPI.getRelatedBooks(id, bookResponse.data.category);
+        // Use real API call to get book details
+        const bookResponse = await api.getBookById(id);
         
-        // For now, set empty until backend is ready
-        setBook(null);
-        setRelatedBooks([]);
+        if (bookResponse.success) {
+          setBook(bookResponse.data.book);
+          
+          // Load related books from same category
+          if (bookResponse.data.book.category) {
+            const relatedResponse = await api.getBooks({ 
+              category: bookResponse.data.book.category,
+              limit: 3 
+            });
+            if (relatedResponse.success) {
+              setRelatedBooks(relatedResponse.data.books.filter(b => b.id !== parseInt(id)));
+            }
+          }
+        } else {
+          setError("Book not found");
+        }
         
       } catch (err) {
-        console.error("Error loading book:", err);
+        console.error("❌ Error loading book:", err);
         setError("Failed to load book details. Please try again.");
       } finally {
         setLoading(false);
@@ -71,12 +81,7 @@ const BookDetail = () => {
     if (!book) return;
 
     try {
-      // TODO: Replace with actual API call
-      // const response = await downloadAPI.downloadBook(book.id, format);
-      // Handle the download response (blob, redirect, etc.)
-      
       console.log(`Downloading ${book.title} in ${format} format`);
-      // Temporary implementation
       alert(`Download functionality for ${format} format will be implemented with backend integration.`);
       
     } catch (err) {
@@ -88,9 +93,6 @@ const BookDetail = () => {
   const handlePurchase = () => {
     if (!book) return;
     
-    // TODO: Replace with actual purchase flow
-    // navigate(`/checkout/${book.id}`);
-    
     console.log("Initiating purchase for:", book.id);
     alert("Purchase flow will be implemented with backend integration.");
   };
@@ -99,13 +101,6 @@ const BookDetail = () => {
     if (!book) return;
 
     try {
-      // TODO: Replace with actual API call
-      // if (isFavorite) {
-      //   await favoritesAPI.remove(book.id);
-      // } else {
-      //   await favoritesAPI.add(book.id);
-      // }
-      
       const newFavoriteStatus = !isFavorite;
       setIsFavorite(newFavoriteStatus);
       
@@ -141,22 +136,13 @@ const BookDetail = () => {
     }
   };
 
-  const handleDownloadComplete = () => {
-    setShowDownloadFlow(false);
-    setSelectedFormat("");
-  };
-
-  const handleDownloadCancel = () => {
-    setShowDownloadFlow(false);
-    setSelectedFormat("");
-  };
-
   const renderStars = (rating) => {
+    const normalizedRating = rating || 0;
     return Array.from({ length: 5 }, (_, i) => (
       <FiStar
         key={i}
         className={`h-5 w-5 ${
-          i < Math.floor(rating)
+          i < Math.floor(normalizedRating)
             ? "text-yellow-400 fill-current"
             : "text-gray-300"
         }`}
@@ -241,11 +227,17 @@ const BookDetail = () => {
             <div className="lg:w-1/3 p-8 flex justify-center">
               <div className="relative group">
                 <div className="relative overflow-hidden rounded-2xl shadow-2xl">
-                  <img
-                    src={book.coverImage}
-                    alt={book.title}
-                    className="w-64 h-80 object-cover transform group-hover:scale-105 transition-transform duration-300"
-                  />
+                  {book.cover_image ? (
+                    <img
+                      src={book.cover_image}
+                      alt={book.title}
+                      className="w-64 h-80 object-cover transform group-hover:scale-105 transition-transform duration-300"
+                    />
+                  ) : (
+                    <div className="w-64 h-80 bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-6xl">
+                      <FiBook />
+                    </div>
+                  )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
               </div>
@@ -255,7 +247,7 @@ const BookDetail = () => {
             <div className="lg:w-2/3 p-8">
               <div className="mb-4">
                 <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-                  {book.category} • {book.deweyNumber || book.ddc || "N/A"}
+                  {book.category} • {book.dewey_number || "N/A"}
                 </span>
                 {/* Payment Status Badge */}
                 <span
@@ -279,7 +271,7 @@ const BookDetail = () => {
               {/* Rating and Downloads */}
               <div className="flex items-center mb-6 space-x-4">
                 <div className="flex items-center space-x-1">
-                  {renderStars(book.rating || 0)}
+                  {renderStars(book.rating)}
                   <span className="ml-2 text-gray-700 font-medium">
                     {book.rating || 0}
                   </span>
@@ -401,7 +393,7 @@ const BookDetail = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Published:</span>
                   <span className="font-medium">
-                    {book.publishedDate || "N/A"}
+                    {book.published_date || "N/A"}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -443,7 +435,7 @@ const BookDetail = () => {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">File Size:</span>
-                  <span className="font-medium">{book.fileSize || "N/A"}</span>
+                  <span className="font-medium">{book.file_size || "N/A"}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Available Formats:</span>
@@ -460,17 +452,16 @@ const BookDetail = () => {
                 Categories & Tags
               </h3>
               <div className="flex flex-wrap gap-2">
-                {(book.tags || []).map((tag, index) => (
+                <span
+                  className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+                >
+                  {book.category}
+                </span>
+                {book.dewey_number && (
                   <span
-                    key={index}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+                    className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
                   >
-                    {tag}
-                  </span>
-                ))}
-                {(!book.tags || book.tags.length === 0) && (
-                  <span className="text-gray-500 text-sm">
-                    No tags available
+                    DDC: {book.dewey_number}
                   </span>
                 )}
               </div>
@@ -495,11 +486,17 @@ const BookDetail = () => {
                     <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-300">
                       <div className="p-4">
                         <div className="flex items-start space-x-4">
-                          <img
-                            src={relatedBook.coverImage}
-                            alt={relatedBook.title}
-                            className="w-16 h-20 object-cover rounded-lg"
-                          />
+                          {relatedBook.cover_image ? (
+                            <img
+                              src={relatedBook.cover_image}
+                              alt={relatedBook.title}
+                              className="w-16 h-20 object-cover rounded-lg"
+                            />
+                          ) : (
+                            <div className="w-16 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center text-white">
+                              <FiBook className="h-6 w-6" />
+                            </div>
+                          )}
                           <div>
                             <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
                               {relatedBook.title}
@@ -508,7 +505,7 @@ const BookDetail = () => {
                               {relatedBook.author}
                             </p>
                             <div className="flex items-center mt-2">
-                              {renderStars(relatedBook.rating || 0)}
+                              {renderStars(relatedBook.rating)}
                               <span className="ml-2 text-sm text-gray-600">
                                 {relatedBook.rating || 0}
                               </span>

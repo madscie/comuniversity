@@ -1,4 +1,3 @@
-// src/pages/admin/BookFormModal.jsx
 import { useState, useEffect } from "react";
 import {
   FiX,
@@ -24,45 +23,46 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
     author: "",
     isbn: "",
     category: "",
-    deweyDecimal: "",
+    dewey_number: "",
     price: "0.00",
-    publishedYear: new Date().getFullYear(),
-    totalCopies: 1,
+    published_date: new Date().getFullYear() + "-01-01",
+    total_copies: 1,
     description: "",
     publisher: "",
     language: "English",
     pages: "",
     status: "available",
+    format: "physical",
+    featured: false
   });
   
   const [coverImage, setCoverImage] = useState(null);
   const [coverPreview, setCoverPreview] = useState("");
-  const [bookFile, setBookFile] = useState(null);
-  const [filePreview, setFilePreview] = useState(null);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Categories that match the Dewey Decimal system
   const categories = [
-    "Fiction",
-    "Science Fiction",
-    "Mystery",
-    "Romance",
-    "Thriller",
-    "Biography",
-    "History",
-    "Science",
-    "Technology",
-    "Art",
-    "Cooking",
-    "Travel",
-    "Children",
-    "Young Adult",
-    "Fantasy",
-    "Horror",
-    "Poetry",
-    "Drama",
-    "Comics",
-    "Other"
+    "General Works",
+    "Philosophy & Psychology", 
+    "Religion",
+    "Social Sciences",
+    "Language",
+    "Natural Sciences & Math",
+    "Technology & Applied Sciences",
+    "Arts & Recreation",
+    "Literature",
+    "History & Geography",
+    "Children's General Works",
+    "Children's Philosophy & Psychology",
+    "Children's Religion",
+    "Children's Social Sciences",
+    "Children's Language",
+    "Children's Natural Sciences & Math",
+    "Children's Technology",
+    "Children's Arts & Recreation",
+    "Children's Literature",
+    "Children's History & Geography"
   ];
 
   const languages = [
@@ -78,38 +78,29 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
     "Other"
   ];
 
-  // Common Dewey Decimal classifications by category
+  // Dewey Decimal suggestions by category
   const deweySuggestions = {
-    "Fiction": "800-899",
-    "Science Fiction": "813",
-    "Mystery": "813.54",
-    "Romance": "813.54",
-    "Thriller": "813.54",
-    "Biography": "920",
-    "History": "900-999",
-    "Science": "500-599",
-    "Technology": "600-699",
-    "Art": "700-799",
-    "Cooking": "641.5",
-    "Travel": "910",
-    "Children": "JP",
-    "Young Adult": "YFIC",
-    "Fantasy": "813.54",
-    "Horror": "813.54",
-    "Poetry": "811",
-    "Drama": "812",
-    "Comics": "741.5",
-    "Other": "000"
+    "General Works": "000-099",
+    "Philosophy & Psychology": "100-199",
+    "Religion": "200-299",
+    "Social Sciences": "300-399",
+    "Language": "400-499",
+    "Natural Sciences & Math": "500-599",
+    "Technology & Applied Sciences": "600-699",
+    "Arts & Recreation": "700-799",
+    "Literature": "800-899",
+    "History & Geography": "900-999",
+    "Children's General Works": "J 000-099",
+    "Children's Philosophy & Psychology": "J 100-199",
+    "Children's Religion": "J 200-299",
+    "Children's Social Sciences": "J 300-399",
+    "Children's Language": "J 400-499",
+    "Children's Natural Sciences & Math": "J 500-599",
+    "Children's Technology": "J 600-699",
+    "Children's Arts & Recreation": "J 700-799",
+    "Children's Literature": "J 800-899",
+    "Children's History & Geography": "J 900-999"
   };
-
-  const allowedFileTypes = [
-    'application/pdf',
-    'application/epub+zip',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
-    'application/rtf'
-  ];
 
   useEffect(() => {
     if (book) {
@@ -118,15 +109,17 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
         author: book.author || "",
         isbn: book.isbn || "",
         category: book.category || "",
-        deweyDecimal: book.dewey_number || "",
+        dewey_number: book.dewey_number || "",
         price: book.price ? book.price.toString() : "0.00",
-        publishedYear: book.published_date ? new Date(book.published_date).getFullYear() : new Date().getFullYear(),
-        totalCopies: book.total_copies || 1,
+        published_date: book.published_date || new Date().getFullYear() + "-01-01",
+        total_copies: book.total_copies || 1,
         description: book.description || "",
         publisher: book.publisher || "",
         language: book.language || "English",
         pages: book.pages || "",
         status: book.status || "available",
+        format: book.format || "physical",
+        featured: book.featured || false
       });
       if (book.cover_image) {
         setCoverPreview(book.cover_image);
@@ -137,42 +130,45 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
         author: "",
         isbn: "",
         category: "",
-        deweyDecimal: "",
+        dewey_number: "",
         price: "0.00",
-        publishedYear: new Date().getFullYear(),
-        totalCopies: 1,
+        published_date: new Date().getFullYear() + "-01-01",
+        total_copies: 1,
         description: "",
         publisher: "",
         language: "English",
         pages: "",
         status: "available",
+        format: "physical",
+        featured: false
       });
       setCoverImage(null);
       setCoverPreview("");
-      setBookFile(null);
-      setFilePreview(null);
     }
     setErrors({});
   }, [book, isOpen]);
 
   // Auto-suggest Dewey Decimal when category changes
   useEffect(() => {
-    if (formData.category && !formData.deweyDecimal && deweySuggestions[formData.category]) {
+    if (formData.category && !formData.dewey_number && deweySuggestions[formData.category]) {
       setFormData(prev => ({
         ...prev,
-        deweyDecimal: deweySuggestions[formData.category]
+        dewey_number: deweySuggestions[formData.category]
       }));
     }
   }, [formData.category]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     
-    // Format price input
-    if (name === 'price') {
-      // Allow only numbers and decimal point
+    if (type === 'checkbox') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: checked
+      }));
+    } else if (name === 'price') {
+      // Format price input
       const formattedValue = value.replace(/[^\d.]/g, '');
-      // Ensure only one decimal point
       const parts = formattedValue.split('.');
       if (parts.length > 2) return;
       
@@ -226,64 +222,9 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
     }
   };
 
-  const handleBookFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      if (!allowedFileTypes.includes(file.type)) {
-        setErrors(prev => ({
-          ...prev,
-          bookFile: "Please select a valid book file (PDF, EPUB, DOC, DOCX, TXT, RTF)"
-        }));
-        return;
-      }
-
-      if (file.size > 50 * 1024 * 1024) {
-        setErrors(prev => ({
-          ...prev,
-          bookFile: "File size should be less than 50MB"
-        }));
-        return;
-      }
-
-      setBookFile(file);
-      setErrors(prev => ({ ...prev, bookFile: "" }));
-
-      setFilePreview({
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        url: URL.createObjectURL(file)
-      });
-    }
-  };
-
   const removeCoverImage = () => {
     setCoverImage(null);
     setCoverPreview("");
-  };
-
-  const removeBookFile = () => {
-    setBookFile(null);
-    if (filePreview?.url) {
-      URL.revokeObjectURL(filePreview.url);
-    }
-    setFilePreview(null);
-  };
-
-  const getFileIcon = (fileType) => {
-    if (fileType.includes('pdf')) return '📕';
-    if (fileType.includes('epub')) return '📚';
-    if (fileType.includes('word') || fileType.includes('document')) return '📄';
-    if (fileType.includes('text')) return '📝';
-    return '📁';
-  };
-
-  const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
-    const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
   const validateForm = () => {
@@ -297,36 +238,24 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
       newErrors.author = "Author is required";
     }
 
-    if (!formData.isbn.trim()) {
-      newErrors.isbn = "ISBN is required";
-    } else if (!/^(?:\d{10}|\d{13})$/.test(formData.isbn.replace(/[- ]/g, ''))) {
-      newErrors.isbn = "ISBN must be 10 or 13 digits";
-    }
-
     if (!formData.category) {
       newErrors.category = "Category is required";
     }
 
-    if (!formData.deweyDecimal.trim()) {
-      newErrors.deweyDecimal = "Dewey Decimal classification is required";
+    if (!formData.dewey_number.trim()) {
+      newErrors.dewey_number = "Dewey Decimal classification is required";
     }
 
     if (!formData.price || parseFloat(formData.price) < 0) {
       newErrors.price = "Price must be a positive number";
     }
 
-    if (!formData.publishedYear) {
-      newErrors.publishedYear = "Published year is required";
-    } else if (formData.publishedYear < 1000 || formData.publishedYear > new Date().getFullYear() + 5) {
-      newErrors.publishedYear = "Please enter a valid year";
+    if (!formData.published_date) {
+      newErrors.published_date = "Published date is required";
     }
 
-    if (!formData.totalCopies || formData.totalCopies < 1) {
-      newErrors.totalCopies = "Must have at least 1 copy";
-    }
-
-    if (!formData.publisher.trim()) {
-      newErrors.publisher = "Publisher is required";
+    if (!formData.total_copies || formData.total_copies < 1) {
+      newErrors.total_copies = "Must have at least 1 copy";
     }
 
     setErrors(newErrors);
@@ -345,19 +274,14 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
     try {
       const submissionData = {
         ...formData,
-        dewey_number: formData.deweyDecimal,
         price: parseFloat(formData.price) || 0,
-        publishedYear: parseInt(formData.publishedYear),
-        totalCopies: parseInt(formData.totalCopies),
+        total_copies: parseInt(formData.total_copies),
         pages: formData.pages ? parseInt(formData.pages) : null,
+        featured: formData.featured ? 1 : 0
       };
 
       if (coverImage) {
         submissionData.coverImageFile = coverImage;
-      }
-
-      if (bookFile) {
-        submissionData.bookFile = bookFile;
       }
 
       await onSave(submissionData, book?.id);
@@ -467,83 +391,6 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
                   )}
                 </div>
 
-                {/* Book File Upload Section */}
-                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
-                  <label className="block text-sm font-semibold text-gray-800 mb-4 flex items-center">
-                    <FiFile className="mr-2 h-4 w-4 text-green-500" />
-                    Book File
-                    <span className="text-xs text-gray-500 ml-2 font-normal">(Recommended)</span>
-                  </label>
-                  
-                  {filePreview ? (
-                    <div className="border-2 border-green-200 bg-green-50 rounded-xl p-4 transition-all duration-300">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <div className="text-2xl">
-                            {getFileIcon(filePreview.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-800 truncate">
-                              {filePreview.name}
-                            </p>
-                            <p className="text-sm text-gray-600">
-                              {formatFileSize(filePreview.size)} • {filePreview.type.split('/')[1]?.toUpperCase() || 'FILE'}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          {filePreview.url && (
-                            <a
-                              href={filePreview.url}
-                              download={filePreview.name}
-                              className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors duration-200"
-                              title="Download"
-                            >
-                              <FiDownload className="h-4 w-4" />
-                            </a>
-                          )}
-                          <button
-                            type="button"
-                            onClick={removeBookFile}
-                            className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors duration-200"
-                            title="Remove"
-                          >
-                            <FiTrash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl p-6 bg-gradient-to-br from-gray-50 to-gray-100 transition-all duration-300 hover:border-green-400 hover:shadow-md">
-                      <FiFile className="h-12 w-12 text-gray-400 mb-3" />
-                      <p className="text-sm text-gray-600 mb-3 text-center">
-                        Upload the book file for digital access
-                      </p>
-                      <label className="cursor-pointer inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                        <FiUpload className="mr-2 h-4 w-4" />
-                        Upload Book File
-                        <input
-                          type="file"
-                          accept=".pdf,.epub,.doc,.docx,.txt,.rtf"
-                          onChange={handleBookFileChange}
-                          className="hidden"
-                        />
-                      </label>
-                      <p className="text-xs text-gray-500 mt-3 text-center">
-                        Supports: PDF, EPUB, DOC, DOCX, TXT, RTF<br />
-                        Max size: 50MB
-                      </p>
-                    </div>
-                  )}
-                  
-                  {errors.bookFile && (
-                    <p className="text-red-500 text-sm mt-3 flex items-center">
-                      <FiX className="mr-1 h-3 w-3" />
-                      {errors.bookFile}
-                    </p>
-                  )}
-                </div>
-
                 {/* Title Field */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                   <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
@@ -600,26 +447,16 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                   <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
                     <FiHash className="mr-2 h-4 w-4 text-purple-500" />
-                    ISBN *
+                    ISBN
                   </label>
                   <input
                     type="text"
                     name="isbn"
                     value={formData.isbn}
                     onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                      errors.isbn 
-                        ? "border-red-300 bg-red-50" 
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
-                    placeholder="Enter ISBN (10 or 13 digits)"
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 hover:border-gray-300"
+                    placeholder="Enter ISBN (optional)"
                   />
-                  {errors.isbn && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center">
-                      <FiX className="mr-1 h-3 w-3" />
-                      {errors.isbn}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -662,11 +499,11 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
                   </label>
                   <input
                     type="text"
-                    name="deweyDecimal"
-                    value={formData.deweyDecimal}
+                    name="dewey_number"
+                    value={formData.dewey_number}
                     onChange={handleInputChange}
                     className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                      errors.deweyDecimal 
+                      errors.dewey_number 
                         ? "border-red-300 bg-red-50" 
                         : "border-gray-200 hover:border-gray-300"
                     }`}
@@ -677,10 +514,10 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
                       Suggested for {formData.category}: {deweySuggestions[formData.category]}
                     </p>
                   )}
-                  {errors.deweyDecimal && (
+                  {errors.dewey_number && (
                     <p className="text-red-500 text-sm mt-2 flex items-center">
                       <FiX className="mr-1 h-3 w-3" />
-                      {errors.deweyDecimal}
+                      {errors.dewey_number}
                     </p>
                   )}
                 </div>
@@ -714,29 +551,27 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
                   )}
                 </div>
 
-                {/* Published Year Field */}
+                {/* Published Date Field */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                   <label className="block text-sm font-semibold text-gray-800 mb-3 flex items-center">
                     <FiCalendar className="mr-2 h-4 w-4 text-red-500" />
-                    Published Year *
+                    Published Date *
                   </label>
                   <input
-                    type="number"
-                    name="publishedYear"
-                    value={formData.publishedYear}
+                    type="date"
+                    name="published_date"
+                    value={formData.published_date}
                     onChange={handleInputChange}
-                    min="1000"
-                    max={new Date().getFullYear() + 5}
                     className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                      errors.publishedYear 
+                      errors.published_date 
                         ? "border-red-300 bg-red-50" 
                         : "border-gray-200 hover:border-gray-300"
                     }`}
                   />
-                  {errors.publishedYear && (
+                  {errors.published_date && (
                     <p className="text-red-500 text-sm mt-2 flex items-center">
                       <FiX className="mr-1 h-3 w-3" />
-                      {errors.publishedYear}
+                      {errors.published_date}
                     </p>
                   )}
                 </div>
@@ -744,26 +579,16 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
                 {/* Publisher Field */}
                 <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
                   <label className="block text-sm font-semibold text-gray-800 mb-3">
-                    Publisher *
+                    Publisher
                   </label>
                   <input
                     type="text"
                     name="publisher"
                     value={formData.publisher}
                     onChange={handleInputChange}
-                    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                      errors.publisher 
-                        ? "border-red-300 bg-red-50" 
-                        : "border-gray-200 hover:border-gray-300"
-                    }`}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 hover:border-gray-300"
                     placeholder="Enter publisher name"
                   />
-                  {errors.publisher && (
-                    <p className="text-red-500 text-sm mt-2 flex items-center">
-                      <FiX className="mr-1 h-3 w-3" />
-                      {errors.publisher}
-                    </p>
-                  )}
                 </div>
 
                 {/* Language Field */}
@@ -806,22 +631,39 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
                   </label>
                   <input
                     type="number"
-                    name="totalCopies"
-                    value={formData.totalCopies}
+                    name="total_copies"
+                    value={formData.total_copies}
                     onChange={handleInputChange}
                     min="1"
                     className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
-                      errors.totalCopies 
+                      errors.total_copies 
                         ? "border-red-300 bg-red-50" 
                         : "border-gray-200 hover:border-gray-300"
                     }`}
                   />
-                  {errors.totalCopies && (
+                  {errors.total_copies && (
                     <p className="text-red-500 text-sm mt-2 flex items-center">
                       <FiX className="mr-1 h-3 w-3" />
-                      {errors.totalCopies}
+                      {errors.total_copies}
                     </p>
                   )}
+                </div>
+
+                {/* Format Field */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="block text-sm font-semibold text-gray-800 mb-3">
+                    Format
+                  </label>
+                  <select
+                    name="format"
+                    value={formData.format}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 appearance-none bg-white hover:border-gray-300"
+                  >
+                    <option value="physical">Physical</option>
+                    <option value="digital">Digital</option>
+                    <option value="both">Both</option>
+                  </select>
                 </div>
 
                 {/* Status Field */}
@@ -838,6 +680,25 @@ const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
                     <option value="available">📗 Available</option>
                     <option value="unavailable">📕 Unavailable</option>
                   </select>
+                </div>
+
+                {/* Featured Field */}
+                <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-200">
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      name="featured"
+                      checked={formData.featured}
+                      onChange={handleInputChange}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="ml-2 text-sm font-semibold text-gray-800">
+                      Featured Book
+                    </span>
+                  </label>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Featured books will be highlighted on the homepage
+                  </p>
                 </div>
               </div>
             </div>

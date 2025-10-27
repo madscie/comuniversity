@@ -1,23 +1,24 @@
 // store/authStore.js
 import { create } from "zustand";
-import { api } from "../config/api"; // Fixed import path
-
-// Define API_BASE here since we can't import from api.js in a circular dependency
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+import { api } from "../config/api";
 
 export const useAuthStore = create((set, get) => ({
   user: null,
   isAuthenticated: false,
   isLoading: false,
   hasCheckedAuth: false,
+  isAdmin: false,
 
+  // Regular login (used for both users and admins)
   login: async (email, password) => {
     set({ isLoading: true });
 
     try {
-      console.log('Attempting login with:', { email });
+      console.log('🔐 Attempting login with:', { email });
+      
+      // Use the regular login endpoint
       const response = await api.login(email, password);
-      console.log('Login response:', response);
+      console.log('📥 Login response:', response);
       
       if (response.success) {
         const { user, token } = response.data;
@@ -26,22 +27,30 @@ export const useAuthStore = create((set, get) => ({
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
 
+        const isAdmin = user.role === 'admin';
+
         set({
           user,
           isAuthenticated: true,
+          isAdmin: isAdmin,
           isLoading: false,
           hasCheckedAuth: true,
         });
 
-        return { success: true, user };
+        return { 
+          success: true, 
+          user,
+          isAdmin 
+        };
       } else {
         throw new Error(response.message || 'Login failed');
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
       set({
         user: null,
         isAuthenticated: false,
+        isAdmin: false,
         isLoading: false,
         hasCheckedAuth: true,
       });
@@ -52,16 +61,24 @@ export const useAuthStore = create((set, get) => ({
     }
   },
 
-  signup: async (userData) => {
+  // Admin login - uses regular login but checks for admin role
+  adminLogin: async (email, password) => {
     set({ isLoading: true });
 
     try {
-      console.log('Attempting signup with:', userData);
-      const response = await api.register(userData);
-      console.log('Signup response:', response);
+      console.log('🛡️ Attempting admin login with:', { email });
+      
+      // Use the regular login endpoint
+      const response = await api.login(email, password);
+      console.log('📥 Admin login response:', response);
       
       if (response.success) {
         const { user, token } = response.data;
+        
+        // Check if user is actually an admin
+        if (user.role !== 'admin') {
+          throw new Error('Access denied. Admin privileges required.');
+        }
         
         // Store token and user data
         localStorage.setItem('token', token);
@@ -70,82 +87,69 @@ export const useAuthStore = create((set, get) => ({
         set({
           user,
           isAuthenticated: true,
+          isAdmin: true,
           isLoading: false,
           hasCheckedAuth: true,
         });
 
-        return {
-          success: true,
-          message: "Account created successfully!",
-          user
+        return { 
+          success: true, 
+          user,
+          isAdmin: true 
         };
       } else {
-        throw new Error(response.message || 'Registration failed');
+        throw new Error(response.message || 'Admin login failed');
       }
     } catch (error) {
-      console.error('Signup error:', error);
+      console.error('❌ Admin login error:', error);
       set({
         user: null,
         isAuthenticated: false,
+        isAdmin: false,
         isLoading: false,
         hasCheckedAuth: true,
       });
       return { 
         success: false, 
-        error: error.message || 'Registration failed. Please try again.' 
+        error: error.message || 'Admin login failed. Please check your credentials.' 
       };
     }
   },
 
-  adminLogin: async (email, password) => {
-    set({ isLoading: true });
+  // Development bypass - for testing without real login
+  devLogin: async () => {
+    const mockAdminUser = {
+      id: 1,
+      name: 'Admin User',
+      email: 'admin@communiversity.com',
+      role: 'admin',
+      avatar_url: null
+    };
 
-    try {
-      const response = await apiCall(`${API_BASE}/auth/admin-login`, {
-        method: 'POST',
-        body: { email, password }
-      });
-      
-      if (response.success) {
-        const { user, token } = response.data;
-        
-        // Store token and user data
-        localStorage.setItem('token', token);
-        localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('user', JSON.stringify(mockAdminUser));
+    
+    set({
+      user: mockAdminUser,
+      isAuthenticated: true,
+      isAdmin: true,
+      isLoading: false,
+      hasCheckedAuth: true,
+    });
 
-        set({
-          user,
-          isAuthenticated: true,
-          isLoading: false,
-          hasCheckedAuth: true,
-        });
-
-        return { success: true, user };
-      } else {
-        throw new Error(response.message || 'Admin login failed');
-      }
-    } catch (error) {
-      console.error('Admin login error:', error);
-      set({
-        user: null,
-        isAuthenticated: false,
-        isLoading: false,
-        hasCheckedAuth: true,
-      });
-      return { success: false, error: error.message };
-    }
+    return { 
+      success: true, 
+      user: mockAdminUser,
+      isAdmin: true 
+    };
   },
-
-  // ... rest of your authStore functions remain the same
-  // (updateReferralStatus, trackReferral, etc.)
 
   logout: () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    localStorage.removeItem("adminUser");
     set({
       user: null,
       isAuthenticated: false,
+      isAdmin: false,
       isLoading: false,
       hasCheckedAuth: true,
     });
@@ -165,6 +169,7 @@ export const useAuthStore = create((set, get) => ({
         set({
           user: null,
           isAuthenticated: false,
+          isAdmin: false,
           hasCheckedAuth: true,
           isLoading: false,
         });
@@ -177,9 +182,12 @@ export const useAuthStore = create((set, get) => ({
         
         if (response.success) {
           const user = response.data.user;
+          const isAdmin = user.role === 'admin';
+          
           set({
             user,
             isAuthenticated: true,
+            isAdmin: isAdmin,
             hasCheckedAuth: true,
             isLoading: false,
           });
@@ -190,9 +198,12 @@ export const useAuthStore = create((set, get) => ({
         // If API call fails, use stored user but mark as needs refresh
         console.warn('Auth check API failed, using stored user:', apiError);
         const user = JSON.parse(storedUser);
+        const isAdmin = user.role === 'admin';
+        
         set({
           user,
           isAuthenticated: true,
+          isAdmin: isAdmin,
           hasCheckedAuth: true,
           isLoading: false,
         });
@@ -204,41 +215,10 @@ export const useAuthStore = create((set, get) => ({
       set({
         user: null,
         isAuthenticated: false,
+        isAdmin: false,
         hasCheckedAuth: true,
         isLoading: false,
       });
     }
   },
 }));
-
-// Helper function for API calls in this file
-const apiCall = async (url, options = {}) => {
-  const token = localStorage.getItem('token');
-  
-  const config = {
-    method: options.method || 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...options.headers,
-    },
-  };
-
-  if (options.body) {
-    config.body = JSON.stringify(options.body);
-  }
-
-  try {
-    const response = await fetch(url, config);
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || 'API request failed');
-    }
-
-    return data;
-  } catch (error) {
-    console.error('API call error:', error);
-    throw error;
-  }
-};
