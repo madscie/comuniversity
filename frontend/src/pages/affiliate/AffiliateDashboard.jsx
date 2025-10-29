@@ -1,4 +1,3 @@
-// pages/affiliate/AffiliateDashboard.jsx
 import { useState, useEffect } from "react";
 import {
   FiUsers,
@@ -26,45 +25,67 @@ const AffiliateDashboard = () => {
 
   const [recentReferrals, setRecentReferrals] = useState([]);
   const [earningsHistory, setEarningsHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user?.affiliateCode) {
-      // Get real stats from authStore
+      loadAffiliateData();
+    }
+  }, [user?.affiliateCode]);
+
+  const loadAffiliateData = async () => {
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API calls
+      // const statsResponse = await fetch(`/api/affiliate/stats/${user.affiliateCode}`);
+      // const statsData = await statsResponse.json();
+      // setStats(statsData);
+      
+      // const referralsResponse = await fetch(`/api/affiliate/referrals/${user.affiliateCode}`);
+      // const referralsData = await referralsResponse.json();
+      // setRecentReferrals(referralsData.slice(-5).reverse());
+      
+      // const earningsResponse = await fetch(`/api/affiliate/earnings-history/${user.affiliateCode}`);
+      // const earningsData = await earningsResponse.json();
+      // setEarningsHistory(earningsData);
+
+      // Temporary empty state until backend is ready
       const affiliateStats = getAffiliateStats(user.affiliateCode);
       setStats(affiliateStats);
 
-      // Get recent referrals
       const referrals = getAffiliateReferrals(user.affiliateCode);
       const recent = referrals
         .slice(-5)
         .reverse()
         .map((ref) => ({
           id: ref.id,
-          name: `User ${ref.referredUserId.substring(0, 8)}`,
-          email: `user${ref.referredUserId.substring(0, 8)}@example.com`,
+          name: ref.referredUserName || `Referred User`,
+          email: ref.referredUserEmail || "",
           date: new Date(ref.date).toLocaleDateString(),
           status: ref.status,
           earnings: ref.commission,
         }));
       setRecentReferrals(recent);
 
-      // Generate earnings history (mock for now)
-      setEarningsHistory([
-        {
-          month: "Jan",
-          earnings: Math.round(affiliateStats.totalEarnings * 0.2),
-        },
-        {
-          month: "Feb",
-          earnings: Math.round(affiliateStats.totalEarnings * 0.3),
-        },
-        {
-          month: "Mar",
-          earnings: Math.round(affiliateStats.totalEarnings * 0.5),
-        },
-      ]);
+      // Empty earnings history until backend is ready
+      setEarningsHistory([]);
+    } catch (error) {
+      console.error("Error loading affiliate data:", error);
+      // Empty state on error
+      setStats({
+        totalReferrals: 0,
+        approvedReferrals: 0,
+        pendingReferrals: 0,
+        totalEarnings: 0,
+        pendingEarnings: 0,
+        conversionRate: 0,
+      });
+      setRecentReferrals([]);
+      setEarningsHistory([]);
+    } finally {
+      setLoading(false);
     }
-  }, [user?.affiliateCode, getAffiliateStats, getAffiliateReferrals]);
+  };
 
   const referralLink = `${window.location.origin}/signup?ref=${user?.affiliateCode}`;
 
@@ -117,6 +138,18 @@ const AffiliateDashboard = () => {
               Apply to Become an Affiliate
             </Button>
           </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center items-center min-h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
         </div>
       </div>
     );
@@ -230,38 +263,7 @@ const AffiliateDashboard = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {recentReferrals.map((referral) => (
-                      <tr key={referral.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {referral.name}
-                            </div>
-                            <div className="text-sm text-gray-500">
-                              {referral.email}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {referral.date}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              referral.status === "approved"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-yellow-100 text-yellow-800"
-                            }`}
-                          >
-                            {referral.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ${referral.earnings}
-                        </td>
-                      </tr>
-                    ))}
-                    {recentReferrals.length === 0 && (
+                    {recentReferrals.length === 0 ? (
                       <tr>
                         <td
                           colSpan="4"
@@ -270,6 +272,40 @@ const AffiliateDashboard = () => {
                           No referrals yet. Share your link to start earning!
                         </td>
                       </tr>
+                    ) : (
+                      recentReferrals.map((referral) => (
+                        <tr key={referral.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {referral.name}
+                              </div>
+                              {referral.email && (
+                                <div className="text-sm text-gray-500">
+                                  {referral.email}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {referral.date}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                                referral.status === "approved"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-yellow-100 text-yellow-800"
+                              }`}
+                            >
+                              {referral.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            ${referral.earnings?.toFixed(2) || "0.00"}
+                          </td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
@@ -285,43 +321,55 @@ const AffiliateDashboard = () => {
               </h3>
             </div>
             <div className="p-6">
-              <div className="space-y-4">
-                {earningsHistory.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center">
-                      <FiCalendar className="h-4 w-4 text-gray-400 mr-3" />
-                      <span className="text-sm font-medium text-gray-900">
-                        {item.month} 2024
-                      </span>
-                    </div>
-                    <div className="flex items-center">
-                      <FiDollarSign className="h-4 w-4 text-green-500 mr-1" />
-                      <span className="text-sm font-semibold text-gray-900">
-                        {item.earnings.toFixed(2)}
-                      </span>
-                    </div>
+              {earningsHistory.length === 0 ? (
+                <div className="text-center py-8">
+                  <FiDollarSign className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                  <p className="text-gray-500">No earnings data available yet</p>
+                  <p className="text-sm text-gray-400 mt-1">
+                    Earnings history will appear here as you make referrals
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-4">
+                    {earningsHistory.map((item, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between"
+                      >
+                        <div className="flex items-center">
+                          <FiCalendar className="h-4 w-4 text-gray-400 mr-3" />
+                          <span className="text-sm font-medium text-gray-900">
+                            {item.month} 2024
+                          </span>
+                        </div>
+                        <div className="flex items-center">
+                          <FiDollarSign className="h-4 w-4 text-green-500 mr-1" />
+                          <span className="text-sm font-semibold text-gray-900">
+                            {item.earnings?.toFixed(2) || "0.00"}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
 
-              {/* Quick Stats */}
-              <div className="mt-6 pt-6 border-t border-gray-200 grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">
-                    ${stats.totalEarnings.toFixed(2)}
+                  {/* Quick Stats */}
+                  <div className="mt-6 pt-6 border-t border-gray-200 grid grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-green-600">
+                        ${stats.totalEarnings.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-gray-600">Total Earned</div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-2xl font-bold text-yellow-600">
+                        ${stats.pendingEarnings.toFixed(2)}
+                      </div>
+                      <div className="text-sm text-gray-600">Pending</div>
+                    </div>
                   </div>
-                  <div className="text-sm text-gray-600">Total Earned</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-yellow-600">
-                    ${stats.pendingEarnings.toFixed(2)}
-                  </div>
-                  <div className="text-sm text-gray-600">Pending</div>
-                </div>
-              </div>
+                </>
+              )}
             </div>
           </Card>
         </div>
@@ -359,8 +407,7 @@ const AffiliateDashboard = () => {
                 </div>
                 <h4 className="font-semibold mb-2">Earn Commissions</h4>
                 <p className="text-sm text-gray-600">
-                  Earn $10 for each successful referral and 10% of their
-                  purchases
+                  Earn commissions for each successful referral
                 </p>
               </div>
             </div>

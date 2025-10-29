@@ -45,4 +45,4 @@ Thumbs.db
 
 # Prisma
 /backend/prisma/migrations/
-!/backend/prisma/migrations/.gitkeep
+!/backend/prisma/migrations/.gitkeep"bankend/uploads/" 

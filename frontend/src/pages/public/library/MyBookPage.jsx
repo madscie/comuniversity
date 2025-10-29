@@ -1,4 +1,3 @@
-// pages/books/MyBooksPage.jsx
 import { useState, useEffect } from "react";
 import {
   FiBook,
@@ -17,20 +16,26 @@ const MyBooksPage = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load reading list from localStorage
-    const loadReadingList = () => {
-      setLoading(true);
-      setTimeout(() => {
-        const savedList = JSON.parse(
-          localStorage.getItem("readingList") || "[]"
-        );
-        setReadingList(savedList);
-        setLoading(false);
-      }, 1000);
-    };
-
     loadReadingList();
   }, []);
+
+  const loadReadingList = async () => {
+    setLoading(true);
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/user/reading-list');
+      // const readingListData = await response.json();
+      // setReadingList(readingListData);
+      
+      // Temporary empty state until backend is ready
+      setReadingList([]);
+    } catch (error) {
+      console.error("Error loading reading list:", error);
+      setReadingList([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredBooks = readingList.filter(
     (book) =>
@@ -38,18 +43,40 @@ const MyBooksPage = () => {
       book.author.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const removeFromList = (bookId) => {
-    const updatedList = readingList.filter((book) => book.id !== bookId);
-    setReadingList(updatedList);
-    localStorage.setItem("readingList", JSON.stringify(updatedList));
+  const removeFromList = async (bookId) => {
+    try {
+      // TODO: Replace with actual API call
+      // await fetch(`/api/user/reading-list/${bookId}`, {
+      //   method: 'DELETE'
+      // });
+      
+      // Update local state temporarily
+      const updatedList = readingList.filter((book) => book.id !== bookId);
+      setReadingList(updatedList);
+    } catch (error) {
+      console.error("Error removing from reading list:", error);
+      alert("Failed to remove book from reading list. Please try again.");
+    }
   };
 
-  const updateReadingProgress = (bookId, progress) => {
-    const updatedList = readingList.map((book) =>
-      book.id === bookId ? { ...book, progress } : book
-    );
-    setReadingList(updatedList);
-    localStorage.setItem("readingList", JSON.stringify(updatedList));
+  const updateReadingProgress = async (bookId, progress) => {
+    try {
+      // TODO: Replace with actual API call
+      // await fetch(`/api/user/reading-list/${bookId}/progress`, {
+      //   method: 'PATCH',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify({ progress })
+      // });
+      
+      // Update local state temporarily
+      const updatedList = readingList.map((book) =>
+        book.id === bookId ? { ...book, progress } : book
+      );
+      setReadingList(updatedList);
+    } catch (error) {
+      console.error("Error updating reading progress:", error);
+      alert("Failed to update reading progress. Please try again.");
+    }
   };
 
   if (loading) {

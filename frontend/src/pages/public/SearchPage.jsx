@@ -9,10 +9,24 @@ import {
   FiHome,
   FiArrowLeft,
   FiBookOpen,
+  FiAlertCircle
 } from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
 import TextInput from "../../components/UI/TextInput";
+import { api } from "../../config/api";
+
+// Star component for ratings
+const FiStar = ({ className }) => (
+  <svg
+    className={className}
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+  </svg>
+);
 
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -24,101 +38,21 @@ const SearchPage = () => {
   const [searchQuery, setSearchQuery] = useState(urlQuery);
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  // Add to your SearchPage component
   const [selectedBook, setSelectedBook] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [error, setError] = useState(null);
 
-  const handleViewDetails = (book) => {
-    setSelectedBook(book);
-    setIsModalOpen(true);
-  };
-
-  const handleViewDetailsPage = (bookId) => {
-    console.log("Selected Book:", bookId);
-
-    navigate(`/books/${bookId}`);
-  };
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setSelectedBook(null);
-  };
   const [filters, setFilters] = useState({
     category: urlCategory,
     author: urlAuthor,
     year: "",
   });
 
-  const mockResults = [
-    {
-      id: 1,
-      title: "Introduction to Computer Science",
-      author: "John Smith",
-      year: 2022,
-      ddc: "004.5",
-      category: "Computer Science",
-      description:
-        "Comprehensive guide to modern computer science principles and practices.",
-      deweyCategory: "000-099",
-    },
-    {
-      id: 2,
-      title: "Advanced Mathematics for Engineers",
-      author: "Dr. Emily Chen",
-      year: 2021,
-      ddc: "510.2",
-      category: "Mathematics",
-      description:
-        "Advanced mathematical concepts applied to engineering problems.",
-      deweyCategory: "500-599",
-    },
-    {
-      id: 3,
-      title: "World History: Modern Era",
-      author: "Prof. Robert Johnson",
-      year: 2020,
-      ddc: "909.8",
-      category: "History",
-      description:
-        "Detailed analysis of world history from 1900 to present day.",
-      deweyCategory: "900-999",
-    },
-    {
-      id: 4,
-      title: "Organic Chemistry Fundamentals",
-      author: "Dr. Sarah Williams",
-      year: 2019,
-      ddc: "547",
-      category: "Chemistry",
-      description:
-        "Comprehensive guide to organic chemistry principles and reactions.",
-      deweyCategory: "500-599",
-    },
-    {
-      id: 5,
-      title: "Renaissance Art Masterpieces",
-      author: "Maria Gonzalez",
-      year: 2018,
-      ddc: "709.024",
-      category: "Art History",
-      description:
-        "Exploration of influential art from the Renaissance period.",
-      deweyCategory: "700-799",
-    },
-  ];
-
-  const deweyCategories = [
-    { value: "", label: "All Categories" },
-    { value: "000-099", label: "000-099: General Works" },
-    { value: "100-199", label: "100-199: Philosophy & Psychology" },
-    { value: "200-299", label: "200-299: Religion" },
-    { value: "300-399", label: "300-399: Social Sciences" },
-    { value: "400-499", label: "400-499: Language" },
-    { value: "500-599", label: "500-599: Science & Math" },
-    { value: "600-699", label: "600-699: Technology" },
-    { value: "700-799", label: "700-799: Arts & Recreation" },
-    { value: "800-899", label: "800-899: Literature" },
-    { value: "900-999", label: "900-999: History & Geography" },
-  ];
+  // Load categories on component mount
+  useEffect(() => {
+    loadCategories();
+  }, []);
 
   // Perform search when URL parameters change
   useEffect(() => {
@@ -127,50 +61,51 @@ const SearchPage = () => {
     }
   }, [urlQuery, urlCategory, urlAuthor]);
 
-  const performSearch = () => {
-    setIsSearching(true);
-
-    // Simulate API call delay
-    setTimeout(() => {
-      let results = [...mockResults];
-
-      // Filter by search query
-      if (urlQuery) {
-        const query = urlQuery.toLowerCase();
-        results = results.filter(
-          (book) =>
-            book.title.toLowerCase().includes(query) ||
-            book.author.toLowerCase().includes(query) ||
-            book.description.toLowerCase().includes(query) ||
-            book.ddc.includes(query)
-        );
+  const loadCategories = async () => {
+    try {
+      const response = await api.getCategories();
+      if (response.success) {
+        setCategories(response.data);
       }
-
-      // Filter by category
-      if (urlCategory) {
-        results = results.filter((book) => book.deweyCategory === urlCategory);
-      }
-
-      // Filter by author
-      if (urlAuthor) {
-        results = results.filter((book) =>
-          book.author.toLowerCase().includes(urlAuthor.toLowerCase())
-        );
-      }
-
-      setSearchResults(results);
-      setIsSearching(false);
-    }, 500);
+    } catch (error) {
+      console.error('Error loading categories:', error);
+    }
   };
 
-  const handleSearch = (e) => {
+  const performSearch = async () => {
+    setIsSearching(true);
+    setError(null);
+    
+    try {
+      // Build search parameters
+      const searchParams = {};
+      if (urlQuery) searchParams.search = urlQuery;
+      if (urlCategory) searchParams.category = urlCategory;
+      if (urlAuthor) searchParams.author = urlAuthor;
+      
+      console.log("🔍 Performing search with params:", searchParams);
+      
+      const response = await api.getBooks(searchParams);
+      
+      if (response.success) {
+        setSearchResults(response.data.books || []);
+        console.log(`✅ Found ${response.data.books.length} books`);
+      } else {
+        setSearchResults([]);
+        setError("Failed to search books");
+      }
+    } catch (error) {
+      console.error('❌ Search error:', error);
+      setError("Failed to connect to server. Please try again.");
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearch = async (e) => {
     e.preventDefault();
-    if (
-      searchQuery.trim() ||
-      filters.category ||
-      filters.author ||
-      filters.year
-    ) {
+    if (searchQuery.trim() || filters.category || filters.author || filters.year) {
       // Update URL with search parameters
       const params = {};
       if (searchQuery.trim()) params.q = searchQuery.trim();
@@ -195,6 +130,36 @@ const SearchPage = () => {
     });
     setSearchParams({});
     setSearchResults([]);
+    setError(null);
+  };
+
+  const handleViewDetails = (book) => {
+    setSelectedBook(book);
+    setIsModalOpen(true);
+  };
+
+  const handleViewDetailsPage = (bookId) => {
+    console.log("Selected Book:", bookId);
+    navigate(`/books/${bookId}`);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedBook(null);
+  };
+
+  const renderStars = (rating) => {
+    const normalizedRating = rating || 0;
+    return Array.from({ length: 5 }, (_, i) => (
+      <FiStar
+        key={i}
+        className={`h-4 w-4 ${
+          i < Math.floor(normalizedRating)
+            ? "text-yellow-400 fill-current"
+            : "text-gray-300"
+        }`}
+      />
+    ));
   };
 
   const hasActiveFilters =
@@ -229,8 +194,7 @@ const SearchPage = () => {
             Advanced Search
           </h1>
           <p className="text-xl text-gray-700 max-w-3xl mx-auto">
-            Find exactly what you need across our entire collection of 2,500+
-            books
+            Find exactly what you need across our entire collection
           </p>
         </div>
 
@@ -253,7 +217,7 @@ const SearchPage = () => {
             <div className="grid md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Dewey Category
+                  Category
                 </label>
                 <select
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -262,9 +226,10 @@ const SearchPage = () => {
                     handleFilterChange("category", e.target.value)
                   }
                 >
-                  {deweyCategories.map((category) => (
-                    <option key={category.value} value={category.value}>
-                      {category.label}
+                  <option value="">All Categories</option>
+                  {categories.map((category) => (
+                    <option key={category.category} value={category.category}>
+                      {category.category} ({category.book_count})
                     </option>
                   ))}
                 </select>
@@ -332,6 +297,16 @@ const SearchPage = () => {
           </form>
         </Card>
 
+        {/* Error State */}
+        {error && (
+          <Card className="mb-6 border-0 bg-red-50 border-red-200">
+            <div className="flex items-center p-4">
+              <FiAlertCircle className="h-5 w-5 text-red-500 mr-3" />
+              <p className="text-red-700">{error}</p>
+            </div>
+          </Card>
+        )}
+
         {/* Results */}
         {isSearching ? (
           <Card className="text-center border-0 bg-white/80 backdrop-blur-sm py-16">
@@ -351,7 +326,7 @@ const SearchPage = () => {
               </h2>
               <span className="text-gray-600 text-sm flex items-center">
                 <FiClock className="h-4 w-4 mr-1" />
-                Found in 0.2s
+                Found instantly
               </span>
             </div>
 
@@ -362,8 +337,16 @@ const SearchPage = () => {
               >
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="flex-shrink-0">
-                    <div className="w-20 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-2xl">
-                      <FiBook />
+                    <div className="w-20 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-2xl overflow-hidden">
+                      {book.cover_image ? (
+                        <img 
+                          src={book.cover_image} 
+                          alt={book.title}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <FiBook />
+                      )}
                     </div>
                   </div>
 
@@ -378,11 +361,18 @@ const SearchPage = () => {
                         <strong>Author:</strong> {book.author}
                       </div>
                       <div>
-                        <strong>Year:</strong> {book.year}
+                        <strong>Year:</strong> {book.publishedYear || 'N/A'}
                       </div>
                       <div>
-                        <strong>DDC:</strong> {book.ddc} ({book.category})
+                        <strong>Category:</strong> {book.category}
                       </div>
+                    </div>
+
+                    <div className="flex items-center mt-3">
+                      {renderStars(book.rating)}
+                      <span className="ml-2 text-sm text-gray-600">
+                        {book.rating || 'No ratings'}
+                      </span>
                     </div>
                   </div>
 
@@ -424,11 +414,10 @@ const SearchPage = () => {
             </h3>
             <p className="text-gray-600 max-w-2xl mx-auto mb-8">
               Enter keywords in the search bar above to discover books from our
-              collection. You can search by title, author, subject, or Dewey
-              Decimal number.
+              collection. You can search by title, author, subject, or category.
             </p>
             <div className="grid md:grid-cols-3 gap-4 text-sm text-gray-500 mb-8">
-              <div>• Search across 2,500+ books</div>
+              <div>• Search across all books</div>
               <div>• Filter by category, author, year</div>
               <div>• Instant results with relevance ranking</div>
             </div>
@@ -449,13 +438,13 @@ const SearchPage = () => {
               <strong>Use quotes</strong> for exact phrases: "computer science"
             </div>
             <div>
-              <strong>DDC numbers:</strong> Search "510" for mathematics
+              <strong>Category search:</strong> Search by specific categories
             </div>
             <div>
-              <strong>Combine terms:</strong> history + europe + 20th century
+              <strong>Combine terms:</strong> history + europe
             </div>
             <div>
-              <strong>Author search:</strong> author:smith
+              <strong>Author search:</strong> Use author filter
             </div>
           </div>
         </Card>
@@ -463,7 +452,7 @@ const SearchPage = () => {
 
       {/* View Details Modal */}
       {isModalOpen && selectedBook && (
-        <div className="fixed inset-0 bg-blend-color bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex justify-between items-start mb-6">
@@ -479,8 +468,16 @@ const SearchPage = () => {
               </div>
 
               <div className="grid md:grid-cols-2 gap-6 mb-6">
-                <div className="w-full h-64 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-6xl">
-                  <FiBook />
+                <div className="w-full h-64 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center text-white text-6xl overflow-hidden">
+                  {selectedBook.cover_image ? (
+                    <img 
+                      src={selectedBook.cover_image} 
+                      alt={selectedBook.title}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <FiBook />
+                  )}
                 </div>
 
                 <div>
@@ -497,24 +494,35 @@ const SearchPage = () => {
                     <h4 className="text-sm font-medium text-gray-500">
                       Publication Year
                     </h4>
-                    <p className="text-lg text-gray-900">{selectedBook.year}</p>
-                  </div>
-
-                  <div className="mb-4">
-                    <h4 className="text-sm font-medium text-gray-500">
-                      Dewey Decimal Classification
-                    </h4>
                     <p className="text-lg text-gray-900">
-                      {selectedBook.ddc} ({selectedBook.category})
+                      {selectedBook.publishedYear || 'N/A'}
                     </p>
                   </div>
 
                   <div className="mb-4">
                     <h4 className="text-sm font-medium text-gray-500">
-                      Dewey Category
+                      Category
                     </h4>
                     <p className="text-lg text-gray-900">
-                      {selectedBook.deweyCategory}
+                      {selectedBook.category}
+                    </p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-500">
+                      Dewey Decimal
+                    </h4>
+                    <p className="text-lg text-gray-900">
+                      {selectedBook.dewey_number || 'N/A'}
+                    </p>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-500">
+                      Price
+                    </h4>
+                    <p className="text-lg text-gray-900">
+                      {selectedBook.price > 0 ? `$${selectedBook.price}` : 'Free'}
                     </p>
                   </div>
                 </div>
@@ -534,7 +542,7 @@ const SearchPage = () => {
                   className="flex-1"
                 >
                   <FiBookOpen className="mr-2 h-5 w-5" />
-                  Read Now
+                  View Full Details
                 </Button>
                 <Button variant="secondary" className="flex-1">
                   Download PDF
@@ -542,13 +550,6 @@ const SearchPage = () => {
                 <Button variant="outline" onClick={closeModal}>
                   Close
                 </Button>
-              </div>
-
-              <div className="mt-6 text-center text-sm text-gray-500">
-                <p>
-                  Reading options will be fully implemented in the next
-                  development phase
-                </p>
               </div>
             </div>
           </div>

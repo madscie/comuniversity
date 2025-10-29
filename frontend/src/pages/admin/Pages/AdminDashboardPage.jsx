@@ -1,4 +1,5 @@
-import { Fragment, useState } from "react";
+// src/pages/admin/AdminDashboard.jsx
+import { Fragment, useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   FiBook,
@@ -14,6 +15,7 @@ import {
 import { useAuthStore } from "../../../store/authStore";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
+import { api } from "../../../config/api";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -26,57 +28,47 @@ const AdminDashboard = () => {
     navigate("/");
   };
 
-  // Mock data for dashboard stats
-  const [stats] = useState({
-    totalBooks: 1247,
-    totalUsers: 892,
-    totalArticles: 56,
-    activeAffiliates: 23,
-    monthlyRevenue: 2845.5,
-    pendingReviews: 12,
+  const [stats, setStats] = useState({
+    totalBooks: 0,
+    totalUsers: 0,
+    totalArticles: 0,
+    activeAffiliates: 0,
+    monthlyRevenue: 0,
+    pendingReviews: 0,
   });
 
-  const [recentActivity] = useState([
-    {
-      id: 1,
-      type: "book",
-      action: "added",
-      title: "Introduction to React",
-      user: "John Doe",
-      time: "2 hours ago",
-    },
-    {
-      id: 2,
-      type: "article",
-      action: "published",
-      title: "Library Management Tips",
-      user: "Jane Smith",
-      time: "5 hours ago",
-    },
-    {
-      id: 3,
-      type: "user",
-      action: "registered",
-      title: "New user",
-      user: "Mike Johnson",
-      time: "1 day ago",
-    },
-    {
-      id: 4,
-      type: "affiliate",
-      action: "approved",
-      title: "Affiliate application",
-      user: "Sarah Wilson",
-      time: "2 days ago",
-    },
-  ]);
+  const [recentActivity, setRecentActivity] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        const response = await api.getDashboardStats();
+        if (response.success) {
+          setStats(response.data.stats);
+          setRecentActivity(response.data.recentActivity || []);
+        } else {
+          console.error('Failed to load dashboard stats:', response.message);
+        }
+      } catch (error) {
+        console.error('Failed to fetch dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   const StatCard = ({ title, value, icon: Icon, color, change }) => (
     <Card className="p-6 hover:shadow-lg transition-shadow">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+          <p className="text-2xl font-bold text-gray-900 mt-1">
+            {loading ? "..." : value}
+          </p>
           {change && (
             <p
               className={`text-xs mt-1 ${
@@ -204,42 +196,36 @@ const AdminDashboard = () => {
               value={stats.totalBooks.toLocaleString()}
               icon={FiBook}
               color="bg-blue-500"
-              change={12}
             />
             <StatCard
               title="Registered Users"
               value={stats.totalUsers.toLocaleString()}
               icon={FiUsers}
               color="bg-green-500"
-              change={8}
             />
             <StatCard
               title="Published Articles"
               value={stats.totalArticles}
               icon={FiFileText}
               color="bg-purple-500"
-              change={15}
             />
             <StatCard
               title="Active Affiliates"
               value={stats.activeAffiliates}
               icon={FiUserCheck}
               color="bg-orange-500"
-              change={5}
             />
             <StatCard
               title="Monthly Revenue"
               value={`$${stats.monthlyRevenue.toLocaleString()}`}
               icon={FiDollarSign}
               color="bg-emerald-500"
-              change={23}
             />
             <StatCard
               title="Pending Reviews"
               value={stats.pendingReviews}
               icon={FiActivity}
               color="bg-red-500"
-              change={-3}
             />
           </div>
 
@@ -286,48 +272,56 @@ const AdminDashboard = () => {
               Recent Activity
             </h3>
             <div className="space-y-4">
-              {recentActivity.map((activity) => (
-                <div
-                  key={activity.id}
-                  className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
-                >
-                  <div className="flex items-center">
-                    <div
-                      className={`p-2 rounded-full ${
-                        activity.type === "book"
-                          ? "bg-blue-100"
-                          : activity.type === "article"
-                          ? "bg-purple-100"
-                          : activity.type === "user"
-                          ? "bg-green-100"
-                          : "bg-orange-100"
-                      }`}
-                    >
-                      {activity.type === "book" && (
-                        <FiBook className="h-4 w-4 text-blue-600" />
-                      )}
-                      {activity.type === "article" && (
-                        <FiFileText className="h-4 w-4 text-purple-600" />
-                      )}
-                      {activity.type === "user" && (
-                        <FiUsers className="h-4 w-4 text-green-600" />
-                      )}
-                      {activity.type === "affiliate" && (
-                        <FiUserCheck className="h-4 w-4 text-orange-600" />
-                      )}
+              {loading ? (
+                <p className="text-gray-500 text-center py-4">Loading activity...</p>
+              ) : recentActivity.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">
+                  No recent activity. Activity will appear here as users interact with the library.
+                </p>
+              ) : (
+                recentActivity.map((activity) => (
+                  <div
+                    key={activity.id}
+                    className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0"
+                  >
+                    <div className="flex items-center">
+                      <div
+                        className={`p-2 rounded-full ${
+                          activity.type === "book"
+                            ? "bg-blue-100"
+                            : activity.type === "article"
+                            ? "bg-purple-100"
+                            : activity.type === "user"
+                            ? "bg-green-100"
+                            : "bg-orange-100"
+                        }`}
+                      >
+                        {activity.type === "book" && (
+                          <FiBook className="h-4 w-4 text-blue-600" />
+                        )}
+                        {activity.type === "article" && (
+                          <FiFileText className="h-4 w-4 text-purple-600" />
+                        )}
+                        {activity.type === "user" && (
+                          <FiUsers className="h-4 w-4 text-green-600" />
+                        )}
+                        {activity.type === "affiliate" && (
+                          <FiUserCheck className="h-4 w-4 text-orange-600" />
+                        )}
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-900">
+                          {activity.user} {activity.action} {activity.title}
+                        </p>
+                        <p className="text-sm text-gray-500">{activity.time}</p>
+                      </div>
                     </div>
-                    <div className="ml-4">
-                      <p className="text-sm font-medium text-gray-900">
-                        {activity.user} {activity.action} {activity.title}
-                      </p>
-                      <p className="text-sm text-gray-500">{activity.time}</p>
-                    </div>
+                    <Button size="sm" variant="outline">
+                      View
+                    </Button>
                   </div>
-                  <Button size="sm" variant="outline">
-                    View
-                  </Button>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </Card>
         </div>

@@ -1,4 +1,3 @@
-// pages/affiliate/AffiliateSignup.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -22,12 +21,13 @@ const AffiliateSignup = () => {
     agreeTerms: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [programStats, setProgramStats] = useState(null);
 
   const benefits = [
     {
       icon: FiDollarSign,
       title: "Earn Commissions",
-      description: "$10 per referral + 10% of their purchases",
+      description: "Get paid for referring new members to our platform",
     },
     {
       icon: FiTrendingUp,
@@ -54,28 +54,35 @@ const AffiliateSignup = () => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate API call
-    setTimeout(() => {
-      // Generate a random affiliate code
-      const affiliateCode = `AFF-${Math.random()
-        .toString(36)
-        .substr(2, 6)
-        .toUpperCase()}`;
+    try {
+      // TODO: Replace with actual API call
+      // const response = await fetch('/api/affiliate/apply', {
+      //   method: 'POST',
+      //   headers: { 'Content-Type': 'application/json' },
+      //   body: JSON.stringify(formData)
+      // });
+      
+      // const result = await response.json();
+      
+      // if (result.success) {
+      //   updateAffiliateStatus("pending", result.affiliateCode);
+      //   navigate("/profile");
+      // } else {
+      //   alert(result.error || "Failed to submit application");
+      // }
 
-      // Update user's affiliate status
-      updateAffiliateStatus("pending", affiliateCode);
-
+      // Temporary simulation until backend is ready
+      setTimeout(() => {
+        // This will be replaced with actual affiliate code from backend
+        updateAffiliateStatus("pending", "PENDING_APPROVAL");
+        setIsSubmitting(false);
+        navigate("/profile");
+      }, 1000);
+    } catch (error) {
+      console.error("Error submitting affiliate application:", error);
+      alert("Failed to submit application. Please try again.");
       setIsSubmitting(false);
-      if (user?.affiliateStatus === "approved") {
-        navigate("/affiliate-dashboard");
-        return null;
-      }
-
-      if (user?.affiliateStatus === "pending") {
-        navigate("/affiliate-status"); // Changed from "/profile"
-        return null;
-      }
-    }, 2000);
+    }
   };
 
   const togglePromotionChannel = (channel) => {
@@ -142,7 +149,9 @@ const AffiliateSignup = () => {
                 <div className="text-center p-4 border border-gray-200 rounded-lg">
                   <FiUsers className="h-8 w-8 text-green-500 mx-auto mb-2" />
                   <h3 className="font-semibold text-gray-900">Per Signup</h3>
-                  <p className="text-2xl font-bold text-green-600">$10</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    Competitive Rate
+                  </p>
                   <p className="text-sm text-gray-600">
                     For each successful referral
                   </p>
@@ -152,11 +161,18 @@ const AffiliateSignup = () => {
                   <h3 className="font-semibold text-gray-900">
                     Purchase Commission
                   </h3>
-                  <p className="text-2xl font-bold text-purple-600">10%</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    Generous Percentage
+                  </p>
                   <p className="text-sm text-gray-600">
                     Of referred user's purchases
                   </p>
                 </div>
+              </div>
+              <div className="mt-4 text-center">
+                <p className="text-sm text-gray-600">
+                  Specific commission rates will be provided upon application approval
+                </p>
               </div>
             </Card>
 
@@ -253,17 +269,28 @@ const AffiliateSignup = () => {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-gray-600">Active Affiliates</span>
-                  <span className="font-semibold">247</span>
+                  <span className="font-semibold">
+                    {programStats?.activeAffiliates || "Loading..."}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Total Paid</span>
-                  <span className="font-semibold">$12,458</span>
+                  <span className="font-semibold">
+                    {programStats?.totalPaid ? `$${programStats.totalPaid}` : "Loading..."}
+                  </span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Avg. Monthly</span>
-                  <span className="font-semibold">$89</span>
+                  <span className="font-semibold">
+                    {programStats?.avgMonthly ? `$${programStats.avgMonthly}` : "Loading..."}
+                  </span>
                 </div>
               </div>
+              {!programStats && (
+                <p className="text-xs text-gray-500 mt-2 text-center">
+                  Stats will load from our system
+                </p>
+              )}
             </Card>
 
             {/* Requirements */}
@@ -272,7 +299,7 @@ const AffiliateSignup = () => {
               <ul className="space-y-2 text-sm text-gray-600">
                 <li className="flex items-center">
                   <FiCheck className="h-4 w-4 text-green-500 mr-2" />
-                  Active member for 30+ days
+                  Active platform member
                 </li>
                 <li className="flex items-center">
                   <FiCheck className="h-4 w-4 text-green-500 mr-2" />

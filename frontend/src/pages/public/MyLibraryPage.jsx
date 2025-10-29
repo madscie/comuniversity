@@ -17,95 +17,6 @@ import {
 } from "react-icons/fi";
 import { useAuthStore } from "../../store/authStore";
 
-// Enhanced sample data with more properties
-const sampleLibraryData = {
-  purchased: [
-    {
-      id: 1,
-      title: "Introduction to Artificial Intelligence",
-      author: "John McCarthy",
-      cover: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=600&fit=crop",
-      downloadUrl: "#",
-      category: "Technology",
-      format: "PDF",
-      fileSize: "4.2 MB",
-      pages: 320,
-      rating: 4.5,
-      downloadCount: 1247,
-      addedDate: "2024-01-15",
-      lastRead: "2024-03-20",
-      progress: 75,
-      isFavorite: true,
-      tags: ["AI", "Machine Learning", "Computer Science"]
-    },
-    {
-      id: 2,
-      title: "Modern Web Development with React",
-      author: "Dan Abramov",
-      cover: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=600&fit=crop",
-      downloadUrl: "#",
-      category: "Web Development",
-      format: "EPUB",
-      fileSize: "3.1 MB",
-      pages: 280,
-      rating: 4.8,
-      downloadCount: 2891,
-      addedDate: "2024-02-10",
-      lastRead: "2024-03-18",
-      progress: 45,
-      isFavorite: false,
-      tags: ["React", "JavaScript", "Frontend"]
-    },
-    {
-      id: 3,
-      title: "Deep Learning Fundamentals",
-      author: "Ian Goodfellow",
-      cover: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=400&h=600&fit=crop",
-      downloadUrl: "#",
-      category: "Machine Learning",
-      format: "PDF",
-      fileSize: "5.7 MB",
-      pages: 450,
-      rating: 4.7,
-      downloadCount: 1876,
-      addedDate: "2024-01-28",
-      lastRead: "2024-03-15",
-      progress: 20,
-      isFavorite: true,
-      tags: ["Deep Learning", "Neural Networks", "AI"]
-    },
-    {
-      id: 4,
-      title: "Clean Code Architecture",
-      author: "Robert C. Martin",
-      cover: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=600&fit=crop",
-      downloadUrl: "#",
-      category: "Software Engineering",
-      format: "PDF",
-      fileSize: "2.8 MB",
-      pages: 310,
-      rating: 4.6,
-      downloadCount: 3256,
-      addedDate: "2024-03-01",
-      lastRead: null,
-      progress: 0,
-      isFavorite: false,
-      tags: ["Programming", "Best Practices", "Architecture"]
-    }
-  ],
-  readingHistory: [
-    {
-      id: 5,
-      title: "The Psychology of Programming",
-      author: "Gerald M. Weinberg",
-      cover: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&h=600&fit=crop",
-      lastRead: "2024-03-19",
-      progress: 60,
-      currentPage: 180
-    }
-  ]
-};
-
 const MyLibraryPage = () => {
   const { user, isAuthenticated } = useAuthStore();
   const [books, setBooks] = useState([]);
@@ -116,24 +27,74 @@ const MyLibraryPage = () => {
   const [sortBy, setSortBy] = useState('recent');
   const [activeTab, setActiveTab] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (isAuthenticated) {
-      // Simulate API fetch
-      setLoading(true);
-      setTimeout(() => {
-        setBooks(sampleLibraryData.purchased);
-        setReadingHistory(sampleLibraryData.readingHistory);
-        setLoading(false);
-      }, 1000);
+      fetchLibraryData();
     }
   }, [isAuthenticated]);
+
+  const fetchLibraryData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // TODO: Replace with actual API calls
+      // const libraryResponse = await libraryAPI.getUserLibrary();
+      // const historyResponse = await libraryAPI.getReadingHistory();
+      
+      // For now, set empty arrays until backend is ready
+      setBooks([]);
+      setReadingHistory([]);
+      
+    } catch (err) {
+      console.error("Error loading library data:", err);
+      setError("Failed to load your library. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleFavorite = async (bookId) => {
+    try {
+      // TODO: Replace with actual API call
+      // await libraryAPI.toggleFavorite(bookId);
+      
+      // Temporary UI update
+      setBooks(books.map(book => 
+        book.id === bookId ? { ...book, isFavorite: !book.isFavorite } : book
+      ));
+    } catch (err) {
+      console.error("Failed to update favorite:", err);
+    }
+  };
+
+  const handleDownload = async (bookId, format = "PDF") => {
+    try {
+      // TODO: Replace with actual API call
+      // const response = await downloadAPI.downloadBook(bookId, format);
+      // Handle download response
+      
+      console.log(`Downloading book ${bookId} in ${format} format`);
+      alert("Download functionality will be implemented with backend integration.");
+    } catch (err) {
+      console.error("Download failed:", err);
+      alert("Download failed. Please try again.");
+    }
+  };
+
+  const handleReadOnline = (bookId) => {
+    // TODO: Implement read online functionality
+    console.log("Read online:", bookId);
+    alert("Read online functionality will be implemented with backend integration.");
+  };
 
   // Filter and sort books
   const filteredBooks = books.filter(book => {
     const matchesSearch = book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          book.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         book.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+                         (book.tags && book.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
     const matchesCategory = selectedCategory === 'all' || book.category === selectedCategory;
     
     if (activeTab === 'favorites') {
@@ -163,20 +124,8 @@ const MyLibraryPage = () => {
 
   const categories = ['all', ...new Set(books.map(book => book.category))];
   const totalBooks = books.length;
-  const totalPages = books.reduce((sum, book) => sum + book.pages, 0);
+  const totalPages = books.reduce((sum, book) => sum + (book.pages || 0), 0);
   const readingProgress = books.filter(book => book.progress > 0).length;
-
-  const toggleFavorite = (bookId) => {
-    setBooks(books.map(book => 
-      book.id === bookId ? { ...book, isFavorite: !book.isFavorite } : book
-    ));
-  };
-
-  const updateProgress = (bookId, progress) => {
-    setBooks(books.map(book => 
-      book.id === bookId ? { ...book, progress } : book
-    ));
-  };
 
   if (!isAuthenticated) {
     return (
@@ -232,6 +181,19 @@ const MyLibraryPage = () => {
             </div>
           </div>
         </div>
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-center">
+            <p className="text-red-700">{error}</p>
+            <button 
+              onClick={fetchLibraryData}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium mt-2"
+            >
+              Retry
+            </button>
+          </div>
+        )}
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
@@ -358,11 +320,14 @@ const MyLibraryPage = () => {
       {filteredBooks.length === 0 ? (
         <div className="text-center py-12 bg-white rounded-lg shadow-sm border">
           <FiBook className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No books found</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {books.length === 0 ? "Your library is empty" : "No books found"}
+          </h3>
           <p className="text-gray-600 mb-6">
-            {searchQuery || selectedCategory !== 'all' || activeTab !== 'all'
-              ? 'Try adjusting your search or filters'
-              : 'Start building your library by purchasing books from our collection'}
+            {books.length === 0 
+              ? "Start building your library by purchasing books from our collection"
+              : "Try adjusting your search or filters"
+            }
           </p>
           {searchQuery || selectedCategory !== 'all' || activeTab !== 'all' ? (
             <button
@@ -384,13 +349,25 @@ const MyLibraryPage = () => {
       ) : viewMode === 'grid' ? (
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredBooks.map((book) => (
-            <BookCard key={book.id} book={book} onToggleFavorite={toggleFavorite} />
+            <BookCard 
+              key={book.id} 
+              book={book} 
+              onToggleFavorite={toggleFavorite}
+              onDownload={handleDownload}
+              onReadOnline={handleReadOnline}
+            />
           ))}
         </div>
       ) : (
         <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
           {filteredBooks.map((book) => (
-            <BookListItem key={book.id} book={book} onToggleFavorite={toggleFavorite} />
+            <BookListItem 
+              key={book.id} 
+              book={book} 
+              onToggleFavorite={toggleFavorite}
+              onDownload={handleDownload}
+              onReadOnline={handleReadOnline}
+            />
           ))}
         </div>
       )}
@@ -438,11 +415,11 @@ const MyLibraryPage = () => {
 };
 
 // Book Card Component for Grid View
-const BookCard = ({ book, onToggleFavorite }) => (
+const BookCard = ({ book, onToggleFavorite, onDownload, onReadOnline }) => (
   <div className="bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-shadow duration-200 group">
     <div className="relative">
       <img
-        src={book.cover}
+        src={book.coverImage}
         alt={book.title}
         className="w-full h-60 object-cover group-hover:scale-105 transition-transform duration-200"
       />
@@ -485,12 +462,12 @@ const BookCard = ({ book, onToggleFavorite }) => (
       </div>
 
       <div className="flex flex-wrap gap-1 mb-3">
-        {book.tags.slice(0, 2).map(tag => (
+        {book.tags?.slice(0, 2).map(tag => (
           <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
             {tag}
           </span>
         ))}
-        {book.tags.length > 2 && (
+        {book.tags?.length > 2 && (
           <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
             +{book.tags.length - 2}
           </span>
@@ -504,13 +481,16 @@ const BookCard = ({ book, onToggleFavorite }) => (
       </div>
 
       <div className="flex space-x-2">
-        <a
-          href={book.downloadUrl}
+        <button
+          onClick={() => onDownload(book.id, "PDF")}
           className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
         >
           <FiDownload className="mr-1" /> Download
-        </a>
-        <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
+        </button>
+        <button 
+          onClick={() => onReadOnline(book.id)}
+          className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        >
           <FiEye className="h-4 w-4" />
         </button>
       </div>
@@ -519,12 +499,12 @@ const BookCard = ({ book, onToggleFavorite }) => (
 );
 
 // Book List Item Component for List View
-const BookListItem = ({ book, onToggleFavorite }) => (
+const BookListItem = ({ book, onToggleFavorite, onDownload, onReadOnline }) => (
   <div className="border-b last:border-b-0 hover:bg-gray-50 transition-colors">
     <div className="p-4">
       <div className="flex items-start space-x-4">
         <img
-          src={book.cover}
+          src={book.coverImage}
           alt={book.title}
           className="w-20 h-28 object-cover rounded-lg flex-shrink-0"
         />
@@ -564,7 +544,7 @@ const BookListItem = ({ book, onToggleFavorite }) => (
           </div>
 
           <div className="flex flex-wrap gap-1 mb-3">
-            {book.tags.map(tag => (
+            {book.tags?.map(tag => (
               <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
                 {tag}
               </span>
@@ -587,13 +567,16 @@ const BookListItem = ({ book, onToggleFavorite }) => (
           )}
 
           <div className="flex space-x-2">
-            <a
-              href={book.downloadUrl}
+            <button
+              onClick={() => onDownload(book.id, "PDF")}
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
             >
               <FiDownload className="mr-2" /> Download
-            </a>
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 transition-colors">
+            </button>
+            <button 
+              onClick={() => onReadOnline(book.id)}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 transition-colors"
+            >
               <FiEye className="mr-2" /> Read Online
             </button>
           </div>
