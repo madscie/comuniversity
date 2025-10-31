@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { FiCalendar, FiClock, FiVideo, FiExternalLink } from "react-icons/fi";
+import { FiCalendar, FiClock, FiVideo, FiExternalLink, FiDollarSign, FiTag, FiUser} from "react-icons/fi";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
+import axios from "axios";
 
 const WebinarsPage = () => {
   const [webinars, setWebinars] = useState([]);
@@ -18,12 +19,15 @@ const WebinarsPage = () => {
       setLoading(true);
       setError(null);
       
-      // TODO: Replace with actual API call
-      // const response = await webinarAPI.getAll();
-      // setWebinars(response.data);
+      // ACTUAL API CALL - FIXED
+      const response = await axios.get('http://localhost:5000/api/webinars');
+      console.log("Webinars API response:", response.data);
       
-      // For now, set empty array until backend is ready
-      setWebinars([]);
+      if (response.data.success) {
+        setWebinars(response.data.data.webinars);
+      } else {
+        throw new Error(response.data.message || 'Failed to fetch webinars');
+      }
       
     } catch (err) {
       console.error("Error fetching webinars:", err);
@@ -35,12 +39,15 @@ const WebinarsPage = () => {
 
   const handleJoinWebinar = async (webinarId) => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await webinarAPI.generateJoinLink(webinarId);
-      // window.open(response.data.joinLink, "_blank");
+      // TODO: Replace with actual API call for join link
+      // For now, just open the join link if available
+      const webinar = webinars.find(w => w.id === webinarId);
+      if (webinar && webinar.join_link) {
+        window.open(webinar.join_link, "_blank");
+      } else {
+        setError("Join link not available for this webinar.");
+      }
       
-      console.log("Join webinar:", webinarId);
-      // Temporary: Will be replaced with actual join logic
     } catch (err) {
       console.error("Error joining webinar:", err);
       setError("Failed to join webinar. Please try again.");
@@ -49,12 +56,15 @@ const WebinarsPage = () => {
 
   const handleWatchRecording = async (webinarId) => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await webinarAPI.getRecording(webinarId);
-      // window.open(response.data.recordingLink, "_blank");
+      // TODO: Replace with actual API call for recording
+      // For now, just open the recording link if available
+      const webinar = webinars.find(w => w.id === webinarId);
+      if (webinar && webinar.recording_link) {
+        window.open(webinar.recording_link, "_blank");
+      } else {
+        setError("Recording not available for this webinar.");
+      }
       
-      console.log("Watch recording for webinar:", webinarId);
-      // Temporary: Will be replaced with actual recording logic
     } catch (err) {
       console.error("Error accessing recording:", err);
       setError("Failed to access recording. Please try again.");
@@ -130,6 +140,22 @@ const WebinarsPage = () => {
           </div>
         )}
 
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <Card className="text-center p-6 bg-white/80 backdrop-blur-sm">
+            <div className="text-3xl font-bold text-blue-600">{webinars.length}</div>
+            <div className="text-gray-600">Total Webinars</div>
+          </Card>
+          <Card className="text-center p-6 bg-white/80 backdrop-blur-sm">
+            <div className="text-3xl font-bold text-green-600">{upcomingWebinars.length}</div>
+            <div className="text-gray-600">Upcoming</div>
+          </Card>
+          <Card className="text-center p-6 bg-white/80 backdrop-blur-sm">
+            <div className="text-3xl font-bold text-purple-600">{pastWebinars.length}</div>
+            <div className="text-gray-600">Past Webinars</div>
+          </Card>
+        </div>
+
         {/* Tab Navigation */}
         <div className="flex justify-center mb-10">
           <div className="flex border-b border-gray-200">
@@ -141,7 +167,7 @@ const WebinarsPage = () => {
               }`}
               onClick={() => setActiveTab("upcoming")}
             >
-              Upcoming Webinars
+              Upcoming Webinars ({upcomingWebinars.length})
             </button>
             <button
               className={`px-6 py-3 text-lg font-medium ${
@@ -151,7 +177,7 @@ const WebinarsPage = () => {
               }`}
               onClick={() => setActiveTab("past")}
             >
-              Past Webinars
+              Past Webinars ({pastWebinars.length})
             </button>
           </div>
         </div>
@@ -162,19 +188,36 @@ const WebinarsPage = () => {
             (webinar) => (
               <Card
                 key={webinar.id}
-                className="p-6 hover:shadow-lg transition-shadow duration-300"
+                className="p-6 hover:shadow-lg transition-shadow duration-300 bg-white/90 backdrop-blur-sm"
               >
                 <div className="flex flex-col md:flex-row gap-6">
+                  {/* Webinar Image or Icon */}
                   <div className="flex-shrink-0">
-                    <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                      <FiVideo className="h-10 w-10 text-blue-600" />
-                    </div>
+                    {webinar.image_url ? (
+                      <img 
+                        src={`http://localhost:5000${webinar.image_url}`} 
+                        alt={webinar.title}
+                        className="w-24 h-24 rounded-2xl object-cover"
+                      />
+                    ) : (
+                      <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                        <FiVideo className="h-10 w-10 text-blue-600" />
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex-grow">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                      {webinar.title}
-                    </h3>
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <h3 className="text-2xl font-bold text-gray-900">
+                        {webinar.title}
+                      </h3>
+                      {webinar.is_premium && (
+                        <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+                          PREMIUM
+                        </span>
+                      )}
+                    </div>
+                    
                     <p className="text-gray-600 mb-4">{webinar.description}</p>
 
                     <div className="flex flex-wrap gap-4 mb-4">
@@ -184,33 +227,52 @@ const WebinarsPage = () => {
                       </div>
                       <div className="flex items-center text-gray-700">
                         <FiClock className="mr-2 text-blue-600" />
-                        <span>{webinar.duration}</span>
+                        <span>{webinar.duration} minutes</span>
                       </div>
-                      <div className="text-gray-700">
-                        <span className="font-medium">Speaker:</span>{" "}
-                        {webinar.speaker}
+                      <div className="flex items-center text-gray-700">
+                        <FiUser className="mr-2 text-blue-600" />
+                        <span>{webinar.speaker}</span>
                       </div>
+                      {webinar.price > 0 && (
+                        <div className="flex items-center text-gray-700">
+                          <FiDollarSign className="mr-2 text-green-600" />
+                          <span>${webinar.price}</span>
+                        </div>
+                      )}
+                      {webinar.tags && webinar.tags.length > 0 && (
+                        <div className="flex items-center text-gray-700">
+                          <FiTag className="mr-2 text-purple-600" />
+                          <span>{webinar.tags.join(', ')}</span>
+                        </div>
+                      )}
                     </div>
 
-                    {isWebinarUpcoming(webinar) ? (
-                      <Button
-                        variant="gradient"
-                        onClick={() => handleJoinWebinar(webinar.id)}
-                        className="flex items-center"
-                      >
-                        <FiExternalLink className="mr-2" />
-                        Join Webinar
-                      </Button>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        onClick={() => handleWatchRecording(webinar.id)}
-                        className="flex items-center"
-                      >
-                        <FiVideo className="mr-2" />
-                        Watch Recording
-                      </Button>
-                    )}
+                    <div className="flex flex-wrap gap-3">
+                      {isWebinarUpcoming(webinar) ? (
+                        <>
+                          <Button
+                            variant="gradient"
+                            onClick={() => handleJoinWebinar(webinar.id)}
+                            className="flex items-center"
+                          >
+                            <FiExternalLink className="mr-2" />
+                            Join Webinar
+                          </Button>
+                          <div className="text-sm text-gray-600">
+                            {webinar.current_attendees}/{webinar.max_attendees} registered
+                          </div>
+                        </>
+                      ) : (
+                        <Button
+                          variant="outline"
+                          onClick={() => handleWatchRecording(webinar.id)}
+                          className="flex items-center"
+                        >
+                          <FiVideo className="mr-2" />
+                          Watch Recording
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </Card>

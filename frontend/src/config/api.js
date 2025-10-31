@@ -1,4 +1,3 @@
-// src/config/api.js
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
 export const apiCall = async (url, options = {}) => {
@@ -52,16 +51,37 @@ export const apiCall = async (url, options = {}) => {
 };
 
 export const api = {
-  // Admin - Books
+  // Admin - Dashboard
   getDashboardStats: async () => {
     return apiCall('/admin/dashboard');
   },
 
+  // Admin - Books
   getAdminBooks: async () => {
     return apiCall('/admin/books');
   },
 
-  // Books
+  createBook: async (bookData) => {
+    return apiCall('/admin/books', {
+      method: 'POST',
+      body: bookData
+    });
+  },
+
+  updateBook: async (id, bookData) => {
+    return apiCall(`/admin/books/${id}`, {
+      method: 'PUT',
+      body: bookData
+    });
+  },
+
+  deleteBook: async (id) => {
+    return apiCall(`/admin/books/${id}`, {
+      method: 'DELETE'
+    });
+  },
+
+  // Books - Public
   getBooks: async (params = {}) => {
     const queryParams = new URLSearchParams(params).toString();
     const url = queryParams ? `/books?${queryParams}` : '/books';
@@ -70,26 +90,6 @@ export const api = {
 
   getBookById: async (id) => {
     return apiCall(`/books/${id}`);
-  },
-
-  createBook: async (bookData) => {
-    return apiCall('/books', {
-      method: 'POST',
-      body: bookData
-    });
-  },
-
-  updateBook: async (id, bookData) => {
-    return apiCall(`/books/${id}`, {
-      method: 'PUT',
-      body: bookData
-    });
-  },
-
-  deleteBook: async (id) => {
-    return apiCall(`/books/${id}`, {
-      method: 'DELETE'
-    });
   },
 
   uploadBookCover: async (file) => {
@@ -106,31 +106,7 @@ export const api = {
     return apiCall('/books/categories');
   },
 
-  // Auth
-  login: async (email, password) => {
-    return apiCall('/auth/login', {
-      method: 'POST',
-      body: { email, password }
-    });
-  },
-
-  register: async (userData) => {
-    return apiCall('/auth/register', {
-      method: 'POST',
-      body: userData
-    });
-  },
-
-  getCurrentUser: async () => {
-    return apiCall('/auth/me');
-  },
-
-  // Test endpoint
-  testConnection: async () => {
-    return apiCall('/health');
-  },
-
-  // Articles - Admin
+  // Admin - Articles
   getAdminArticles: async () => {
     return apiCall('/admin/articles');
   },
@@ -164,15 +140,6 @@ export const api = {
     });
   },
 
-  uploadArticleDocument: async (file) => {
-    const formData = new FormData();
-    formData.append('document', file);
-    return apiCall('/admin/articles/upload-document', {
-      method: 'POST',
-      body: formData
-    });
-  },
-
   // Articles - Public
   getArticles: async (params = {}) => {
     const queryParams = new URLSearchParams(params).toString();
@@ -188,7 +155,7 @@ export const api = {
     return apiCall('/articles/categories');
   },
 
-  // Webinars - Admin
+  // Admin - Webinars
   getAdminWebinars: async () => {
     return apiCall('/admin/webinars');
   },
@@ -238,5 +205,33 @@ export const api = {
       method: 'POST',
       body: userData
     });
+  },
+
+  // Auth
+  login: async (email, password) => {
+    return apiCall('/auth/login', {
+      method: 'POST',
+      body: { email, password }
+    });
+  },
+
+  register: async (userData) => {
+    return apiCall('/auth/register', {
+      method: 'POST',
+      body: userData
+    });
+  },
+
+  getCurrentUser: async () => {
+    return apiCall('/auth/me');
+  },
+
+  // Test endpoints
+  testConnection: async () => {
+    return apiCall('/health');
+  },
+
+  getStatus: async () => {
+    return apiCall('/status');
   }
 };

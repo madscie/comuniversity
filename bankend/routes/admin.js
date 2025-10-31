@@ -1,4 +1,3 @@
-// routes/admin.js
 const express = require('express');
 const db = require('../config/database');
 const multer = require('multer');
@@ -23,8 +22,6 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024 // 10MB limit
   }
 });
-
-// NO AUTHENTICATION - ALL ROUTES ARE OPEN
 
 // GET /api/admin/dashboard
 router.get('/dashboard', async (req, res) => {
@@ -60,7 +57,7 @@ router.get('/dashboard', async (req, res) => {
   }
 });
 
-
+// GET /api/admin/books
 router.get('/books', async (req, res) => {
   try {
     const [books] = await db.execute(`
@@ -89,6 +86,215 @@ router.get('/books', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching books'
+    });
+  }
+});
+
+// POST /api/admin/books
+router.post('/books', async (req, res) => {
+  try {
+    const {
+      title,
+      author,
+      description,
+      isbn,
+      category,
+      dewey_number,
+      price,
+      format,
+      pages,
+      publisher,
+      published_date,
+      language,
+      total_copies,
+      featured
+    } = req.body;
+
+    console.log('📥 Creating book with data:', req.body);
+
+    // Validate required fields
+    if (!title || !author || !category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, author, and category are required fields'
+      });
+    }
+
+    // Insert new book
+    const [result] = await db.execute(
+      `INSERT INTO books (
+        title, author, description, isbn, category, dewey_number, price,
+        format, pages, publisher, published_date, language, 
+        total_copies, available_copies, featured, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        title,
+        author,
+        description || '',
+        isbn || null,
+        category,
+        dewey_number || null,
+        price ? parseFloat(price) : 0.00,
+        format || 'physical',
+        pages ? parseInt(pages) : null,
+        publisher || null,
+        published_date || null,
+        language || 'English',
+        total_copies ? parseInt(total_copies) : 1,
+        total_copies ? parseInt(total_copies) : 1,
+        featured ? Boolean(featured) : false,
+        'available'
+      ]
+    );
+
+    // Get the created book
+    const [books] = await db.execute(
+      'SELECT * FROM books WHERE id = ?',
+      [result.insertId]
+    );
+
+    console.log(`✅ New book created: ${title} by ${author}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Book created successfully',
+      data: {
+        book: books[0]
+      }
+    });
+  } catch (error) {
+    console.error('❌ Create book error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating book: ' + error.message
+    });
+  }
+});
+
+// PUT /api/admin/books/:id
+router.put('/books/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    console.log(`📥 Updating book ${id} with data:`, updateData);
+
+    // Check if book exists
+    const [existingBooks] = await db.execute(
+      'SELECT id FROM books WHERE id = ?',
+      [parseInt(id)]
+    );
+
+    if (existingBooks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found'
+      });
+    }
+
+    // Build update query
+    const allowedFields = [
+      'title', 'author', 'description', 'isbn', 'category', 'dewey_number',
+      'price', 'format', 'pages', 'publisher', 'published_date', 'language',
+      'total_copies', 'available_copies', 'featured', 'status'
+    ];
+
+    const updates = [];
+    const values = [];
+
+    Object.keys(updateData).forEach(key => {
+      if (allowedFields.includes(key)) {
+        updates.push(`${key} = ?`);
+        
+        if (key === 'price') {
+          values.push(parseFloat(updateData[key]) || 0.00);
+        } else if (key === 'pages' || key === 'total_copies' || key === 'available_copies') {
+          values.push(parseInt(updateData[key]) || null);
+        } else if (key === 'featured') {
+          values.push(Boolean(updateData[key]));
+        } else {
+          values.push(updateData[key] || null);
+        }
+      }
+    });
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields to update'
+      });
+    }
+
+    values.push(parseInt(id));
+
+    const query = `UPDATE books SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    
+    console.log('🔍 Update query:', query);
+    console.log('📊 Update parameters:', values);
+    
+    await db.execute(query, values);
+
+    // Get updated book
+    const [books] = await db.execute(
+      'SELECT * FROM books WHERE id = ?',
+      [parseInt(id)]
+    );
+
+    console.log(`✅ Book updated: ID ${id}`);
+
+    res.json({
+      success: true,
+      message: 'Book updated successfully',
+      data: {
+        book: books[0]
+      }
+    });
+  } catch (error) {
+    console.error('❌ Update book error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating book: ' + error.message
+    });
+  }
+});
+
+// DELETE /api/admin/books/:id
+router.delete('/books/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if book exists
+    const [existingBooks] = await db.execute(
+      'SELECT id, title FROM books WHERE id = ?',
+      [parseInt(id)]
+    );
+
+    if (existingBooks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found'
+      });
+    }
+
+    const bookTitle = existingBooks[0].title;
+
+    // Delete the book
+    await db.execute(
+      'DELETE FROM books WHERE id = ?',
+      [parseInt(id)]
+    );
+
+    console.log(`🗑️ Book deleted: ${bookTitle} (ID: ${id})`);
+
+    res.json({
+      success: true,
+      message: 'Book deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Delete book error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting book: ' + error.message
     });
   }
 });
@@ -717,111 +923,6 @@ router.get('/users', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error fetching users'
-    });
-  }
-});
-
-// GET /api/admin/users/stats - Get user statistics
-router.get('/users/stats', async (req, res) => {
-  try {
-    const [totalUsers] = await db.execute('SELECT COUNT(*) as total FROM users');
-    const [activeUsers] = await db.execute('SELECT COUNT(*) as total FROM users WHERE is_active = 1');
-    const [premiumUsers] = await db.execute('SELECT COUNT(*) as total FROM users WHERE role = "premium"');
-    const [newUsersToday] = await db.execute(`
-      SELECT COUNT(*) as total FROM users 
-      WHERE DATE(created_at) = CURDATE()
-    `);
-
-    res.json({
-      success: true,
-      data: {
-        totalUsers: totalUsers[0].total,
-        activeUsers: activeUsers[0].total,
-        premiumUsers: premiumUsers[0].total,
-        newUsersToday: newUsersToday[0].total
-      }
-    });
-  } catch (error) {
-    console.error('Get user stats error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching user statistics'
-    });
-  }
-});
-
-// PATCH /api/admin/users/:id/status - Update user status
-router.patch('/users/:id/status', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    if (!status || !['active', 'inactive'].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Valid status (active/inactive) is required'
-      });
-    }
-
-    const [result] = await db.execute(
-      'UPDATE users SET is_active = ? WHERE id = ?',
-      [status === 'active' ? 1 : 0, id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: `User ${status} successfully`
-    });
-  } catch (error) {
-    console.error('Update user status error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating user status'
-    });
-  }
-});
-
-// PATCH /api/admin/users/:id/role - Update user role
-router.patch('/users/:id/role', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { role } = req.body;
-
-    if (!role || !['user', 'premium', 'admin'].includes(role)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Valid role (user/premium/admin) is required'
-      });
-    }
-
-    const [result] = await db.execute(
-      'UPDATE users SET role = ? WHERE id = ?',
-      [role, id]
-    );
-
-    if (result.affectedRows === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
-
-    res.json({
-      success: true,
-      message: `User role updated to ${role} successfully`
-    });
-  } catch (error) {
-    console.error('Update user role error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating user role'
     });
   }
 });

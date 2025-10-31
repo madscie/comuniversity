@@ -378,4 +378,68 @@ initializeDatabase()
     process.exit(1);
   });
 
+  // Add these routes before the 404 handler in server.js
+
+// Test routes for each module
+app.get('/api/test/books', async (req, res) => {
+  try {
+    const db = require('./config/database');
+    const [books] = await db.execute('SELECT COUNT(*) as count FROM books');
+    res.json({
+      success: true,
+      message: 'Books module is working',
+      data: {
+        totalBooks: books[0].count
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Books module error: ' + error.message
+    });
+  }
+});
+
+app.get('/api/test/articles', async (req, res) => {
+  try {
+    const db = require('./config/database');
+    const [articles] = await db.execute('SELECT COUNT(*) as count FROM articles');
+    res.json({
+      success: true,
+      message: 'Articles module is working',
+      data: {
+        totalArticles: articles[0].count
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Articles module error: ' + error.message
+    });
+  }
+});
+
+app.get('/api/test/webinars', async (req, res) => {
+  try {
+    const db = require('./config/database');
+    const [webinars] = await db.execute('SELECT COUNT(*) as count FROM webinars');
+    res.json({
+      success: true,
+      message: 'Webinars module is working',
+      data: {
+        totalWebinars: webinars[0].count
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Webinars module error: ' + error.message
+    });
+  }
+});
+app.use('/api/articles', articleRoutes);
+app.use('/api/webinars', webinarRoutes);
+
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 module.exports = app;

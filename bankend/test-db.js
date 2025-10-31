@@ -1,25 +1,31 @@
-const mysql = require('mysql2');
+const db = require('./config/database');
 
-const connection = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  password: '',
-  database: 'communiversity'
-});
-
-connection.connect((err) => {
-  if (err) {
-    console.error('Error connecting to MySQL:', err.message);
-    process.exit(1);
+async function testArticles() {
+  try {
+    console.log('🧪 Testing articles query...');
+    const [articles] = await db.execute('SELECT * FROM articles WHERE status = "published" LIMIT 5');
+    console.log('✅ Articles found:', articles.length);
+    console.log('Sample article:', articles[0]?.title);
+  } catch (error) {
+    console.error('❌ Articles test failed:', error.message);
   }
-  console.log('Connected to MySQL successfully!');
-  
-  connection.query('SHOW TABLES', (err, results) => {
-    if (err) {
-      console.error('Error executing query:', err.message);
-    } else {
-      console.log('Tables in database:', results);
-    }
-    connection.end();
-  });
-});
+}
+
+async function testWebinars() {
+  try {
+    console.log('🧪 Testing webinars query...');
+    const [webinars] = await db.execute('SELECT * FROM webinars WHERE status = "scheduled" LIMIT 5');
+    console.log('✅ Webinars found:', webinars.length);
+    console.log('Sample webinar:', webinars[0]?.title);
+  } catch (error) {
+    console.error('❌ Webinars test failed:', error.message);
+  }
+}
+
+async function runTests() {
+  await testArticles();
+  await testWebinars();
+  process.exit();
+}
+
+runTests();
