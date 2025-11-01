@@ -1,3 +1,4 @@
+// src/pages/user/SignUp.jsx
 import React, { useState } from 'react';
 import { FiBookOpen } from "react-icons/fi";
 
@@ -174,18 +175,18 @@ const SignUp = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-300 to-purple-400 py-8 px-4">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
-                <div className="bg-blue-800 text-white py-8 px-6 text-center">
-                    <h1 className="text-2xl font-semibold flex items-center justify-center mb-2">
-                        <FiBookOpen className="mr-2" /> Communiversity Library
+        <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 py-6 sm:py-8 px-3 sm:px-4 transition-colors duration-300">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                <div className="bg-gradient-to-r from-gray-800 to-green-600 text-white py-6 sm:py-8 px-4 sm:px-6 text-center">
+                    <h1 className="text-xl sm:text-2xl font-semibold flex items-center justify-center mb-1 sm:mb-2">
+                        <FiBookOpen className="mr-2 h-5 w-5 sm:h-6 sm:w-6" /> Communiversity Library
                     </h1>
-                    <p className="opacity-90">Create your account to access our resources</p>
+                    <p className="opacity-90 text-sm sm:text-base">Create your account to access our resources</p>
                 </div>
                 
-                <form onSubmit={handleSubmit} className="p-6">
-                    <div className="mb-5">
-                        <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
+                <form onSubmit={handleSubmit} className="p-4 sm:p-6">
+                    <div className="mb-4 sm:mb-5">
+                        <label htmlFor="name" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Full Name *
                         </label>
                         <input
@@ -194,16 +195,16 @@ const SignUp = () => {
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
-                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition ${
-                                errors.name ? 'border-red-500' : 'border-gray-300'
+                            className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent focus:outline-none transition text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                                errors.name ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}
                             placeholder="Enter your full name"
                         />
-                        {errors.name && <span className="text-red-600 text-sm mt-1 block">{errors.name}</span>}
+                        {errors.name && <span className="text-red-600 dark:text-red-400 text-xs sm:text-sm mt-1 block">{errors.name}</span>}
                     </div>
                     
-                    <div className="mb-5">
-                        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="mb-4 sm:mb-5">
+                        <label htmlFor="email" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Email Address *
                         </label>
                         <input
@@ -212,16 +213,16 @@ const SignUp = () => {
                             name="email"
                             value={formData.email}
                             onChange={handleChange}
-                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition ${
-                                errors.email ? 'border-red-500' : 'border-gray-300'
+                            className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent focus:outline-none transition text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                                errors.email ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}
                             placeholder="Enter your email"
                         />
-                        {errors.email && <span className="text-red-600 text-sm mt-1 block">{errors.email}</span>}
+                        {errors.email && <span className="text-red-600 dark:text-red-400 text-xs sm:text-sm mt-1 block">{errors.email}</span>}
                     </div>
                     
-                    <div className="mb-5">
-                        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="mb-4 sm:mb-5">
+                        <label htmlFor="password" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Password *
                         </label>
                         <input
@@ -230,20 +231,20 @@ const SignUp = () => {
                             name="password"
                             value={formData.password}
                             onChange={handleChange}
-                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition ${
-                                errors.password ? 'border-red-500' : 'border-gray-300'
+                            className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent focus:outline-none transition text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                                errors.password ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}
                             placeholder="Create a password (min. 8 characters)"
                         />
-                        <div className="mt-2 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                        <div className="mt-2 h-1.5 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                             <div className={`h-full transition-all duration-300 ${passwordStrength.class}`} style={{ width: passwordStrength.class.includes('red') ? '33%' : passwordStrength.class.includes('yellow') ? '66%' : passwordStrength.class.includes('green') ? '100%' : '0%' }}></div>
                         </div>
-                        <div className="text-xs text-gray-600 mt-1">{passwordStrength.text}</div>
-                        {errors.password && <span className="text-red-600 text-sm mt-1 block">{errors.password}</span>}
+                        <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">{passwordStrength.text}</div>
+                        {errors.password && <span className="text-red-600 dark:text-red-400 text-xs sm:text-sm mt-1 block">{errors.password}</span>}
                     </div>
                     
-                    <div className="mb-5">
-                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
+                    <div className="mb-4 sm:mb-5">
+                        <label htmlFor="confirmPassword" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                             Confirm Password *
                         </label>
                         <input
@@ -252,17 +253,17 @@ const SignUp = () => {
                             name="confirmPassword"
                             value={formData.confirmPassword}
                             onChange={handleChange}
-                            className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition ${
-                                errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                            className={`w-full px-3 sm:px-4 py-2 sm:py-3 border rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent focus:outline-none transition text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                                errors.confirmPassword ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
                             }`}
                             placeholder="Confirm your password"
                         />
-                        {errors.confirmPassword && <span className="text-red-600 text-sm mt-1 block">{errors.confirmPassword}</span>}
+                        {errors.confirmPassword && <span className="text-red-600 dark:text-red-400 text-xs sm:text-sm mt-1 block">{errors.confirmPassword}</span>}
                     </div>
                     
-                    <div className="mb-5">
-                        <label htmlFor="affiliateCode" className="block text-sm font-medium text-gray-700 mb-1">
-                            Affiliate Code <span className="text-gray-500 font-normal">(Optional)</span>
+                    <div className="mb-4 sm:mb-5">
+                        <label htmlFor="affiliateCode" className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Affiliate Code <span className="text-gray-500 dark:text-gray-400 font-normal">(Optional)</span>
                         </label>
                         <input
                             type="text"
@@ -270,25 +271,25 @@ const SignUp = () => {
                             name="affiliateCode"
                             value={formData.affiliateCode}
                             onChange={handleChange}
-                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition"
+                            className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent focus:outline-none transition text-sm sm:text-base bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                             placeholder="Enter affiliate code if you have one"
                         />
                     </div>
                     
-                    <div className="bg-gray-50 p-4 rounded-lg my-6 text-sm">
-                        <p className="text-gray-700">
-                            By creating an account, you agree to our <a href="/terms" className="text-blue-600 hover:underline">Terms of Service</a> and <a href="/privacy" className="text-blue-600 hover:underline">Privacy Policy</a>.
+                    <div className="bg-gray-50 dark:bg-gray-700 p-3 sm:p-4 rounded-lg my-4 sm:my-6 text-xs sm:text-sm">
+                        <p className="text-gray-700 dark:text-gray-300">
+                            By creating an account, you agree to our <a href="/terms" className="text-green-600 dark:text-green-400 hover:underline">Terms of Service</a> and <a href="/privacy" className="text-green-600 dark:text-green-400 hover:underline">Privacy Policy</a>.
                         </p>
                     </div>
                     
                     <button 
                         type="submit" 
-                        className="w-full bg-blue-600 text-white py-4 px-4 rounded-lg font-semibold hover:bg-blue-700 transition flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        className="w-full bg-gradient-to-r from-gray-800 to-green-600 text-white py-3 sm:py-4 px-4 rounded-lg font-semibold hover:from-gray-900 hover:to-green-700 transition flex items-center justify-center disabled:bg-gray-400 disabled:cursor-not-allowed text-sm sm:text-base"
                         disabled={isSubmitting}
                     >
                         {isSubmitting ? (
                             <>
-                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                                <div className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
                                 Creating Account...
                             </>
                         ) : (
@@ -297,16 +298,16 @@ const SignUp = () => {
                     </button>
                     
                     {apiResponse.show && (
-                        <div className={`mt-5 p-3 rounded-lg text-center text-sm ${
-                            apiResponse.isSuccess ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-red-100 text-red-800 border border-red-200'
+                        <div className={`mt-4 sm:mt-5 p-2 sm:p-3 rounded-lg text-center text-xs sm:text-sm ${
+                            apiResponse.isSuccess ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 border border-green-200 dark:border-green-800' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-800'
                         }`}>
                             {apiResponse.message}
                         </div>
                     )}
                 </form>
                 
-                <div className="text-center py-5 border-t border-gray-200 text-gray-700">
-                    <p>Already have an account? <a href="/login" className="text-blue-600 font-medium hover:underline">Log in here</a></p>
+                <div className="text-center py-4 sm:py-5 border-t border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-400 text-xs sm:text-sm">
+                    <p>Already have an account? <a href="/login" className="text-green-600 dark:text-green-400 font-medium hover:underline">Log in here</a></p>
                 </div>
                 
             </div>

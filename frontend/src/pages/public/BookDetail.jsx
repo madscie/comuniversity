@@ -1,4 +1,4 @@
-// pages/public/BookDetail.jsx
+// src/pages/public/BookDetail.jsx
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -50,14 +50,6 @@ const BookDetail = () => {
 
       if (foundBook) {
         setBook(foundBook);
-
-        // DEBUG: Check book status with helper functions
-        console.log("Book Details:", {
-          title: foundBook.title,
-          price: foundBook.price,
-          isPaidContent: isBookPaidContent(foundBook),
-          requiresPayment: foundBook.price > 0,
-        });
 
         // Check purchase status
         const purchased = hasUserPurchasedBook(id);
@@ -156,10 +148,10 @@ const BookDetail = () => {
     return Array.from({ length: 5 }, (_, i) => (
       <FiStar
         key={i}
-        className={`h-5 w-5 ${
+        className={`h-4 w-4 sm:h-5 sm:w-5 ${
           i < Math.floor(rating)
             ? "text-yellow-400 fill-current"
-            : "text-gray-300"
+            : "text-gray-300 dark:text-gray-600"
         }`}
       />
     ));
@@ -167,16 +159,16 @@ const BookDetail = () => {
 
   if (!book) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <Card className="text-center p-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center py-8">
+        <Card className="text-center p-6 sm:p-8">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
             Book Not Found
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 dark:text-gray-400 mb-4 sm:mb-6">
             The book you're looking for doesn't exist.
           </p>
           <Button onClick={() => navigate("/browse")}>
-            <FiArrowLeft className="mr-2" />
+            <FiArrowLeft className="mr-2 h-4 w-4" />
             Back to Browse
           </Button>
         </Card>
@@ -185,53 +177,57 @@ const BookDetail = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8">
-      <div className="container mx-auto px-4 max-w-6xl">
+    <div className="min-h-screen bg-white dark:bg-gray-900 py-4 sm:py-6 lg:py-8 transition-colors duration-300">
+      <div className="container mx-auto px-3 sm:px-4 lg:px-6 max-w-6xl">
         {/* Navigation */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-8">
           <Button
             variant="ghost"
             onClick={() => navigate(-1)}
-            className="flex items-center text-gray-600 hover:text-gray-900"
+            className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 text-sm sm:text-base"
           >
             <FiArrowLeft className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <div className="flex space-x-2">
+          <div className="flex space-x-1 sm:space-x-2">
             <Button
               variant="ghost"
               onClick={toggleFavorite}
-              className={`flex items-center ${
-                isFavorite ? "text-red-600" : "text-gray-600"
-              }`}
+              className={`flex items-center text-sm sm:text-base ${
+                isFavorite ? "text-red-600" : "text-gray-600 dark:text-gray-400"
+              } hover:text-red-700 dark:hover:text-red-400`}
             >
               <FiHeart
-                className={`mr-2 h-4 w-4 ${isFavorite ? "fill-current" : ""}`}
+                className={`mr-1 sm:mr-2 h-4 w-4 ${
+                  isFavorite ? "fill-current" : ""
+                }`}
               />
-              {isFavorite ? "Favorited" : "Add to Favorites"}
+              <span className="hidden xs:inline">
+                {isFavorite ? "Favorited" : "Favorite"}
+              </span>
             </Button>
             <Button
               variant="ghost"
               onClick={handleShare}
-              className="flex items-center text-gray-600"
+              className="flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 text-sm sm:text-base"
             >
-              <FiShare2 className="mr-2 h-4 w-4" />
-              Share
+              <FiShare2 className="mr-1 sm:mr-2 h-4 w-4" />
+              <span className="hidden xs:inline">Share</span>
             </Button>
           </div>
         </div>
 
         {/* Book Header */}
-        <Card className="mb-8 border-0 shadow-xl">
+        <Card className="mb-6 sm:mb-8 lg:mb-12 border-0 shadow-xl dark:shadow-gray-900/50">
           <div className="flex flex-col lg:flex-row">
             {/* Book Cover */}
-            <div className="lg:w-1/3 p-8 flex justify-center">
+            <div className="lg:w-1/3 p-4 sm:p-6 lg:p-8 flex justify-center">
               <div className="relative group">
-                <div className="relative overflow-hidden rounded-2xl shadow-2xl">
+                <div className="relative overflow-hidden rounded-xl sm:rounded-2xl shadow-2xl">
                   <img
                     src={book.coverImage}
                     alt={book.title}
-                    className="w-64 h-80 object-cover transform group-hover:scale-105 transition-transform duration-300"
+                    className="w-48 h-60 sm:w-56 sm:h-72 lg:w-64 lg:h-80 object-cover transform group-hover:scale-105 transition-transform duration-300"
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 </div>
@@ -239,17 +235,17 @@ const BookDetail = () => {
             </div>
 
             {/* Book Info */}
-            <div className="lg:w-2/3 p-8">
-              <div className="mb-4">
-                <span className="inline-block px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+            <div className="lg:w-2/3 p-4 sm:p-6 lg:p-8">
+              <div className="mb-3 sm:mb-4 flex flex-wrap gap-2">
+                <span className="inline-block px-2 sm:px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs sm:text-sm font-medium">
                   {book.category} • {book.deweyNumber || book.ddc || "N/A"}
                 </span>
                 {/* Payment Status Badge */}
                 <span
-                  className={`ml-2 inline-block px-3 py-1 rounded-full text-sm font-medium ${
+                  className={`inline-block px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${
                     isBookPaidContent(book)
-                      ? "bg-orange-100 text-orange-800"
-                      : "bg-green-100 text-green-800"
+                      ? "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300"
+                      : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
                   }`}
                 >
                   {isBookPaidContent(book)
@@ -258,50 +254,52 @@ const BookDetail = () => {
                 </span>
               </div>
 
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-4">
                 {book.title}
               </h1>
-              <p className="text-xl text-gray-700 mb-6">by {book.author}</p>
+              <p className="text-lg sm:text-xl text-gray-700 dark:text-gray-300 mb-4 sm:mb-6">
+                by {book.author}
+              </p>
 
               {/* Rating and Downloads */}
-              <div className="flex items-center mb-6 space-x-4">
+              <div className="flex items-center mb-4 sm:mb-6 space-x-3 sm:space-x-4">
                 <div className="flex items-center space-x-1">
                   {renderStars(book.rating || 0)}
-                  <span className="ml-2 text-gray-700 font-medium">
+                  <span className="ml-2 text-gray-700 dark:text-gray-300 font-medium text-sm sm:text-base">
                     {book.rating || 0}
                   </span>
                 </div>
-                <div className="flex items-center text-gray-600">
-                  <FiUsers className="mr-1 h-4 w-4" />
+                <div className="flex items-center text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+                  <FiUsers className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
                   {book.downloads?.toLocaleString() || 0} downloads
                 </div>
               </div>
 
-              <p className="text-gray-700 text-lg leading-relaxed mb-8">
+              <p className="text-gray-700 dark:text-gray-300 text-base sm:text-lg leading-relaxed mb-6 sm:mb-8">
                 {book.description}
               </p>
 
-              {/* Purchase Status - UPDATED WITH HELPER FUNCTION */}
+              {/* Purchase Status */}
               {hasPurchased && isBookPaidContent(book) && (
-                <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-green-700 font-medium">
+                <div className="mb-3 sm:mb-4 p-2 sm:p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                  <p className="text-green-700 dark:text-green-300 font-medium text-sm sm:text-base">
                     ✓ You own this book - Ready to download!
                   </p>
                 </div>
               )}
 
               {/* Action Buttons */}
-              <div className="flex flex-wrap gap-4 mb-6">
+              <div className="flex flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
                 <Button
                   variant="primary"
                   onClick={handleReadOnline}
-                  className="flex items-center px-6 py-3"
+                  className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
                 >
-                  <FiBookOpen className="mr-2 h-5 w-5" />
+                  <FiBookOpen className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                   Read Online
                 </Button>
 
-                {/* Download Buttons - UPDATED WITH HELPER FUNCTIONS */}
+                {/* Download Buttons */}
                 {isBookPaidContent(book) ? (
                   <>
                     {hasPurchased ? (
@@ -309,30 +307,29 @@ const BookDetail = () => {
                         <Button
                           variant="secondary"
                           onClick={() => handleDownload("PDF")}
-                          className="flex items-center px-6 py-3"
+                          className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
                         >
-                          <FiDownload className="mr-2 h-5 w-5" />
+                          <FiDownload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                           Download PDF
                         </Button>
                         {(book.format || "").includes("EPUB") && (
                           <Button
                             variant="outline"
                             onClick={() => handleDownload("EPUB")}
-                            className="flex items-center px-6 py-3"
+                            className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
                           >
-                            <FiBook className="mr-2 h-5 w-5" />
+                            <FiBook className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                             Download EPUB
                           </Button>
                         )}
                       </>
                     ) : (
-                      // In BookDetail.jsx, update the purchase button:
                       <Button
-                        variant="secondary"
+                        variant="success"
                         onClick={() => navigate(`/checkout/${book.id}`)}
-                        className="flex items-center px-6 py-3 bg-green-600 hover:bg-green-700"
+                        className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
                       >
-                        <FiDollarSign className="mr-2 h-5 w-5" />
+                        <FiDollarSign className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                         Purchase - ${book.price}
                       </Button>
                     )}
@@ -342,18 +339,18 @@ const BookDetail = () => {
                     <Button
                       variant="secondary"
                       onClick={() => handleDownload("PDF")}
-                      className="flex items-center px-6 py-3"
+                      className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
                     >
-                      <FiDownload className="mr-2 h-5 w-5" />
+                      <FiDownload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                       Download PDF (Free)
                     </Button>
                     {(book.format || "").includes("EPUB") && (
                       <Button
                         variant="outline"
                         onClick={() => handleDownload("EPUB")}
-                        className="flex items-center px-6 py-3"
+                        className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
                       >
-                        <FiBook className="mr-2 h-5 w-5" />
+                        <FiBook className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                         Download EPUB (Free)
                       </Button>
                     )}
@@ -361,12 +358,12 @@ const BookDetail = () => {
                 )}
               </div>
 
-              {/* Access information - UPDATED WITH HELPER FUNCTION */}
+              {/* Access information */}
               {isBookPaidContent(book) && !hasPurchased && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 sm:p-4">
                   <div className="flex items-center">
-                    <FiDollarSign className="h-5 w-5 text-yellow-600 mr-2" />
-                    <span className="text-yellow-800 font-medium">
+                    <FiDollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
+                    <span className="text-yellow-800 dark:text-yellow-300 font-medium text-sm sm:text-base">
                       This is a premium book. Purchase required for download.
                     </span>
                   </div>
@@ -377,8 +374,8 @@ const BookDetail = () => {
               {process.env.NODE_ENV === "development" &&
                 isBookPaidContent(book) &&
                 !hasPurchased && (
-                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-blue-700 text-sm mb-2">
+                  <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <p className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm mb-2">
                       [DEV] Test purchase flow:
                     </p>
                     <Button
@@ -395,36 +392,47 @@ const BookDetail = () => {
         </Card>
 
         {/* Book Details Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-          <Card className="border-0 shadow-md">
-            <div className="p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <FiCalendar className="mr-2 h-5 w-5 text-blue-600" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <Card className="border-0 shadow-md dark:shadow-gray-900/50">
+            <div className="p-4 sm:p-6">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+                <FiCalendar className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-400" />
                 Publication Details
               </h3>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-2 text-xs sm:text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Published:</span>
-                  <span className="font-medium">
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Published:
+                  </span>
+                  <span className="font-medium text-gray-900 dark:text-white">
                     {book.publishedDate || "N/A"}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Publisher:</span>
-                  <span className="font-medium">{book.publisher || "N/A"}</span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Publisher:
+                  </span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {book.publisher || "N/A"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Pages:</span>
-                  <span className="font-medium">{book.pages || "N/A"}</span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Pages:
+                  </span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {book.pages || "N/A"}
+                  </span>
                 </div>
-                {/* UPDATED: Access type with helper function */}
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Access:</span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Access:
+                  </span>
                   <span
                     className={`font-medium ${
                       isBookPaidContent(book)
-                        ? "text-orange-600"
-                        : "text-green-600"
+                        ? "text-orange-600 dark:text-orange-400"
+                        : "text-green-600 dark:text-green-400"
                     }`}
                   >
                     {isBookPaidContent(book)
@@ -436,50 +444,66 @@ const BookDetail = () => {
             </div>
           </Card>
 
-          <Card className="border-0 shadow-md">
-            <div className="p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <FiGlobe className="mr-2 h-5 w-5 text-green-600" />
+          <Card className="border-0 shadow-md dark:shadow-gray-900/50">
+            <div className="p-4 sm:p-6">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+                <FiGlobe className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-400" />
                 Technical Information
               </h3>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-2 text-xs sm:text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">ISBN:</span>
-                  <span className="font-medium">{book.isbn || "N/A"}</span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    ISBN:
+                  </span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {book.isbn || "N/A"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Language:</span>
-                  <span className="font-medium">{book.language || "N/A"}</span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Language:
+                  </span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {book.language || "N/A"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">File Size:</span>
-                  <span className="font-medium">{book.fileSize || "N/A"}</span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    File Size:
+                  </span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {book.fileSize || "N/A"}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Available Formats:</span>
-                  <span className="font-medium">{book.format || "N/A"}</span>
+                  <span className="text-gray-600 dark:text-gray-400">
+                    Available Formats:
+                  </span>
+                  <span className="font-medium text-gray-900 dark:text-white">
+                    {book.format || "N/A"}
+                  </span>
                 </div>
               </div>
             </div>
           </Card>
 
-          <Card className="border-0 shadow-md">
-            <div className="p-6">
-              <h3 className="font-semibold text-gray-900 mb-4 flex items-center">
-                <FiBook className="mr-2 h-5 w-5 text-purple-600" />
+          <Card className="border-0 shadow-md dark:shadow-gray-900/50">
+            <div className="p-4 sm:p-6">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+                <FiBook className="mr-2 h-4 w-4 sm:h-5 sm:w-5 text-gray-600 dark:text-gray-400" />
                 Categories & Tags
               </h3>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1 sm:gap-2">
                 {(book.tags || []).map((tag, index) => (
                   <span
                     key={index}
-                    className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-sm"
+                    className="px-2 sm:px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full text-xs sm:text-sm"
                   >
                     {tag}
                   </span>
                 ))}
                 {(!book.tags || book.tags.length === 0) && (
-                  <span className="text-gray-500 text-sm">
+                  <span className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
                     No tags available
                   </span>
                 )}
@@ -489,12 +513,12 @@ const BookDetail = () => {
         </div>
 
         {/* Related Books */}
-        <Card className="border-0 shadow-xl">
-          <div className="p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+        <Card className="border-0 shadow-xl dark:shadow-gray-900/50">
+          <div className="p-4 sm:p-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">
               Related Books
             </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {booksData
                 .filter((b) => b.id !== book.id && b.category === book.category)
                 .slice(0, 3)
@@ -504,24 +528,24 @@ const BookDetail = () => {
                     to={`/books/${relatedBook.id}`}
                     className="block group"
                   >
-                    <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-300">
-                      <div className="p-4">
-                        <div className="flex items-start space-x-4">
+                    <Card className="border-0 shadow-md hover:shadow-lg transition-shadow duration-300 dark:shadow-gray-900/50">
+                      <div className="p-3 sm:p-4">
+                        <div className="flex items-start space-x-3 sm:space-x-4">
                           <img
                             src={relatedBook.coverImage}
                             alt={relatedBook.title}
-                            className="w-16 h-20 object-cover rounded-lg"
+                            className="w-12 h-16 sm:w-16 sm:h-20 object-cover rounded-lg flex-shrink-0"
                           />
-                          <div>
-                            <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+                          <div className="min-w-0 flex-1">
+                            <h3 className="font-semibold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors text-sm sm:text-base line-clamp-2">
                               {relatedBook.title}
                             </h3>
-                            <p className="text-sm text-gray-600 mt-1">
+                            <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm mt-1">
                               {relatedBook.author}
                             </p>
-                            <div className="flex items-center mt-2">
+                            <div className="flex items-center mt-1 sm:mt-2">
                               {renderStars(relatedBook.rating || 0)}
-                              <span className="ml-2 text-sm text-gray-600">
+                              <span className="ml-1 sm:ml-2 text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                                 {relatedBook.rating || 0}
                               </span>
                             </div>
@@ -529,8 +553,8 @@ const BookDetail = () => {
                             <span
                               className={`text-xs px-2 py-1 rounded-full mt-1 inline-block ${
                                 isBookPaidContent(relatedBook)
-                                  ? "bg-orange-100 text-orange-800"
-                                  : "bg-green-100 text-green-800"
+                                  ? "bg-orange-100 dark:bg-orange-900/30 text-orange-800 dark:text-orange-300"
+                                  : "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
                               }`}
                             >
                               {isBookPaidContent(relatedBook)
@@ -546,7 +570,7 @@ const BookDetail = () => {
               {booksData.filter(
                 (b) => b.id !== book.id && b.category === book.category
               ).length === 0 && (
-                <div className="col-span-3 text-center py-4 text-gray-500">
+                <div className="col-span-3 text-center py-4 text-gray-500 dark:text-gray-400">
                   No related books found in the same category.
                 </div>
               )}
@@ -557,24 +581,24 @@ const BookDetail = () => {
 
       {/* Reading Modal */}
       {isReading && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b">
-              <h2 className="text-2xl font-bold text-gray-900">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                 Reading: {book.title}
               </h2>
               <Button
                 variant="ghost"
                 onClick={() => setIsReading(false)}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               >
                 Close
               </Button>
             </div>
 
-            <div className="p-6 h-96 overflow-y-auto">
-              <div className="prose max-w-none text-lg leading-relaxed">
-                <h3 className="text-xl font-semibold mb-4">
+            <div className="p-4 sm:p-6 h-64 sm:h-80 lg:h-96 overflow-y-auto">
+              <div className="prose max-w-none text-base sm:text-lg leading-relaxed text-gray-900 dark:text-gray-100">
+                <h3 className="text-lg sm:text-xl font-semibold mb-3 sm:mb-4">
                   Page {currentPage + 1} of {pages.length}
                 </h3>
                 <div className="whitespace-pre-wrap">
@@ -583,16 +607,17 @@ const BookDetail = () => {
               </div>
             </div>
 
-            <div className="flex justify-between items-center p-6 border-t">
+            <div className="flex justify-between items-center p-4 sm:p-6 border-t border-gray-200 dark:border-gray-700">
               <Button
                 variant="outline"
                 onClick={() => setCurrentPage(Math.max(0, currentPage - 1))}
                 disabled={currentPage === 0}
+                className="text-xs sm:text-sm"
               >
                 Previous Page
               </Button>
 
-              <span className="text-gray-600">
+              <span className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
                 {currentPage + 1} / {pages.length}
               </span>
 
@@ -602,6 +627,7 @@ const BookDetail = () => {
                   setCurrentPage(Math.min(pages.length - 1, currentPage + 1))
                 }
                 disabled={currentPage === pages.length - 1}
+                className="text-xs sm:text-sm"
               >
                 Next Page
               </Button>
@@ -612,17 +638,17 @@ const BookDetail = () => {
 
       {/* Download Flow Modal */}
       {showDownloadFlow && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[95vh] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl sm:rounded-2xl max-w-2xl w-full max-h-[95vh] flex flex-col overflow-hidden">
             {/* Header - Fixed */}
-            <div className="flex justify-between items-center p-6 border-b flex-shrink-0">
-              <h2 className="text-2xl font-bold text-gray-900">
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                 Purchase & Download
               </h2>
               <Button
                 variant="ghost"
                 onClick={handleDownloadCancel}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
               >
                 Close
               </Button>
@@ -630,31 +656,37 @@ const BookDetail = () => {
 
             {/* Scrollable Content */}
             <div className="flex-1 overflow-y-auto">
-              <div className="p-6">
+              <div className="p-4 sm:p-6">
                 {/* Book Summary */}
-                <div className="flex items-center space-x-4 mb-6 p-4 bg-gray-50 rounded-lg">
+                <div className="flex items-center space-x-3 sm:space-x-4 mb-4 sm:mb-6 p-3 sm:p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <img
                     src={book.coverImage}
                     alt={book.title}
-                    className="w-16 h-20 object-cover rounded-lg flex-shrink-0"
+                    className="w-12 h-16 sm:w-16 sm:h-20 object-cover rounded-lg flex-shrink-0"
                   />
                   <div className="min-w-0">
-                    <h3 className="font-semibold text-gray-900 truncate">
+                    <h3 className="font-semibold text-gray-900 dark:text-white truncate text-sm sm:text-base">
                       {book.title}
                     </h3>
-                    <p className="text-gray-600 text-sm">by {book.author}</p>
-                    <p className="text-green-600 font-semibold">
+                    <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
+                      by {book.author}
+                    </p>
+                    <p className="text-green-600 dark:text-green-400 font-semibold text-sm sm:text-base">
                       ${book.price} • {selectedFormat} format
                     </p>
                   </div>
                 </div>
 
-                {/* Download Handler - You'll need to create this component */}
-                <div className="text-center p-6">
-                  <p className="text-gray-600 mb-4">
+                {/* Download Handler */}
+                <div className="text-center p-4 sm:p-6">
+                  <p className="text-gray-600 dark:text-gray-400 mb-3 sm:mb-4">
                     Download functionality would be implemented here.
                   </p>
-                  <Button variant="primary" onClick={handleDownloadComplete}>
+                  <Button
+                    variant="primary"
+                    onClick={handleDownloadComplete}
+                    className="text-sm sm:text-base"
+                  >
                     Complete Download
                   </Button>
                 </div>

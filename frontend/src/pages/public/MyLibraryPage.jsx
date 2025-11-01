@@ -1,8 +1,9 @@
+// src/pages/public/MyLibraryPage.jsx
 import { useEffect, useState } from "react";
-import { 
-  FiDownload, 
-  FiBook, 
-  FiSearch, 
+import {
+  FiDownload,
+  FiBook,
+  FiSearch,
   FiFilter,
   FiGrid,
   FiList,
@@ -13,9 +14,11 @@ import {
   FiEye,
   FiChevronDown,
   FiStar,
-  FiCalendar
+  FiCalendar,
 } from "react-icons/fi";
 import { useAuthStore } from "../../store/authStore";
+import Card from "../../components/UI/Card";
+import Button from "../../components/UI/Button";
 
 // Enhanced sample data with more properties
 const sampleLibraryData = {
@@ -24,7 +27,8 @@ const sampleLibraryData = {
       id: 1,
       title: "Introduction to Artificial Intelligence",
       author: "John McCarthy",
-      cover: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=600&fit=crop",
+      cover:
+        "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=600&fit=crop",
       downloadUrl: "#",
       category: "Technology",
       format: "PDF",
@@ -36,13 +40,14 @@ const sampleLibraryData = {
       lastRead: "2024-03-20",
       progress: 75,
       isFavorite: true,
-      tags: ["AI", "Machine Learning", "Computer Science"]
+      tags: ["AI", "Machine Learning", "Computer Science"],
     },
     {
       id: 2,
       title: "Modern Web Development with React",
       author: "Dan Abramov",
-      cover: "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=600&fit=crop",
+      cover:
+        "https://images.unsplash.com/photo-1555066931-4365d14bab8c?w=400&h=600&fit=crop",
       downloadUrl: "#",
       category: "Web Development",
       format: "EPUB",
@@ -54,13 +59,14 @@ const sampleLibraryData = {
       lastRead: "2024-03-18",
       progress: 45,
       isFavorite: false,
-      tags: ["React", "JavaScript", "Frontend"]
+      tags: ["React", "JavaScript", "Frontend"],
     },
     {
       id: 3,
       title: "Deep Learning Fundamentals",
       author: "Ian Goodfellow",
-      cover: "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=400&h=600&fit=crop",
+      cover:
+        "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=400&h=600&fit=crop",
       downloadUrl: "#",
       category: "Machine Learning",
       format: "PDF",
@@ -72,13 +78,14 @@ const sampleLibraryData = {
       lastRead: "2024-03-15",
       progress: 20,
       isFavorite: true,
-      tags: ["Deep Learning", "Neural Networks", "AI"]
+      tags: ["Deep Learning", "Neural Networks", "AI"],
     },
     {
       id: 4,
       title: "Clean Code Architecture",
       author: "Robert C. Martin",
-      cover: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=600&fit=crop",
+      cover:
+        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=400&h=600&fit=crop",
       downloadUrl: "#",
       category: "Software Engineering",
       format: "PDF",
@@ -90,31 +97,32 @@ const sampleLibraryData = {
       lastRead: null,
       progress: 0,
       isFavorite: false,
-      tags: ["Programming", "Best Practices", "Architecture"]
-    }
+      tags: ["Programming", "Best Practices", "Architecture"],
+    },
   ],
   readingHistory: [
     {
       id: 5,
       title: "The Psychology of Programming",
       author: "Gerald M. Weinberg",
-      cover: "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&h=600&fit=crop",
+      cover:
+        "https://images.unsplash.com/photo-1532012197267-da84d127e765?w=400&h=600&fit=crop",
       lastRead: "2024-03-19",
       progress: 60,
-      currentPage: 180
-    }
-  ]
+      currentPage: 180,
+    },
+  ],
 };
 
 const MyLibraryPage = () => {
   const { user, isAuthenticated } = useAuthStore();
   const [books, setBooks] = useState([]);
   const [readingHistory, setReadingHistory] = useState([]);
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' or 'list'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
-  const [sortBy, setSortBy] = useState('recent');
-  const [activeTab, setActiveTab] = useState('all');
+  const [viewMode, setViewMode] = useState("grid"); // 'grid' or 'list'
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [sortBy, setSortBy] = useState("recent");
+  const [activeTab, setActiveTab] = useState("all");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -130,64 +138,79 @@ const MyLibraryPage = () => {
   }, [isAuthenticated]);
 
   // Filter and sort books
-  const filteredBooks = books.filter(book => {
-    const matchesSearch = book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         book.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         book.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesCategory = selectedCategory === 'all' || book.category === selectedCategory;
-    
-    if (activeTab === 'favorites') {
-      return matchesSearch && matchesCategory && book.isFavorite;
-    }
-    if (activeTab === 'reading') {
-      return matchesSearch && matchesCategory && book.progress > 0 && book.progress < 100;
-    }
-    if (activeTab === 'unread') {
-      return matchesSearch && matchesCategory && book.progress === 0;
-    }
-    
-    return matchesSearch && matchesCategory;
-  }).sort((a, b) => {
-    switch (sortBy) {
-      case 'title':
-        return a.title.localeCompare(b.title);
-      case 'author':
-        return a.author.localeCompare(b.author);
-      case 'rating':
-        return b.rating - a.rating;
-      case 'recent':
-      default:
-        return new Date(b.addedDate) - new Date(a.addedDate);
-    }
-  });
+  const filteredBooks = books
+    .filter((book) => {
+      const matchesSearch =
+        book.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        book.author.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        book.tags.some((tag) =>
+          tag.toLowerCase().includes(searchQuery.toLowerCase())
+        );
+      const matchesCategory =
+        selectedCategory === "all" || book.category === selectedCategory;
 
-  const categories = ['all', ...new Set(books.map(book => book.category))];
+      if (activeTab === "favorites") {
+        return matchesSearch && matchesCategory && book.isFavorite;
+      }
+      if (activeTab === "reading") {
+        return (
+          matchesSearch &&
+          matchesCategory &&
+          book.progress > 0 &&
+          book.progress < 100
+        );
+      }
+      if (activeTab === "unread") {
+        return matchesSearch && matchesCategory && book.progress === 0;
+      }
+
+      return matchesSearch && matchesCategory;
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "title":
+          return a.title.localeCompare(b.title);
+        case "author":
+          return a.author.localeCompare(b.author);
+        case "rating":
+          return b.rating - a.rating;
+        case "recent":
+        default:
+          return new Date(b.addedDate) - new Date(a.addedDate);
+      }
+    });
+
+  const categories = ["all", ...new Set(books.map((book) => book.category))];
   const totalBooks = books.length;
   const totalPages = books.reduce((sum, book) => sum + book.pages, 0);
-  const readingProgress = books.filter(book => book.progress > 0).length;
+  const readingProgress = books.filter((book) => book.progress > 0).length;
 
   const toggleFavorite = (bookId) => {
-    setBooks(books.map(book => 
-      book.id === bookId ? { ...book, isFavorite: !book.isFavorite } : book
-    ));
+    setBooks(
+      books.map((book) =>
+        book.id === bookId ? { ...book, isFavorite: !book.isFavorite } : book
+      )
+    );
   };
 
   const updateProgress = (bookId, progress) => {
-    setBooks(books.map(book => 
-      book.id === bookId ? { ...book, progress } : book
-    ));
+    setBooks(
+      books.map((book) => (book.id === bookId ? { ...book, progress } : book))
+    );
   };
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md mx-auto p-8">
-          <FiBook className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Access Your Library</h2>
-          <p className="text-gray-600 mb-6">Please log in to view your personal library and reading history.</p>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors">
-            Sign In
-          </button>
+      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-gray-900 transition-colors duration-300">
+        <div className="text-center max-w-md mx-auto p-6 sm:p-8">
+          <FiBook className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400 dark:text-gray-500 mb-3 sm:mb-4" />
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            Access Your Library
+          </h2>
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4 sm:mb-6">
+            Please log in to view your personal library and reading history.
+          </p>
+          <Button className="text-sm sm:text-base">Sign In</Button>
         </div>
       </div>
     );
@@ -195,12 +218,15 @@ const MyLibraryPage = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
         <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-1/4 mb-6"></div>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {[1, 2, 3, 4].map(i => (
-              <div key={i} className="bg-gray-200 rounded-lg h-80"></div>
+          <div className="h-6 sm:h-8 bg-gray-200 dark:bg-gray-700 rounded w-1/3 sm:w-1/4 mb-4 sm:mb-6"></div>
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div
+                key={i}
+                className="bg-gray-200 dark:bg-gray-700 rounded-lg h-60 sm:h-80"
+              ></div>
             ))}
           </div>
         </div>
@@ -209,104 +235,141 @@ const MyLibraryPage = () => {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8 bg-white dark:bg-gray-900 transition-colors duration-300">
       {/* Header Section */}
-      <div className="mb-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6">
+      <div className="mb-6 sm:mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center mb-2">
-              <FiBook className="mr-3 text-blue-600" /> My Library
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center mb-1 sm:mb-2">
+              <FiBook className="mr-2 sm:mr-3 h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />{" "}
+              My Library
             </h1>
-            <p className="text-gray-600">
-              Welcome back, {user?.name || 'Reader'}! Continue your learning journey.
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
+              Welcome back, {user?.name || "Reader"}! Continue your learning
+              journey.
             </p>
           </div>
-          <div className="flex items-center space-x-4 mt-4 sm:mt-0">
+          <div className="flex items-center space-x-3 sm:space-x-4 mt-3 sm:mt-0">
             <div className="text-right">
-              <div className="text-2xl font-bold text-gray-900">{totalBooks}</div>
-              <div className="text-sm text-gray-600">Total Books</div>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                {totalBooks}
+              </div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                Total Books
+              </div>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-gray-900">{readingProgress}</div>
-              <div className="text-sm text-gray-600">In Progress</div>
+              <div className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                {readingProgress}
+              </div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                In Progress
+              </div>
             </div>
           </div>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-lg shadow-sm border">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+          <Card className="p-3 sm:p-4 dark:shadow-gray-900/50">
             <div className="flex items-center">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <FiBook className="h-6 w-6 text-blue-600" />
+              <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <FiBook className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-600">Total Pages</p>
-                <p className="text-xl font-semibold">{totalPages.toLocaleString()}</p>
+              <div className="ml-3 sm:ml-4">
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  Total Pages
+                </p>
+                <p className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                  {totalPages.toLocaleString()}
+                </p>
               </div>
             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm border">
+          </Card>
+          <Card className="p-3 sm:p-4 dark:shadow-gray-900/50">
             <div className="flex items-center">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <FiClock className="h-6 w-6 text-green-600" />
+              <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <FiClock className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-600">Reading Time</p>
-                <p className="text-xl font-semibold">{(totalPages * 2).toLocaleString()} min</p>
+              <div className="ml-3 sm:ml-4">
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  Reading Time
+                </p>
+                <p className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                  {(totalPages * 2).toLocaleString()} min
+                </p>
               </div>
             </div>
-          </div>
-          <div className="bg-white p-4 rounded-lg shadow-sm border">
+          </Card>
+          <Card className="p-3 sm:p-4 dark:shadow-gray-900/50">
             <div className="flex items-center">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <FiStar className="h-6 w-6 text-purple-600" />
+              <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                <FiStar className="h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />
               </div>
-              <div className="ml-4">
-                <p className="text-sm text-gray-600">Favorites</p>
-                <p className="text-xl font-semibold">{books.filter(b => b.isFavorite).length}</p>
+              <div className="ml-3 sm:ml-4">
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                  Favorites
+                </p>
+                <p className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white">
+                  {books.filter((b) => b.isFavorite).length}
+                </p>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 
       {/* Controls Section */}
-      <div className="bg-white rounded-lg shadow-sm border p-4 mb-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
+      <Card className="p-3 sm:p-4 mb-4 sm:mb-6 dark:shadow-gray-900/50">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-3 sm:space-y-4 lg:space-y-0">
           {/* Tabs */}
-          <div className="flex space-x-1 bg-gray-100 rounded-lg p-1">
+          <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
             {[
-              { id: 'all', label: 'All Books', count: books.length },
-              { id: 'reading', label: 'Reading', count: books.filter(b => b.progress > 0 && b.progress < 100).length },
-              { id: 'favorites', label: 'Favorites', count: books.filter(b => b.isFavorite).length },
-              { id: 'unread', label: 'Unread', count: books.filter(b => b.progress === 0).length }
-            ].map(tab => (
+              { id: "all", label: "All Books", count: books.length },
+              {
+                id: "reading",
+                label: "Reading",
+                count: books.filter((b) => b.progress > 0 && b.progress < 100)
+                  .length,
+              },
+              {
+                id: "favorites",
+                label: "Favorites",
+                count: books.filter((b) => b.isFavorite).length,
+              },
+              {
+                id: "unread",
+                label: "Unread",
+                count: books.filter((b) => b.progress === 0).length,
+              },
+            ].map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex-1 sm:flex-none min-w-0 ${
                   activeTab === tab.id
-                    ? 'bg-white text-blue-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? "bg-white dark:bg-gray-800 text-green-600 dark:text-green-400 shadow-sm"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                 }`}
               >
-                {tab.label} ({tab.count})
+                <span className="hidden xs:inline">{tab.label}</span>
+                <span className="xs:hidden">{tab.label.split(" ")[0]}</span>
+                <span className="ml-1">({tab.count})</span>
               </button>
             ))}
           </div>
 
           {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             {/* Search */}
-            <div className="relative">
-              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <div className="relative flex-1 sm:flex-none sm:w-48 lg:w-56">
+              <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
               <input
                 type="text"
                 placeholder="Search books..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-full sm:w-64"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
               />
             </div>
 
@@ -314,11 +377,11 @@ const MyLibraryPage = () => {
             <select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             >
-              {categories.map(category => (
+              {categories.map((category) => (
                 <option key={category} value={category}>
-                  {category === 'all' ? 'All Categories' : category}
+                  {category === "all" ? "All Categories" : category}
                 </option>
               ))}
             </select>
@@ -327,7 +390,7 @@ const MyLibraryPage = () => {
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm"
             >
               <option value="recent">Recently Added</option>
               <option value="title">Title</option>
@@ -336,99 +399,123 @@ const MyLibraryPage = () => {
             </select>
 
             {/* View Toggle */}
-            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+            <div className="flex border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden">
               <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
+                onClick={() => setViewMode("grid")}
+                className={`p-2 ${
+                  viewMode === "grid"
+                    ? "bg-gray-100 dark:bg-gray-700 text-green-600 dark:text-green-400"
+                    : "text-gray-600 dark:text-gray-400"
+                }`}
               >
                 <FiGrid className="h-4 w-4" />
               </button>
               <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-600'}`}
+                onClick={() => setViewMode("list")}
+                className={`p-2 ${
+                  viewMode === "list"
+                    ? "bg-gray-100 dark:bg-gray-700 text-green-600 dark:text-green-400"
+                    : "text-gray-600 dark:text-gray-400"
+                }`}
               >
                 <FiList className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* Books Grid/List */}
       {filteredBooks.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-lg shadow-sm border">
-          <FiBook className="mx-auto h-16 w-16 text-gray-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No books found</h3>
-          <p className="text-gray-600 mb-6">
-            {searchQuery || selectedCategory !== 'all' || activeTab !== 'all'
-              ? 'Try adjusting your search or filters'
-              : 'Start building your library by purchasing books from our collection'}
+        <Card className="text-center py-8 sm:py-12 dark:shadow-gray-900/50">
+          <FiBook className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-gray-400 dark:text-gray-500 mb-3 sm:mb-4" />
+          <h3 className="text-lg sm:text-xl font-medium text-gray-900 dark:text-white mb-1 sm:mb-2">
+            No books found
+          </h3>
+          <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4 sm:mb-6 max-w-md mx-auto px-2">
+            {searchQuery || selectedCategory !== "all" || activeTab !== "all"
+              ? "Try adjusting your search or filters"
+              : "Start building your library by purchasing books from our collection"}
           </p>
-          {searchQuery || selectedCategory !== 'all' || activeTab !== 'all' ? (
-            <button
+          {searchQuery || selectedCategory !== "all" || activeTab !== "all" ? (
+            <Button
               onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory('all');
-                setActiveTab('all');
+                setSearchQuery("");
+                setSelectedCategory("all");
+                setActiveTab("all");
               }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium"
+              className="text-sm sm:text-base"
             >
               Clear Filters
-            </button>
+            </Button>
           ) : (
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
-              Browse Collection
-            </button>
+            <Button className="text-sm sm:text-base">Browse Collection</Button>
           )}
-        </div>
-      ) : viewMode === 'grid' ? (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        </Card>
+      ) : viewMode === "grid" ? (
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filteredBooks.map((book) => (
-            <BookCard key={book.id} book={book} onToggleFavorite={toggleFavorite} />
+            <BookCard
+              key={book.id}
+              book={book}
+              onToggleFavorite={toggleFavorite}
+            />
           ))}
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <Card className="overflow-hidden dark:shadow-gray-900/50">
           {filteredBooks.map((book) => (
-            <BookListItem key={book.id} book={book} onToggleFavorite={toggleFavorite} />
+            <BookListItem
+              key={book.id}
+              book={book}
+              onToggleFavorite={toggleFavorite}
+            />
           ))}
-        </div>
+        </Card>
       )}
 
       {/* Reading History Section */}
       {readingHistory.length > 0 && (
-        <div className="mt-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-            <FiClock className="mr-2 text-blue-600" /> Reading History
+        <div className="mt-8 sm:mt-12">
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 flex items-center">
+            <FiClock className="mr-2 h-5 w-5 sm:h-6 sm:w-6 text-green-600 dark:text-green-400" />{" "}
+            Reading History
           </h2>
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {readingHistory.map((item) => (
-              <div key={item.id} className="bg-white rounded-lg shadow-sm border p-4">
-                <div className="flex items-start space-x-4">
+              <Card
+                key={item.id}
+                className="p-3 sm:p-4 dark:shadow-gray-900/50"
+              >
+                <div className="flex items-start space-x-3 sm:space-x-4">
                   <img
                     src={item.cover}
                     alt={item.title}
-                    className="w-16 h-24 object-cover rounded"
+                    className="w-12 h-16 sm:w-16 sm:h-24 object-cover rounded flex-shrink-0"
                   />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-900">{item.title}</h3>
-                    <p className="text-sm text-gray-600 mb-2">By {item.author}</p>
-                    <div className="flex items-center text-sm text-gray-500 mb-2">
-                      <FiCalendar className="mr-1" />
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base line-clamp-2">
+                      {item.title}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm mb-1 sm:mb-2">
+                      By {item.author}
+                    </p>
+                    <div className="flex items-center text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-1 sm:mb-2">
+                      <FiCalendar className="mr-1 h-3 w-3 sm:h-4 sm:w-4" />
                       Last read: {new Date(item.lastRead).toLocaleDateString()}
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 sm:h-2 mb-1">
                       <div
-                        className="bg-blue-600 h-2 rounded-full"
+                        className="bg-green-600 dark:bg-green-400 h-1.5 sm:h-2 rounded-full"
                         style={{ width: `${item.progress}%` }}
                       ></div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
                       Page {item.currentPage} • {item.progress}% complete
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>
@@ -439,31 +526,33 @@ const MyLibraryPage = () => {
 
 // Book Card Component for Grid View
 const BookCard = ({ book, onToggleFavorite }) => (
-  <div className="bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-shadow duration-200 group">
+  <Card className="overflow-hidden hover:shadow-lg transition-shadow duration-200 group dark:shadow-gray-900/50">
     <div className="relative">
       <img
         src={book.cover}
         alt={book.title}
-        className="w-full h-60 object-cover group-hover:scale-105 transition-transform duration-200"
+        className="w-full h-48 sm:h-60 object-cover group-hover:scale-105 transition-transform duration-200"
       />
       <div className="absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
         <button
           onClick={() => onToggleFavorite(book.id)}
-          className={`p-2 rounded-full backdrop-blur-sm ${
-            book.isFavorite ? 'bg-red-500 text-white' : 'bg-white/90 text-gray-700 hover:bg-red-500 hover:text-white'
+          className={`p-1.5 sm:p-2 rounded-full backdrop-blur-sm ${
+            book.isFavorite
+              ? "bg-red-500 text-white"
+              : "bg-white/90 dark:bg-gray-800/90 text-gray-700 dark:text-gray-300 hover:bg-red-500 hover:text-white"
           } transition-colors`}
         >
-          <FiHeart className="h-4 w-4" />
+          <FiHeart className="h-3 w-3 sm:h-4 sm:w-4" />
         </button>
-        <button className="p-2 rounded-full bg-white/90 text-gray-700 hover:bg-blue-500 hover:text-white transition-colors">
-          <FiShare2 className="h-4 w-4" />
+        <button className="p-1.5 sm:p-2 rounded-full bg-white/90 dark:bg-gray-800/90 text-gray-700 dark:text-gray-300 hover:bg-green-500 hover:text-white transition-colors">
+          <FiShare2 className="h-3 w-3 sm:h-4 sm:w-4" />
         </button>
       </div>
       {book.progress > 0 && (
         <div className="absolute bottom-0 left-0 right-0 bg-gray-900/50 text-white p-2">
-          <div className="w-full bg-gray-600 rounded-full h-1.5">
+          <div className="w-full bg-gray-600 rounded-full h-1 sm:h-1.5">
             <div
-              className="bg-green-500 h-1.5 rounded-full"
+              className="bg-green-500 h-1 sm:h-1.5 rounded-full"
               style={{ width: `${book.progress}%` }}
             ></div>
           </div>
@@ -471,90 +560,101 @@ const BookCard = ({ book, onToggleFavorite }) => (
         </div>
       )}
     </div>
-    
-    <div className="p-4">
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900 text-lg leading-tight mb-1">{book.title}</h3>
-          <p className="text-sm text-gray-600 mb-2">By {book.author}</p>
+
+    <div className="p-3 sm:p-4">
+      <div className="flex items-start justify-between mb-1 sm:mb-2">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base leading-tight line-clamp-2 mb-1">
+            {book.title}
+          </h3>
+          <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 line-clamp-1">
+            By {book.author}
+          </p>
         </div>
-        <div className="flex items-center text-sm text-yellow-600 ml-2">
-          <FiStar className="fill-current mr-1" />
+        <div className="flex items-center text-xs sm:text-sm text-yellow-600 dark:text-yellow-500 ml-2 flex-shrink-0">
+          <FiStar className="fill-current mr-1 h-3 w-3 sm:h-4 sm:w-4" />
           {book.rating}
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 mb-3">
-        {book.tags.slice(0, 2).map(tag => (
-          <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+      <div className="flex flex-wrap gap-1 mb-2 sm:mb-3">
+        {book.tags.slice(0, 2).map((tag) => (
+          <span
+            key={tag}
+            className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded"
+          >
             {tag}
           </span>
         ))}
         {book.tags.length > 2 && (
-          <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+          <span className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded">
             +{book.tags.length - 2}
           </span>
         )}
       </div>
 
-      <div className="flex items-center justify-between text-sm text-gray-500 mb-3">
+      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">
         <span>{book.format}</span>
         <span>{book.fileSize}</span>
         <span>{book.pages} pages</span>
       </div>
 
-      <div className="flex space-x-2">
+      <div className="flex space-x-1 sm:space-x-2">
         <a
           href={book.downloadUrl}
-          className="flex-1 inline-flex items-center justify-center px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex-1 inline-flex items-center justify-center px-2 sm:px-3 py-1.5 sm:py-2 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm rounded-lg transition-colors"
         >
-          <FiDownload className="mr-1" /> Download
+          <FiDownload className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> Download
         </a>
-        <button className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors">
-          <FiEye className="h-4 w-4" />
+        <button className="p-1.5 sm:p-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+          <FiEye className="h-3 w-3 sm:h-4 sm:w-4" />
         </button>
       </div>
     </div>
-  </div>
+  </Card>
 );
 
 // Book List Item Component for List View
 const BookListItem = ({ book, onToggleFavorite }) => (
-  <div className="border-b last:border-b-0 hover:bg-gray-50 transition-colors">
-    <div className="p-4">
-      <div className="flex items-start space-x-4">
+  <div className="border-b border-gray-200 dark:border-gray-700 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+    <div className="p-3 sm:p-4">
+      <div className="flex items-start space-x-3 sm:space-x-4">
         <img
           src={book.cover}
           alt={book.title}
-          className="w-20 h-28 object-cover rounded-lg flex-shrink-0"
+          className="w-16 h-20 sm:w-20 sm:h-28 object-cover rounded-lg flex-shrink-0"
         />
-        
+
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between mb-2">
-            <div>
-              <h3 className="font-semibold text-gray-900 text-lg truncate">{book.title}</h3>
-              <p className="text-sm text-gray-600">By {book.author}</p>
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-1 sm:mb-2">
+            <div className="flex-1 min-w-0">
+              <h3 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base line-clamp-2">
+                {book.title}
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 text-xs sm:text-sm">
+                By {book.author}
+              </p>
             </div>
-            <div className="flex items-center space-x-2 ml-4">
+            <div className="flex items-center space-x-1 sm:space-x-2 mt-1 sm:mt-0">
               <button
                 onClick={() => onToggleFavorite(book.id)}
-                className={`p-2 rounded-lg ${
-                  book.isFavorite 
-                    ? 'text-red-500 bg-red-50' 
-                    : 'text-gray-400 hover:text-red-500 hover:bg-red-50'
+                className={`p-1.5 sm:p-2 rounded-lg ${
+                  book.isFavorite
+                    ? "text-red-500 bg-red-50 dark:bg-red-900/30"
+                    : "text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30"
                 } transition-colors`}
               >
-                <FiHeart className="h-4 w-4" />
+                <FiHeart className="h-3 w-3 sm:h-4 sm:w-4" />
               </button>
-              <button className="p-2 rounded-lg text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors">
-                <FiShare2 className="h-4 w-4" />
+              <button className="p-1.5 sm:p-2 rounded-lg text-gray-400 hover:text-green-500 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                <FiShare2 className="h-3 w-3 sm:h-4 sm:w-4" />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center space-x-4 text-sm text-gray-500 mb-3">
+          <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-xs sm:text-sm text-gray-500 dark:text-gray-400 mb-2 sm:mb-3">
             <span className="flex items-center">
-              <FiStar className="fill-current text-yellow-500 mr-1" />
+              <FiStar className="fill-current text-yellow-500 mr-1 h-3 w-3 sm:h-4 sm:w-4" />
               {book.rating}
             </span>
             <span>{book.category}</span>
@@ -563,38 +663,41 @@ const BookListItem = ({ book, onToggleFavorite }) => (
             <span>{book.pages} pages</span>
           </div>
 
-          <div className="flex flex-wrap gap-1 mb-3">
-            {book.tags.map(tag => (
-              <span key={tag} className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+          <div className="flex flex-wrap gap-1 mb-2 sm:mb-3">
+            {book.tags.map((tag) => (
+              <span
+                key={tag}
+                className="px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded"
+              >
                 {tag}
               </span>
             ))}
           </div>
 
           {book.progress > 0 && (
-            <div className="mb-3">
-              <div className="flex justify-between text-sm text-gray-600 mb-1">
+            <div className="mb-2 sm:mb-3">
+              <div className="flex justify-between text-xs sm:text-sm text-gray-600 dark:text-gray-400 mb-1">
                 <span>Reading Progress</span>
                 <span>{book.progress}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 sm:h-2">
                 <div
-                  className="bg-blue-600 h-2 rounded-full"
+                  className="bg-green-600 dark:bg-green-400 h-1.5 sm:h-2 rounded-full"
                   style={{ width: `${book.progress}%` }}
                 ></div>
               </div>
             </div>
           )}
 
-          <div className="flex space-x-2">
+          <div className="flex flex-wrap gap-1 sm:gap-2">
             <a
               href={book.downloadUrl}
-              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+              className="inline-flex items-center px-2 sm:px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm rounded-lg transition-colors"
             >
-              <FiDownload className="mr-2" /> Download
+              <FiDownload className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> Download
             </a>
-            <button className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 transition-colors">
-              <FiEye className="mr-2" /> Read Online
+            <button className="inline-flex items-center px-2 sm:px-3 py-1.5 border border-gray-300 dark:border-gray-600 text-xs sm:text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+              <FiEye className="mr-1 h-3 w-3 sm:h-4 sm:w-4" /> Read Online
             </button>
           </div>
         </div>
