@@ -1,3 +1,4 @@
+// src/pages/public/webinars/WebinarsPage.jsx
 import { useState, useEffect } from "react";
 import { FiCalendar, FiClock, FiVideo, FiExternalLink } from "react-icons/fi";
 import Card from "../../../components/UI/Card";
@@ -84,14 +85,18 @@ const WebinarsPage = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+      <div className="min-h-screen bg-white dark:bg-gray-900 py-8 sm:py-12 px-3 sm:px-4 transition-colors duration-300">
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Webinars</h1>
-            <p className="text-xl text-gray-700">Loading upcoming events...</p>
+          <div className="text-center mb-8 sm:mb-12">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
+              Webinars
+            </h1>
+            <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-400">
+              Loading upcoming events...
+            </p>
           </div>
           <div className="flex justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 sm:h-10 sm:h-12 border-t-2 border-b-2 border-green-500"></div>
           </div>
         </div>
       </div>
@@ -99,37 +104,36 @@ const WebinarsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4">
+    <div className="min-h-screen bg-white dark:bg-gray-900 py-6 sm:py-8 lg:py-12 px-3 sm:px-4 transition-colors duration-300">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-12">
-          {/* <h1 className="text-6xl font-bold text-gray-900 mb-4"></h1> */}
-          <span className="text-transparent text-7xl font-bold bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+        <div className="text-center mb-8 sm:mb-12">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
             Webinars Section
-          </span>
-          <p className="text-xl text-gray-700 max-w-3xl mx-auto">
+          </h1>
+          <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 max-w-2xl sm:max-w-3xl mx-auto px-2">
             Join our live educational sessions or watch recordings of past
             webinars to expand your knowledge.
           </p>
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex justify-center mb-10">
-          <div className="flex border-b border-gray-200">
+        <div className="flex justify-center mb-6 sm:mb-8 lg:mb-10">
+          <div className="flex border-b border-gray-200 dark:border-gray-700">
             <button
-              className={`px-6 py-3 text-lg font-medium ${
+              className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base lg:text-lg font-medium ${
                 activeTab === "upcoming"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "text-green-600 dark:text-green-400 border-b-2 border-green-600 dark:border-green-400"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
               onClick={() => setActiveTab("upcoming")}
             >
               Upcoming Webinars
             </button>
             <button
-              className={`px-6 py-3 text-lg font-medium ${
+              className={`px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base lg:text-lg font-medium ${
                 activeTab === "past"
-                  ? "text-blue-600 border-b-2 border-blue-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "text-green-600 dark:text-green-400 border-b-2 border-green-600 dark:border-green-400"
+                  : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
               }`}
               onClick={() => setActiveTab("past")}
             >
@@ -139,36 +143,38 @@ const WebinarsPage = () => {
         </div>
 
         {/* Webinars List */}
-        <div className="grid gap-8">
+        <div className="grid gap-4 sm:gap-6 lg:gap-8">
           {(activeTab === "upcoming" ? upcomingWebinars : pastWebinars).map(
             (webinar) => (
               <Card
                 key={webinar.id}
-                className="p-6 hover:shadow-lg transition-shadow duration-300"
+                className="p-4 sm:p-6 hover:shadow-lg transition-shadow duration-300 dark:shadow-gray-900/50"
               >
-                <div className="flex flex-col md:flex-row gap-6">
+                <div className="flex flex-col md:flex-row gap-4 sm:gap-6">
                   <div className="flex-shrink-0">
-                    <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                      <FiVideo className="h-10 w-10 text-blue-600" />
+                    <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 rounded-lg sm:rounded-xl lg:rounded-2xl bg-gradient-to-br from-gray-100 to-green-100 dark:from-gray-700 dark:to-green-900/30 flex items-center justify-center">
+                      <FiVideo className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-green-600 dark:text-green-400" />
                     </div>
                   </div>
 
                   <div className="flex-grow">
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                    <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">
                       {webinar.title}
                     </h3>
-                    <p className="text-gray-600 mb-4">{webinar.description}</p>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-3 sm:mb-4">
+                      {webinar.description}
+                    </p>
 
-                    <div className="flex flex-wrap gap-4 mb-4">
-                      <div className="flex items-center text-gray-700">
-                        <FiCalendar className="mr-2 text-blue-600" />
+                    <div className="flex flex-wrap gap-2 sm:gap-3 lg:gap-4 mb-3 sm:mb-4">
+                      <div className="flex items-center text-gray-700 dark:text-gray-300 text-xs sm:text-sm">
+                        <FiCalendar className="mr-1 sm:mr-2 text-green-600 dark:text-green-400 h-3 w-3 sm:h-4 sm:w-4" />
                         <span>{formatDate(webinar.date)}</span>
                       </div>
-                      <div className="flex items-center text-gray-700">
-                        <FiClock className="mr-2 text-blue-600" />
+                      <div className="flex items-center text-gray-700 dark:text-gray-300 text-xs sm:text-sm">
+                        <FiClock className="mr-1 sm:mr-2 text-green-600 dark:text-green-400 h-3 w-3 sm:h-4 sm:w-4" />
                         <span>{webinar.duration}</span>
                       </div>
-                      <div className="text-gray-700">
+                      <div className="text-gray-700 dark:text-gray-300 text-xs sm:text-sm">
                         <span className="font-medium">Speaker:</span>{" "}
                         {webinar.speaker}
                       </div>
@@ -176,11 +182,11 @@ const WebinarsPage = () => {
 
                     {webinar.isUpcoming ? (
                       <Button
-                        variant="gradient"
+                        variant="primary"
                         onClick={() => window.open(webinar.joinLink, "_blank")}
-                        className="flex items-center"
+                        className="flex items-center text-xs sm:text-sm"
                       >
-                        <FiExternalLink className="mr-2" />
+                        <FiExternalLink className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         Join Webinar
                       </Button>
                     ) : (
@@ -189,9 +195,9 @@ const WebinarsPage = () => {
                         onClick={() =>
                           window.open(webinar.recordingLink, "_blank")
                         }
-                        className="flex items-center"
+                        className="flex items-center text-xs sm:text-sm"
                       >
-                        <FiVideo className="mr-2" />
+                        <FiVideo className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         Watch Recording
                       </Button>
                     )}
@@ -204,31 +210,35 @@ const WebinarsPage = () => {
 
         {/* Empty State */}
         {activeTab === "upcoming" && upcomingWebinars.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mx-auto bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl mb-6 w-24 h-24 flex items-center justify-center">
-              <FiCalendar className="h-12 w-12 text-blue-600" />
+          <div className="text-center py-8 sm:py-12">
+            <div className="mx-auto bg-gradient-to-br from-gray-100 to-green-100 dark:from-gray-700 dark:to-green-900/30 p-4 sm:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl mb-4 sm:mb-6 w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 flex items-center justify-center">
+              <FiCalendar className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-green-600 dark:text-green-400" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">
               No Upcoming Webinars
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base mb-4 sm:mb-6">
               Check back later for new webinar announcements.
             </p>
-            <Button variant="primary" onClick={() => setActiveTab("past")}>
+            <Button
+              variant="primary"
+              onClick={() => setActiveTab("past")}
+              className="text-xs sm:text-sm"
+            >
               View Past Webinars
             </Button>
           </div>
         )}
 
         {activeTab === "past" && pastWebinars.length === 0 && (
-          <div className="text-center py-12">
-            <div className="mx-auto bg-gradient-to-br from-blue-100 to-blue-200 p-6 rounded-2xl mb-6 w-24 h-24 flex items-center justify-center">
-              <FiVideo className="h-12 w-12 text-blue-600" />
+          <div className="text-center py-8 sm:py-12">
+            <div className="mx-auto bg-gradient-to-br from-gray-100 to-green-100 dark:from-gray-700 dark:to-green-900/30 p-4 sm:p-6 rounded-lg sm:rounded-xl lg:rounded-2xl mb-4 sm:mb-6 w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 flex items-center justify-center">
+              <FiVideo className="h-6 w-6 sm:h-8 sm:w-8 lg:h-10 lg:w-10 text-green-600 dark:text-green-400" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">
               No Past Webinars
             </h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base">
               Recordings of webinars will appear here after they conclude.
             </p>
           </div>

@@ -6,16 +6,12 @@ import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
 
 const SingleArticlePage = () => {
-
   const { id } = useParams();
   const navigate = useNavigate();
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  console.log("Article ID from URL:", id);
-
-
-  // ✅ Mock articles (replace with API later)
+  // Mock articles (replace with API later)
   const mockArticles = [
     {
       _id: "1",
@@ -70,65 +66,65 @@ const SingleArticlePage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[80vh] bg-gradient-to-br from-blue-50 to-indigo-100">
-        <p className="text-gray-600 text-lg">Loading article...</p>
+      <div className="flex items-center justify-center min-h-[80vh] bg-white dark:bg-gray-900 transition-colors duration-300">
+        <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-base lg:text-lg">Loading article...</p>
       </div>
     );
   }
 
   if (!article) {
     return (
-      <div className="flex items-center justify-center min-h-[80vh] bg-gradient-to-br from-blue-50 to-indigo-100">
-        <p className="text-red-500 text-lg">Article not found.</p>
+      <div className="flex items-center justify-center min-h-[80vh] bg-white dark:bg-gray-900 transition-colors duration-300">
+        <p className="text-red-500 dark:text-red-400 text-sm sm:text-base lg:text-lg">Article not found.</p>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[80vh] px-4 py-12 bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="w-full max-w-5xl">
+    <div className="flex flex-col items-center justify-center min-h-[80vh] px-3 sm:px-4 py-6 sm:py-8 lg:py-12 bg-white dark:bg-gray-900 transition-colors duration-300">
+      <div className="w-full max-w-3xl lg:max-w-4xl xl:max-w-5xl">
         {/* Back Button */}
         <Button
           variant="outline"
           onClick={() => navigate(-1)}
-          className="mb-8 flex items-center hover:scale-105 transition-transform duration-300"
+          className="mb-4 sm:mb-6 lg:mb-8 flex items-center hover:scale-105 transition-transform duration-300 text-xs sm:text-sm"
         >
-          <FiArrowLeft className="mr-2" /> Back to Articles
+          <FiArrowLeft className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" /> Back to Articles
         </Button>
 
         {/* Article Card */}
-        <Card className="p-10 shadow-2xl bg-white/95 backdrop-blur-md rounded-2xl">
+        <Card className="p-4 sm:p-6 lg:p-8 xl:p-10 shadow-xl dark:shadow-gray-900/50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl sm:rounded-2xl">
           {/* Title with gradient accent */}
-          <h1 className="text-5xl font-bold text-gray-900 mb-6 text-center">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 text-center">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-gray-700 to-green-600 dark:from-gray-300 dark:to-green-400">
               {article.title}
             </span>
           </h1>
 
           {/* Author + Date */}
-          <div className="flex justify-center text-gray-600 text-sm space-x-6 mb-10">
+          <div className="flex justify-center text-gray-600 dark:text-gray-400 text-xs sm:text-sm space-x-3 sm:space-x-4 lg:space-x-6 mb-6 sm:mb-8 lg:mb-10">
             <span className="flex items-center">
-              <FiUser className="mr-1 text-blue-500" /> {article.author}
+              <FiUser className="mr-1 h-3 w-3 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" /> {article.author}
             </span>
             <span className="flex items-center">
-              <FiCalendar className="mr-1 text-purple-500" />{" "}
+              <FiCalendar className="mr-1 h-3 w-3 sm:h-4 sm:w-4 text-green-600 dark:text-green-400" />{" "}
               {new Date(article.createdAt).toLocaleDateString()}
             </span>
           </div>
 
           {/* Image */}
           {article.image && (
-            <div className="mb-10">
+            <div className="mb-6 sm:mb-8 lg:mb-10">
               <img
                 src={article.image}
                 alt={article.title}
-                className="w-full h-96 object-cover rounded-2xl shadow-md"
+                className="w-full h-48 sm:h-64 lg:h-80 xl:h-96 object-cover rounded-lg sm:rounded-xl lg:rounded-2xl shadow-md"
               />
             </div>
           )}
 
           {/* Content */}
-          <div className="prose prose-lg text-gray-800 leading-relaxed whitespace-pre-line max-w-none">
+          <div className="prose prose-sm sm:prose-base lg:prose-lg text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-line max-w-none">
             {article.content}
           </div>
         </Card>
