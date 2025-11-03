@@ -1,4 +1,3 @@
-// controllers/webinarController.js
 const db = require('../config/database');
 
 // Get all webinars (public)
@@ -408,6 +407,36 @@ exports.uploadWebinarImage = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error uploading webinar image: ' + error.message
+    });
+  }
+};
+
+// Get webinar registrations (admin)
+exports.getWebinarRegistrations = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const [registrations] = await db.execute(
+      `SELECT wr.*, w.title as webinar_title 
+       FROM webinar_registrations wr 
+       JOIN webinars w ON wr.webinar_id = w.id 
+       WHERE wr.webinar_id = ? 
+       ORDER BY wr.created_at DESC`,
+      [id]
+    );
+
+    res.json({
+      success: true,
+      data: {
+        registrations,
+        total: registrations.length
+      }
+    });
+  } catch (error) {
+    console.error('Get webinar registrations error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching webinar registrations'
     });
   }
 };

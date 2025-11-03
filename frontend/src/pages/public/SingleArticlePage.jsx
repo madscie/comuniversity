@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { FiArrowLeft, FiUser, FiCalendar, FiEye, FiClock, FiTag, FiBook } from "react-icons/fi";
+import { 
+  FiArrowLeft, 
+  FiUser, 
+  FiCalendar, 
+  FiEye, 
+  FiClock, 
+  FiTag, 
+  FiBook,
+  FiDownload,
+  FiFile,
+  FiExternalLink
+} from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
-import axios from "axios";
+import { articlesAPI } from "../../config/api";
 
 const SingleArticlePage = () => {
   const { id } = useParams();
@@ -11,6 +22,7 @@ const SingleArticlePage = () => {
   const [article, setArticle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [documentLoading, setDocumentLoading] = useState(false);
 
   console.log("Article ID from URL:", id);
 
@@ -23,14 +35,13 @@ const SingleArticlePage = () => {
       setLoading(true);
       setError(null);
       
-      // ACTUAL API CALL - FIXED
-      const response = await axios.get(`http://localhost:5000/api/articles/${id}`);
-      console.log("Single article API response:", response.data);
+      const response = await articlesAPI.getById(id);
+      console.log("Single article API response:", response);
       
-      if (response.data.success) {
-        setArticle(response.data.data.article);
+      if (response.success) {
+        setArticle(response.data.article);
       } else {
-        throw new Error(response.data.message || 'Article not found');
+        throw new Error(response.message || 'Article not found');
       }
       
     } catch (err) {
@@ -47,6 +58,67 @@ const SingleArticlePage = () => {
       month: "long",
       day: "numeric"
     });
+  };
+
+  const getFileIcon = (fileType) => {
+    if (fileType?.includes('pdf')) return '📕';
+    if (fileType?.includes('word') || fileType?.includes('document')) return '📄';
+    if (fileType?.includes('text')) return '📝';
+    return '📁';
+  };
+
+  const formatFileSize = (bytes) => {
+    if (!bytes) return 'Unknown size';
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  };
+
+  const getFileTypeName = (fileType) => {
+    if (fileType?.includes('pdf')) return 'PDF Document';
+    if (fileType?.includes('word') || fileType?.includes('document')) return 'Word Document';
+    if (fileType?.includes('text')) return 'Text File';
+    if (fileType?.includes('rtf')) return 'Rich Text File';
+    return 'Document';
+  };
+
+  const handleDownload = async () => {
+    if (article?.file_url) {
+      setDocumentLoading(true);
+      try {
+        // Create a temporary link to trigger download
+        const link = document.createElement('a');
+        link.href = `http://localhost:5000${article.file_url}`;
+        link.target = '_blank';
+        link.download = article.file_name || 'document';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.error("Error downloading document:", err);
+        alert("Failed to download document. Please try again.");
+      } finally {
+        setDocumentLoading(false);
+      }
+    }
+  };
+
+  const handleViewDocument = () => {
+    if (article?.file_url) {
+      window.open(`http://localhost:5000${article.file_url}`, '_blank');
+    }
+  };
+
+  // Function to check if content is base64 encoded (for PDF preview)
+  const isBase64 = (str) => {
+    if (!str) return false;
+    try {
+      return btoa(atob(str)) === str;
+    } catch (err) {
+      return false;
+    }
   };
 
   if (loading) {
@@ -161,29 +233,118 @@ const SingleArticlePage = () => {
             </div>
           )}
 
+          {/* DOCUMENT DOWNLOAD SECTION */}
+          {article.file_url && (
+            <div className="mb-10 p-6 bg-gradient-to-r from-blue-50 to-blue-100 rounded-2xl border border-blue-200 shadow-lg">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                <div className="flex items-center space-x-4">
+                  <div className="text-4xl">
+                    {getFileIcon(article.file_type)}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-blue-900 mb-1">
+                      Download Article Document
+                    </h3>
+                    <p className="text-blue-700 mb-2">
+                      This article includes a downloadable {getFileTypeName(article.file_type)}
+                      {article.file_size && ` (${formatFileSize(article.file_size)})`}
+                    </p>
+                    <p className="text-blue-600 text-sm">
+                      File: {article.file_name || 'document'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <Button 
+                    variant="gradient"
+                    onClick={handleViewDocument}
+                    className="flex items-center whitespace-nowrap"
+                    disabled={documentLoading}
+                  >
+                    <FiExternalLink className="mr-2" />
+                    {documentLoading ? "Opening..." : "View Document"}
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={handleDownload}
+                    className="flex items-center whitespace-nowrap border-blue-300 text-blue-700 hover:bg-blue-50"
+                    disabled={documentLoading}
+                  >
+                    <FiDownload className="mr-2" />
+                    {documentLoading ? "Downloading..." : "Download"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Content */}
           <div className="prose prose-lg max-w-none text-gray-800 leading-relaxed">
-            <div className="whitespace-pre-line">
-              {article.content}
-            </div>
+            {article.content ? (
+              <div className="whitespace-pre-line">
+                {article.content}
+              </div>
+            ) : article.file_url ? (
+              <div className="text-center py-8 bg-gray-50 rounded-xl">
+                <FiFile className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-gray-700 mb-2">
+                  Document-Based Article
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  This article's content is available as a downloadable document. 
+                  Please use the download or view options above to access the full content.
+                </p>
+                <div className="flex justify-center gap-4">
+                  <Button 
+                    variant="gradient"
+                    onClick={handleViewDocument}
+                    className="flex items-center"
+                    disabled={documentLoading}
+                  >
+                    <FiExternalLink className="mr-2" />
+                    {documentLoading ? "Opening..." : "View Document"}
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={handleDownload}
+                    className="flex items-center"
+                    disabled={documentLoading}
+                  >
+                    <FiDownload className="mr-2" />
+                    {documentLoading ? "Downloading..." : "Download Document"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-8 bg-gray-50 rounded-xl">
+                <p className="text-gray-500 italic">
+                  No content available for this article.
+                </p>
+              </div>
+            )}
           </div>
 
-          {/* File Download if available */}
+          {/* Additional document info */}
           {article.file_url && (
-            <div className="mt-10 p-6 bg-blue-50 rounded-2xl border border-blue-200">
-              <h3 className="text-xl font-bold text-blue-900 mb-2">Download Article</h3>
-              <p className="text-blue-700 mb-4">
-                This article is available for download as {article.file_type || 'a file'} 
-                {article.file_size && ` (${Math.round(article.file_size / 1024)} KB)`}.
-              </p>
-              <Button 
-                variant="gradient"
-                onClick={() => window.open(`http://localhost:5000${article.file_url}`, '_blank')}
-                className="flex items-center"
-              >
-                <FiBook className="mr-2" />
-                Download {article.file_name || 'File'}
-              </Button>
+            <div className="mt-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <h4 className="font-semibold text-gray-700 mb-2 flex items-center">
+                <FiFile className="mr-2 text-gray-500" />
+                Document Information
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                <div>
+                  <span className="font-medium">File Name:</span> {article.file_name || 'N/A'}
+                </div>
+                <div>
+                  <span className="font-medium">File Type:</span> {getFileTypeName(article.file_type)}
+                </div>
+                <div>
+                  <span className="font-medium">File Size:</span> {formatFileSize(article.file_size)}
+                </div>
+                <div>
+                  <span className="font-medium">Format:</span> {article.file_type || 'N/A'}
+                </div>
+              </div>
             </div>
           )}
         </Card>

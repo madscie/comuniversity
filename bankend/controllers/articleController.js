@@ -1,4 +1,3 @@
-// controllers/articleController.js
 const db = require('../config/database');
 
 exports.getAllArticles = async (req, res) => {
@@ -8,7 +7,8 @@ exports.getAllArticles = async (req, res) => {
 
     let query = `
       SELECT id, title, excerpt, author, category, image_url, 
-             views, read_time, published_date, created_at
+             views, read_time, published_date, created_at,
+             file_url, file_name, file_type, file_size, amount
       FROM articles 
       WHERE status = 'published'
     `;
@@ -49,7 +49,12 @@ exports.getAllArticles = async (req, res) => {
     res.json({
       success: true,
       data: {
-        articles,
+        articles: articles.map(article => ({
+          ...article,
+          tags: article.tags ? JSON.parse(article.tags) : [],
+          amount: parseFloat(article.amount) || 0,
+          file_size: article.file_size ? parseInt(article.file_size) : null
+        })),
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -89,12 +94,16 @@ exports.getArticleById = async (req, res) => {
       [id]
     );
 
+    const article = articles[0];
+    
     res.json({
       success: true,
       data: {
         article: {
-          ...articles[0],
-          tags: articles[0].tags ? JSON.parse(articles[0].tags) : []
+          ...article,
+          tags: article.tags ? JSON.parse(article.tags) : [],
+          amount: parseFloat(article.amount) || 0,
+          file_size: article.file_size ? parseInt(article.file_size) : null
         }
       }
     });
@@ -119,14 +128,28 @@ exports.createArticle = async (req, res) => {
       status,
       tags,
       featured,
-      image_url
+      image_url,
+      dewey_decimal,
+      amount,
+      file_url,
+      file_name,
+      file_type,
+      file_size
     } = req.body;
 
     // Validate required fields
-    if (!title || !content || !author || !category) {
+    if (!title || !author || !category) {
       return res.status(400).json({
         success: false,
-        message: 'Title, content, author, and category are required fields'
+        message: 'Title, author, and category are required fields'
+      });
+    }
+
+    // Validate that either content or file is provided
+    if (!content && !file_url) {
+      return res.status(400).json({
+        success: false,
+        message: 'Either content or a document file is required'
       });
     }
 
@@ -134,12 +157,13 @@ exports.createArticle = async (req, res) => {
     const [result] = await db.execute(
       `INSERT INTO articles (
         title, content, excerpt, author, category, image_url,
-        read_time, status, tags, featured, published_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        read_time, status, tags, featured, published_date,
+        dewey_decimal, amount, file_url, file_name, file_type, file_size
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         title,
-        content,
-        excerpt,
+        content || '',
+        excerpt || '',
         author,
         category,
         image_url || null,
@@ -147,7 +171,13 @@ exports.createArticle = async (req, res) => {
         status || 'draft',
         tags ? JSON.stringify(tags) : null,
         featured ? Boolean(featured) : false,
-        status === 'published' ? new Date().toISOString().split('T')[0] : null
+        status === 'published' ? new Date().toISOString().split('T')[0] : null,
+        dewey_decimal || null,
+        amount ? parseFloat(amount) : 0.00,
+        file_url || null,
+        file_name || null,
+        file_type || null,
+        file_size ? parseInt(file_size) : null
       ]
     );
 
@@ -157,6 +187,8 @@ exports.createArticle = async (req, res) => {
       [result.insertId]
     );
 
+    const createdArticle = articles[0];
+
     console.log(`New article created: ${title} by ${author}`);
 
     res.status(201).json({
@@ -164,8 +196,8 @@ exports.createArticle = async (req, res) => {
       message: 'Article created successfully',
       data: {
         article: {
-          ...articles[0],
-          tags: articles[0].tags ? JSON.parse(articles[0].tags) : []
+          ...createdArticle,
+          tags: createdArticle.tags ? JSON.parse(createdArticle.tags) : []
         }
       }
     });
@@ -199,7 +231,8 @@ exports.updateArticle = async (req, res) => {
     // Build update query dynamically
     const allowedFields = [
       'title', 'content', 'excerpt', 'author', 'category', 'image_url',
-      'read_time', 'status', 'tags', 'featured', 'published_date'
+      'read_time', 'status', 'tags', 'featured', 'published_date',
+      'dewey_decimal', 'amount', 'file_url', 'file_name', 'file_type', 'file_size'
     ];
 
     const updates = [];
@@ -216,6 +249,10 @@ exports.updateArticle = async (req, res) => {
           values.push(JSON.stringify(updateData[key]));
         } else if (key === 'featured') {
           values.push(Boolean(updateData[key]));
+        } else if (key === 'amount') {
+          values.push(parseFloat(updateData[key]) || 0.00);
+        } else if (key === 'file_size') {
+          values.push(parseInt(updateData[key]) || null);
         } else if (key === 'published_date' && updateData.status === 'published' && !updateData.published_date) {
           values.push(new Date().toISOString().split('T')[0]);
         } else {
@@ -243,6 +280,8 @@ exports.updateArticle = async (req, res) => {
       [id]
     );
 
+    const updatedArticle = articles[0];
+
     console.log(`Article updated: ID ${id}`);
 
     res.json({
@@ -250,8 +289,8 @@ exports.updateArticle = async (req, res) => {
       message: 'Article updated successfully',
       data: {
         article: {
-          ...articles[0],
-          tags: articles[0].tags ? JSON.parse(articles[0].tags) : []
+          ...updatedArticle,
+          tags: updatedArticle.tags ? JSON.parse(updatedArticle.tags) : []
         }
       }
     });
@@ -313,7 +352,7 @@ exports.uploadArticleImage = async (req, res) => {
       });
     }
 
-    const imageUrl = `/uploads/${req.file.filename}`;
+    const imageUrl = `/uploads/articles/images/${req.file.filename}`;
 
     res.json({
       success: true,
@@ -328,6 +367,37 @@ exports.uploadArticleImage = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Error uploading article image: ' + error.message
+    });
+  }
+};
+
+exports.uploadArticleDocument = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const fileUrl = `/uploads/articles/documents/${req.file.filename}`;
+
+    res.json({
+      success: true,
+      message: 'Article document uploaded successfully',
+      data: {
+        fileUrl: fileUrl,
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: req.file.mimetype
+      }
+    });
+  } catch (error) {
+    console.error('Upload article document error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading article document: ' + error.message
     });
   }
 };
@@ -362,7 +432,8 @@ exports.getArticlesByCategory = async (req, res) => {
     const offset = (page - 1) * limit;
 
     const [articles] = await db.execute(
-      `SELECT id, title, excerpt, author, category, image_url, views, read_time, published_date
+      `SELECT id, title, excerpt, author, category, image_url, views, read_time, published_date,
+              file_url, file_name, file_type, file_size, amount
        FROM articles 
        WHERE category = ? AND status = 'published'
        ORDER BY published_date DESC 
@@ -378,7 +449,12 @@ exports.getArticlesByCategory = async (req, res) => {
     res.json({
       success: true,
       data: {
-        articles,
+        articles: articles.map(article => ({
+          ...article,
+          tags: article.tags ? JSON.parse(article.tags) : [],
+          amount: parseFloat(article.amount) || 0,
+          file_size: article.file_size ? parseInt(article.file_size) : null
+        })),
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -409,7 +485,8 @@ exports.searchArticles = async (req, res) => {
     }
 
     const [articles] = await db.execute(
-      `SELECT id, title, excerpt, author, category, image_url, views, read_time, published_date
+      `SELECT id, title, excerpt, author, category, image_url, views, read_time, published_date,
+              file_url, file_name, file_type, file_size, amount
        FROM articles 
        WHERE (title LIKE ? OR excerpt LIKE ? OR author LIKE ? OR content LIKE ?) 
        AND status = 'published'
@@ -439,7 +516,12 @@ exports.searchArticles = async (req, res) => {
     res.json({
       success: true,
       data: {
-        articles,
+        articles: articles.map(article => ({
+          ...article,
+          tags: article.tags ? JSON.parse(article.tags) : [],
+          amount: parseFloat(article.amount) || 0,
+          file_size: article.file_size ? parseInt(article.file_size) : null
+        })),
         query,
         pagination: {
           page: parseInt(page),

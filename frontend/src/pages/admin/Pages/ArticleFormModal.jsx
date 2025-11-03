@@ -1,4 +1,3 @@
-// src/pages/admin/ArticleFormModal.jsx
 import { useState, useEffect } from "react";
 import {
   FiX,

@@ -7,7 +7,7 @@ const initializeDatabase = require('./utils/initializeDatabase');
 const app = express();
 
 // Check for required environment variables
-const requiredEnvVars = ['JWT_SECRET', 'DB_HOST', 'DB_USER',  'DB_NAME'];
+const requiredEnvVars = ['JWT_SECRET', 'DB_HOST', 'DB_USER', 'DB_NAME'];
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
     console.error(`❌ Missing required environment variable: ${envVar}`);
@@ -31,7 +31,15 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Create uploads directories if they don't exist
 const fs = require('fs');
-const uploadDirs = ['uploads', 'uploads/books', 'uploads/articles', 'uploads/webinars', 'uploads/users'];
+const uploadDirs = [
+  'uploads', 
+  'uploads/articles', 
+  'uploads/articles/images', 
+  'uploads/articles/documents',
+  'uploads/webinars',
+  'uploads/books', 
+  'uploads/users'
+];
 uploadDirs.forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -107,6 +115,10 @@ const webinarRoutes = require('./routes/webinars');
 const adminRoutes = require('./routes/admin');
 const userRoutes = require('./routes/users');
 
+// Import controllers
+const articleController = require('./controllers/articleController');
+const webinarController = require('./controllers/webinarController');
+
 // Use routes
 app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
@@ -114,6 +126,13 @@ app.use('/api/articles', articleRoutes);
 app.use('/api/webinars', webinarRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/users', userRoutes);
+
+// Additional article routes
+app.get('/api/articles/search', articleController.searchArticles);
+app.get('/api/articles/category/:category', articleController.getArticlesByCategory);
+
+// Additional webinar routes
+app.post('/api/webinars/:id/register', webinarController.registerForWebinar);
 
 // API status endpoint
 app.get('/api/status', (req, res) => {
@@ -143,6 +162,45 @@ app.get('/api/status', (req, res) => {
   });
 });
 
+// Test routes for each module
+app.get('/api/test/articles', async (req, res) => {
+  try {
+    const db = require('./config/database');
+    const [articles] = await db.execute('SELECT COUNT(*) as count FROM articles');
+    res.json({
+      success: true,
+      message: 'Articles module is working',
+      data: {
+        totalArticles: articles[0].count
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Articles module error: ' + error.message
+    });
+  }
+});
+
+app.get('/api/test/webinars', async (req, res) => {
+  try {
+    const db = require('./config/database');
+    const [webinars] = await db.execute('SELECT COUNT(*) as count FROM webinars');
+    res.json({
+      success: true,
+      message: 'Webinars module is working',
+      data: {
+        totalWebinars: webinars[0].count
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Webinars module error: ' + error.message
+    });
+  }
+});
+
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
   console.log(`❌ API endpoint not found: ${req.method} ${req.originalUrl}`);
@@ -164,14 +222,18 @@ app.use('/api/*', (req, res) => {
       '/api/articles',
       '/api/articles/categories',
       '/api/articles/:id',
+      '/api/articles/search',
+      '/api/articles/category/:category',
+      '/api/articles/:id/download',
       '/api/webinars',
       '/api/webinars/categories',
       '/api/webinars/:id',
+      '/api/webinars/:id/register',
       '/api/admin/dashboard',
       '/api/admin/books',
       '/api/admin/articles',
       '/api/admin/webinars',
-      '/api/admin/users',
+      '/api/admin/webinars/:id/registrations',
       '/api/users/profile'
     ]
   });
@@ -205,7 +267,7 @@ app.use((error, req, res, next) => {
       return res.status(400).json({
         success: false,
         message: 'File too large. Please check the file size limits.',
-        maxSize: '10MB for books, 5MB for articles and webinars'
+        maxSize: '50MB for documents, 5MB for images'
       });
     }
     
@@ -232,64 +294,6 @@ app.use((error, req, res, next) => {
     });
   }
 
-  // Handle validation errors
-  if (error.name === 'ValidationError') {
-    return res.status(400).json({
-      success: false,
-      message: error.message,
-      details: error.details
-    });
-  }
-
-  // Handle database errors
-  if (error.code) {
-    switch (error.code) {
-      case 'ER_DUP_ENTRY':
-        return res.status(400).json({
-          success: false,
-          message: 'Duplicate entry found. This record already exists.'
-        });
-      case 'ER_NO_REFERENCED_ROW':
-      case 'ER_NO_REFERENCED_ROW_2':
-        return res.status(400).json({
-          success: false,
-          message: 'Referenced record not found.'
-        });
-      case 'ER_ACCESS_DENIED_ERROR':
-        return res.status(500).json({
-          success: false,
-          message: 'Database access denied. Please check credentials.'
-        });
-      case 'ECONNREFUSED':
-        return res.status(500).json({
-          success: false,
-          message: 'Database connection refused. Please check if database is running.'
-        });
-    }
-  }
-
-  // Handle MySQL connection errors
-  if (error.code === 'PROTOCOL_CONNECTION_LOST') {
-    return res.status(500).json({
-      success: false,
-      message: 'Database connection was closed.'
-    });
-  }
-
-  if (error.code === 'ER_CON_COUNT_ERROR') {
-    return res.status(500).json({
-      success: false,
-      message: 'Too many database connections.'
-    });
-  }
-
-  if (error.code === 'ER_BAD_DB_ERROR') {
-    return res.status(500).json({
-      success: false,
-      message: 'Database does not exist.'
-    });
-  }
-
   // Default error response
   const isProduction = process.env.NODE_ENV === 'production';
   res.status(error.status || 500).json({
@@ -312,7 +316,6 @@ process.on('SIGTERM', () => {
 
 process.on('unhandledRejection', (reason, promise) => {
   console.error('🚨 Unhandled Rejection at:', promise, 'reason:', reason);
-  // Close server & exit process
   process.exit(1);
 });
 
@@ -378,68 +381,4 @@ initializeDatabase()
     process.exit(1);
   });
 
-  // Add these routes before the 404 handler in server.js
-
-// Test routes for each module
-app.get('/api/test/books', async (req, res) => {
-  try {
-    const db = require('./config/database');
-    const [books] = await db.execute('SELECT COUNT(*) as count FROM books');
-    res.json({
-      success: true,
-      message: 'Books module is working',
-      data: {
-        totalBooks: books[0].count
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Books module error: ' + error.message
-    });
-  }
-});
-
-app.get('/api/test/articles', async (req, res) => {
-  try {
-    const db = require('./config/database');
-    const [articles] = await db.execute('SELECT COUNT(*) as count FROM articles');
-    res.json({
-      success: true,
-      message: 'Articles module is working',
-      data: {
-        totalArticles: articles[0].count
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Articles module error: ' + error.message
-    });
-  }
-});
-
-app.get('/api/test/webinars', async (req, res) => {
-  try {
-    const db = require('./config/database');
-    const [webinars] = await db.execute('SELECT COUNT(*) as count FROM webinars');
-    res.json({
-      success: true,
-      message: 'Webinars module is working',
-      data: {
-        totalWebinars: webinars[0].count
-      }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: 'Webinars module error: ' + error.message
-    });
-  }
-});
-app.use('/api/articles', articleRoutes);
-app.use('/api/webinars', webinarRoutes);
-
-
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 module.exports = app;

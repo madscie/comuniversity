@@ -130,10 +130,13 @@ router.get('/:id', async (req, res) => {
       [id]
     );
 
-    // Parse tags
+    // Parse tags and other fields
     if (article.tags) {
       article.tags = typeof article.tags === 'string' ? JSON.parse(article.tags) : article.tags;
     }
+    
+    article.amount = parseFloat(article.amount) || 0;
+    article.file_size = article.file_size ? parseInt(article.file_size) : null;
 
     res.json({
       success: true,
@@ -154,7 +157,8 @@ router.get('/featured/all', async (req, res) => {
   try {
     const [articles] = await db.execute(`
       SELECT id, title, excerpt, author, category, image_url, 
-             views, read_time, published_date, tags
+             views, read_time, published_date, tags,
+             file_url, file_name, file_type, file_size, amount
       FROM articles 
       WHERE status = 'published' AND featured = 1
       ORDER BY created_at DESC 
@@ -163,7 +167,9 @@ router.get('/featured/all', async (req, res) => {
 
     const articlesWithParsedTags = articles.map(article => ({
       ...article,
-      tags: article.tags ? (typeof article.tags === 'string' ? JSON.parse(article.tags) : article.tags) : []
+      tags: article.tags ? (typeof article.tags === 'string' ? JSON.parse(article.tags) : article.tags) : [],
+      amount: parseFloat(article.amount) || 0,
+      file_size: article.file_size ? parseInt(article.file_size) : null
     }));
 
     res.json({
@@ -182,28 +188,33 @@ router.get('/featured/all', async (req, res) => {
   }
 });
 
-// SIMPLE TEST ENDPOINT - NO PAGINATION
-router.get('/test/simple', async (req, res) => {
+// DOWNLOAD ARTICLE DOCUMENT
+router.get('/:id/download', async (req, res) => {
   try {
-    const [articles] = await db.execute(`
-      SELECT id, title, author, category 
-      FROM articles 
-      WHERE status = 'published' 
-      LIMIT 5
-    `);
+    const { id } = req.params;
+    
+    const [articles] = await db.execute(
+      `SELECT file_url, file_name, file_type FROM articles WHERE id = ? AND status = 'published'`,
+      [id]
+    );
 
-    res.json({
-      success: true,
-      data: {
-        articles: articles,
-        message: `Found ${articles.length} articles`
-      }
-    });
+    if (articles.length === 0 || !articles[0].file_url) {
+      return res.status(404).json({
+        success: false,
+        message: 'Article or document not found'
+      });
+    }
+
+    const article = articles[0];
+    
+    // Redirect to the file URL for download
+    res.redirect(`http://localhost:5000${article.file_url}`);
+
   } catch (error) {
-    console.error('❌ Simple test error:', error);
+    console.error('❌ Download article document error:', error);
     res.status(500).json({
       success: false,
-      message: 'Test failed: ' + error.message
+      message: 'Error downloading document'
     });
   }
 });

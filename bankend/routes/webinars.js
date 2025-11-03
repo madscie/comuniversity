@@ -3,54 +3,31 @@ const db = require('../config/database');
 
 const router = express.Router();
 
-// GET /api/webinars - Get all webinars
+// GET /api/webinars - Get all webinars (SIMPLE VERSION)
 router.get('/', async (req, res) => {
   try {
-    const { category, search, page = 1, limit = 12 } = req.query;
-    const offset = (page - 1) * limit;
-
-    console.log('🎓 Fetching webinars with params:', { category, search, page, limit });
-
-    // Build base query without LIMIT/OFFSET for prepared statement
-    let query = `
+    console.log('🎓 Fetching scheduled webinars...');
+    
+    // SIMPLE QUERY - NO COMPLEX PARAMS
+    const query = `
       SELECT id, title, description, speaker, speaker_bio, date, duration, 
              max_attendees, current_attendees, join_link, recording_link,
              status, image_url, price, is_premium, category, tags,
              created_at, updated_at
       FROM webinars 
       WHERE status = 'scheduled'
+      ORDER BY date ASC
+      LIMIT 50
     `;
+
+    console.log('🔍 Query:', query);
     
-    let params = [];
-
-    if (category && category !== 'all') {
-      query += ' AND category = ?';
-      params.push(category);
-    }
-
-    if (search) {
-      query += ' AND (title LIKE ? OR speaker LIKE ? OR description LIKE ?)';
-      const searchTerm = `%${search}%`;
-      params.push(searchTerm, searchTerm, searchTerm);
-    }
-
-    query += ' ORDER BY date ASC';
-
-    console.log('🔍 Base query:', query);
-    console.log('📊 Base params:', params);
-
-    // Execute query without LIMIT/OFFSET first
-    const [allWebinars] = await db.execute(query, params);
-
-    // Apply pagination manually in JavaScript
-    const startIndex = (page - 1) * limit;
-    const endIndex = startIndex + parseInt(limit);
-    const paginatedWebinars = allWebinars.slice(startIndex, endIndex);
-
-    console.log(`✅ Found ${allWebinars.length} total webinars, showing ${paginatedWebinars.length} after pagination`);
+    const [webinars] = await db.execute(query);
+    
+    console.log(`✅ Found ${webinars.length} scheduled webinars`);
 
     // Parse tags safely
-    const webinarsWithParsedTags = paginatedWebinars.map(webinar => ({
+    const webinarsWithParsedTags = webinars.map(webinar => ({
       ...webinar,
       tags: webinar.tags ? (typeof webinar.tags === 'string' ? JSON.parse(webinar.tags) : webinar.tags) : [],
       price: parseFloat(webinar.price) || 0,
@@ -61,21 +38,17 @@ router.get('/', async (req, res) => {
       success: true,
       data: {
         webinars: webinarsWithParsedTags,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: allWebinars.length,
-          pages: Math.ceil(allWebinars.length / limit)
-        }
+        total: webinars.length
       }
     });
 
   } catch (error) {
     console.error('❌ Get webinars error:', error.message);
-    console.error('❌ Error details:', error);
+    console.error('❌ Full error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching webinars: ' + error.message
+      message: 'Error fetching webinars: ' + error.message,
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -143,76 +116,13 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// GET /api/webinars/featured/all
-router.get('/featured/all', async (req, res) => {
-  try {
-    const [webinars] = await db.execute(`
-      SELECT id, title, description, speaker, date, duration, 
-             image_url, price, is_premium, category, tags
-      FROM webinars 
-      WHERE status = 'scheduled'
-      ORDER BY date ASC 
-      LIMIT 6
-    `);
-
-    const webinarsWithParsedTags = webinars.map(webinar => ({
-      ...webinar,
-      tags: webinar.tags ? (typeof webinar.tags === 'string' ? JSON.parse(webinar.tags) : webinar.tags) : [],
-      price: parseFloat(webinar.price) || 0,
-      is_premium: Boolean(webinar.is_premium)
-    }));
-
-    res.json({
-      success: true,
-      data: {
-        webinars: webinarsWithParsedTags
-      }
-    });
-
-  } catch (error) {
-    console.error('❌ Get featured webinars error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching featured webinars'
-    });
-  }
-});
-
-// SIMPLE TEST ENDPOINT - NO PAGINATION
-router.get('/test/simple', async (req, res) => {
-  try {
-    const [webinars] = await db.execute(`
-      SELECT id, title, speaker, date 
-      FROM webinars 
-      WHERE status = 'scheduled' 
-      LIMIT 5
-    `);
-
-    res.json({
-      success: true,
-      data: {
-        webinars: webinars,
-        message: `Found ${webinars.length} webinars`
-      }
-    });
-  } catch (error) {
-    console.error('❌ Simple test error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Test failed: ' + error.message
-    });
-  }
-});
-
 // POST /api/webinars/:id/register
 router.post('/:id/register', async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, company } = req.body;
 
-    console.log(`🎓 Registering for webinar ${id}:`, { name, email, company });
-
-    // Check if webinar exists
+    // Check if webinar exists and has available spots
     const [webinars] = await db.execute(
       'SELECT id, title, max_attendees, current_attendees FROM webinars WHERE id = ? AND status = "scheduled"',
       [id]
@@ -221,7 +131,7 @@ router.post('/:id/register', async (req, res) => {
     if (webinars.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Webinar not found'
+        message: 'Webinar not found or not available for registration'
       });
     }
 
@@ -230,11 +140,11 @@ router.post('/:id/register', async (req, res) => {
     if (webinar.current_attendees >= webinar.max_attendees) {
       return res.status(400).json({
         success: false,
-        message: 'Webinar is fully booked'
+        message: 'Webinar is full'
       });
     }
 
-    // Check if already registered
+    // Check if user is already registered
     const [existingRegistrations] = await db.execute(
       'SELECT id FROM webinar_registrations WHERE webinar_id = ? AND email = ?',
       [id, email]
@@ -249,7 +159,7 @@ router.post('/:id/register', async (req, res) => {
 
     // Register user
     await db.execute(
-      'INSERT INTO webinar_registrations (webinar_id, name, email, company, registration_date) VALUES (?, ?, ?, ?, NOW())',
+      'INSERT INTO webinar_registrations (webinar_id, name, email, company) VALUES (?, ?, ?, ?)',
       [id, name, email, company || null]
     );
 
@@ -259,18 +169,32 @@ router.post('/:id/register', async (req, res) => {
       [id]
     );
 
-    console.log(`✅ Successfully registered ${email} for webinar ${id}`);
-
     res.json({
       success: true,
-      message: 'Successfully registered for the webinar!'
+      message: 'Successfully registered for webinar'
     });
-
   } catch (error) {
-    console.error('❌ Webinar registration error:', error);
+    console.error('Register for webinar error:', error);
     res.status(500).json({
       success: false,
-      message: 'Error registering for webinar: ' + error.message
+      message: 'Error registering for webinar'
+    });
+  }
+});
+
+// HEALTH CHECK ENDPOINT
+router.get('/health/check', async (req, res) => {
+  try {
+    const [result] = await db.execute('SELECT COUNT(*) as count FROM webinars WHERE status = "scheduled"');
+    res.json({
+      success: true,
+      message: `Webinars API is working! Found ${result[0].count} scheduled webinars.`,
+      count: result[0].count
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Webinars API health check failed: ' + error.message
     });
   }
 });
