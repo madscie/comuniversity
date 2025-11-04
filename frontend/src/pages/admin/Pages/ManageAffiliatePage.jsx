@@ -18,7 +18,7 @@ import {
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
 import TempModal from "../../../components/UI/Modal";
-import { useAuthStore } from "../../../store/authStore";
+import { useAuthStore } from "../../../store/clerkAuthStore";
 
 const ManageAffiliatesPage = () => {
   const {

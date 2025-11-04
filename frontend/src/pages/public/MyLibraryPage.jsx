@@ -15,7 +15,7 @@ import {
   FiStar,
   FiCalendar
 } from "react-icons/fi";
-import { useAuthStore } from "../../store/authStore";
+import { useAuthStore } from "../../store/clerkAuthStore";
 
 const MyLibraryPage = () => {
   const { user, isAuthenticated } = useAuthStore();

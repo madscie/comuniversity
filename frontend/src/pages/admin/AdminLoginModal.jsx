@@ -1,7 +1,7 @@
 // src/components/AdminLoginModal.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "../../store/authStore";
+import { useAuthStore } from "../../store/clerkAuthStore";
 import { FiX, FiLock, FiMail } from "react-icons/fi";
 
 const AdminLoginModal = ({ isOpen, onClose }) => {

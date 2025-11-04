@@ -12,7 +12,7 @@ import {
   FiDollarSign,
   FiActivity,
 } from "react-icons/fi";
-import { useAuthStore } from "../../../store/authStore";
+import { useAuthStore } from "../../../store/clerkAuthStore";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
 import { api } from "../../../config/api";

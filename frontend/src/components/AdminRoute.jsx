@@ -1,37 +1,46 @@
-import { useAuthStore } from "../store/authStore";
-import { Navigate, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useUser, useAuth } from '@clerk/clerk-react';
+import { Navigate, useLocation } from 'react-router-dom';
 
 const AdminRoute = ({ children }) => {
-  const { user, isAuthenticated, hasCheckedAuth, isLoading } = useAuthStore();
+  const { isLoaded, isSignedIn } = useAuth();
+  const { user } = useUser();
   const location = useLocation();
-  const [shouldRedirect, setShouldRedirect] = useState(false);
 
-  // Use useEffect to handle redirects in a single pass
-  useEffect(() => {
-    if (hasCheckedAuth && !isLoading) {
-      setShouldRedirect(true);
-    }
-  }, [hasCheckedAuth, isLoading]);
-
-  // Show loading while checking auth
-  if (!hasCheckedAuth || isLoading) {
+  if (!isLoaded) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Checking admin permissions...</div>
+        <div className="text-lg">Loading...</div>
       </div>
     );
   }
 
-  // Only perform redirects after the component has mounted and auth is checked
-  if (shouldRedirect) {
-    if (!isAuthenticated) {
-      return <Navigate to="/admin/login" state={{ from: location }} replace />;
-    }
+  if (!isSignedIn) {
+    // Redirect to sign-in with admin redirect parameter
+    return <Navigate to={`/sign-in?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+  }
 
-    if (user?.role !== "admin") {
-      return <Navigate to="/" replace />;
-    }
+  const isAdmin = user?.publicMetadata?.role === 'admin';
+  
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            <h2 className="text-lg font-bold">Access Denied</h2>
+            <p>You don't have administrator privileges.</p>
+          </div>
+          <p className="text-gray-600 mb-4">
+            If you believe this is an error, please contact support.
+          </p>
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+          >
+            Return to Home
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return children;

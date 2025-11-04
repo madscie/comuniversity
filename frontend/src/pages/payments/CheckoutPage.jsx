@@ -13,7 +13,7 @@ import {
 } from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
-import { useAuthStore } from "../../store/authStore";
+import { useAuthStore } from "../../store/clerkAuthStore";
 import DownloadHandler from "../../components/Download/DownloadHandler";
 
 const CheckoutDownloadPage = () => {

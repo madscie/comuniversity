@@ -11,7 +11,7 @@ import {
   FiUserCheck,
   FiVideo,
 } from "react-icons/fi";
-import { useAuthStore } from "../../store/authStore";
+import { useAuthStore } from "../../store/clerkAuthStore";
 
 const AdminLayout = ({ children }) => {
   const navigate = useNavigate();

@@ -1,24 +1,22 @@
-// import { SignUp as ClerkSignUp } from "@clerk/clerk-react";
+// import { SignIn as ClerkSignIn } from "@clerk/clerk-react";
 // import { Link } from "react-router-dom";
 
-// const SignUpPage = () => {
+// const SignInPage = () => {
 //   return (
 //     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
 //       <div className="max-w-md w-full space-y-8">
 //         <div className="text-center">
-//           <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
+//           <h2 className="text-3xl font-bold text-gray-900">Sign in to Comversity</h2>
 //           <p className="mt-2 text-gray-600">
-//             Join Comversity and start your learning journey
+//             Welcome back! Please sign in to continue
 //           </p>
 //         </div>
 
-//         <ClerkSignUp
+//         <ClerkSignIn
 //           routing="path"
-//           path="/sign-up"
-//           signInUrl="/sign-in"
-//           // ✅ Updated Clerk redirect props
-//           forceRedirectUrl="/verify"          // replaces afterSignUpUrl
-//           fallbackRedirectUrl="/dashboard"    // replaces afterSignInUrl
+//           path="/sign-in"
+//           signUpUrl="/sign-up"
+//           fallbackRedirectUrl="/dashboard"   // ✅ new Clerk prop
 //           appearance={{
 //             elements: {
 //               rootBox: "w-full",
@@ -26,33 +24,20 @@
 //               header: "hidden",
 //               headerTitle: "hidden",
 //               headerSubtitle: "hidden",
-//               headerTitleText: "hidden",
-//               headerTitleTextContainer: "hidden",
 //               socialButtonsBlock: "hidden",
 //               socialButtons: "hidden",
-//               socialButtonsBlockButton: "hidden",
 //               divider: "hidden",
-//               dividerLine: "hidden",
-//               dividerText: "hidden",
 //               form: "space-y-4",
 //               formHeader: "hidden",
 //               formFieldInput:
 //                 "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
-//               formFieldInput__firstName:
-//                 "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
-//               formFieldInput__lastName:
-//                 "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
-//               formFieldInput__emailAddress:
+//               formFieldInput__identifier:
 //                 "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
 //               formFieldInput__password:
 //                 "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
 //               formButtonPrimary:
 //                 "bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl w-full transition-colors duration-200",
 //               footer: "hidden",
-//               footerAction: "hidden",
-//               footerActionLink: "hidden",
-//               alternativeMethods: "hidden",
-//               identityPreview: "hidden",
 //               formFieldLabel: "text-sm font-medium text-gray-700 mb-2 block",
 //             },
 //             variables: {
@@ -65,18 +50,17 @@
 //             },
 //             layout: {
 //               socialButtonsPlacement: "none",
-//               socialButtonsVariant: "iconButton",
 //             },
 //           }}
 //         />
 
 //         <p className="text-center text-gray-600 mt-4">
-//           Already have an account?{" "}
+//           Don’t have an account?{" "}
 //           <Link
-//             to="/sign-in"
+//             to="/sign-up"
 //             className="font-semibold text-blue-600 hover:text-blue-500"
 //           >
-//             Sign in
+//             Sign up
 //           </Link>
 //         </p>
 //       </div>
@@ -84,29 +68,29 @@
 //   );
 // };
 
-// export default SignUpPage;
+// export default SignInPage;
 
 
 
-import { SignUp as ClerkSignUp } from "@clerk/clerk-react";
+import { SignIn as ClerkSignIn } from "@clerk/clerk-react";
 import { Link } from "react-router-dom";
 
-const SignUpPage = () => {
+const SignInPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
-          <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Sign in to Comversity</h2>
           <p className="mt-2 text-gray-600">
-            Join Comversity and start your learning journey
+            Welcome back! Please sign in to continue
           </p>
         </div>
 
-        <ClerkSignUp
+        <ClerkSignIn
           routing="path"
-          path="/sign-up"
-          signInUrl="/sign-in"
-          redirectUrl="/auth-redirect"      // ✅ CHANGED
+          path="/sign-in"
+          signUpUrl="/sign-up"
+          redirectUrl="/auth-redirect"  // ✅ CHANGED: Redirect to our custom component
           fallbackRedirectUrl="/auth-redirect" // ✅ CHANGED
           appearance={{
             elements: {
@@ -115,33 +99,20 @@ const SignUpPage = () => {
               header: "hidden",
               headerTitle: "hidden",
               headerSubtitle: "hidden",
-              headerTitleText: "hidden",
-              headerTitleTextContainer: "hidden",
               socialButtonsBlock: "hidden",
               socialButtons: "hidden",
-              socialButtonsBlockButton: "hidden",
               divider: "hidden",
-              dividerLine: "hidden",
-              dividerText: "hidden",
               form: "space-y-4",
               formHeader: "hidden",
               formFieldInput:
                 "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
-              formFieldInput__firstName:
-                "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
-              formFieldInput__lastName:
-                "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
-              formFieldInput__emailAddress:
+              formFieldInput__identifier:
                 "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
               formFieldInput__password:
                 "w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white",
               formButtonPrimary:
                 "bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl w-full transition-colors duration-200",
               footer: "hidden",
-              footerAction: "hidden",
-              footerActionLink: "hidden",
-              alternativeMethods: "hidden",
-              identityPreview: "hidden",
               formFieldLabel: "text-sm font-medium text-gray-700 mb-2 block",
             },
             variables: {
@@ -154,18 +125,17 @@ const SignUpPage = () => {
             },
             layout: {
               socialButtonsPlacement: "none",
-              socialButtonsVariant: "iconButton",
             },
           }}
         />
 
         <p className="text-center text-gray-600 mt-4">
-          Already have an account?{" "}
+          Don't have an account?{" "}
           <Link
-            to="/sign-in"
+            to="/sign-up"
             className="font-semibold text-blue-600 hover:text-blue-500"
           >
-            Sign in
+            Sign up
           </Link>
         </p>
       </div>
@@ -173,4 +143,4 @@ const SignUpPage = () => {
   );
 };
 
-export default SignUpPage;
+export default SignInPage;

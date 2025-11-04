@@ -6,7 +6,7 @@ import {
   FiArrowRight,
   FiBarChart2,
 } from "react-icons/fi";
-import { useAuthStore } from "../../store/authStore";
+import { useAuthStore } from "../../store/clerkAuthStore";
 import TextInput from "../../components/UI/TextInput";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
