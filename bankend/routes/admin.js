@@ -994,4 +994,404 @@ router.get('/webinars/:id/registrations', async (req, res) => {
   }
 });
 
+// BOOKS ROUTES
+
+// GET /api/admin/books
+router.get('/books', async (req, res) => {
+  try {
+    const [books] = await db.execute(`
+      SELECT id, title, author, description, isbn, category, dewey_number, price, 
+             format, cover_image, file_url, file_size, pages, publisher, 
+             published_date, language, rating, total_ratings, downloads, 
+             status, total_copies, available_copies, featured, created_at
+      FROM books 
+      ORDER BY created_at DESC
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        books: books.map(book => ({
+          ...book,
+          publishedYear: book.published_date ? new Date(book.published_date).getFullYear() : null,
+          status: book.status || 'available',
+          availableCopies: book.available_copies || book.total_copies || 0,
+          totalCopies: book.total_copies || 0
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Get admin books error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching books'
+    });
+  }
+});
+
+// POST /api/admin/books
+router.post('/books', upload.single('coverImage'), async (req, res) => {
+  try {
+    const {
+      title,
+      author,
+      description,
+      isbn,
+      category,
+      dewey_number,
+      price,
+      format,
+      pages,
+      publisher,
+      published_date,
+      language,
+      total_copies,
+      featured,
+      status
+    } = req.body;
+
+    console.log('📥 Creating book with data:', req.body);
+    console.log('📁 Files:', req.file);
+
+    // Validate required fields
+    if (!title || !author || !category) {
+      return res.status(400).json({
+        success: false,
+        message: 'Title, author, and category are required fields'
+      });
+    }
+
+    // Handle cover image
+    let coverImage = null;
+    if (req.file) {
+      coverImage = `/uploads/books/${req.file.filename}`;
+    }
+
+    // Insert new book
+    const [result] = await db.execute(
+      `INSERT INTO books (
+        title, author, description, isbn, category, dewey_number, price,
+        format, pages, publisher, published_date, language, 
+        total_copies, available_copies, featured, status, cover_image
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        title,
+        author,
+        description || '',
+        isbn || null,
+        category,
+        dewey_number || null,
+        price ? parseFloat(price) : 0.00,
+        format || 'physical',
+        pages ? parseInt(pages) : null,
+        publisher || null,
+        published_date || null,
+        language || 'English',
+        total_copies ? parseInt(total_copies) : 1,
+        total_copies ? parseInt(total_copies) : 1,
+        featured ? Boolean(featured) : false,
+        status || 'available',
+        coverImage
+      ]
+    );
+
+    // Get the created book
+    const [books] = await db.execute(
+      'SELECT * FROM books WHERE id = ?',
+      [result.insertId]
+    );
+
+    console.log(`✅ New book created: ${title} by ${author}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'Book created successfully',
+      data: {
+        book: books[0]
+      }
+    });
+  } catch (error) {
+    console.error('❌ Create book error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error creating book: ' + error.message
+    });
+  }
+});
+
+// PUT /api/admin/books/:id
+router.put('/books/:id', upload.single('coverImage'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = req.body;
+
+    console.log(`📥 Updating book ${id} with data:`, updateData);
+    console.log('📁 Files:', req.file);
+
+    // Check if book exists
+    const [existingBooks] = await db.execute(
+      'SELECT id FROM books WHERE id = ?',
+      [parseInt(id)]
+    );
+
+    if (existingBooks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found'
+      });
+    }
+
+    // Build update query
+    const allowedFields = [
+      'title', 'author', 'description', 'isbn', 'category', 'dewey_number',
+      'price', 'format', 'pages', 'publisher', 'published_date', 'language',
+      'total_copies', 'available_copies', 'featured', 'status'
+    ];
+
+    const updates = [];
+    const values = [];
+
+    Object.keys(updateData).forEach(key => {
+      if (allowedFields.includes(key)) {
+        updates.push(`${key} = ?`);
+        
+        if (key === 'price') {
+          values.push(parseFloat(updateData[key]) || 0.00);
+        } else if (key === 'pages' || key === 'total_copies' || key === 'available_copies') {
+          values.push(parseInt(updateData[key]) || null);
+        } else if (key === 'featured') {
+          values.push(Boolean(updateData[key]));
+        } else {
+          values.push(updateData[key] || null);
+        }
+      }
+    });
+
+    // Handle cover image update
+    if (req.file) {
+      updates.push('cover_image = ?');
+      values.push(`/uploads/books/${req.file.filename}`);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields to update'
+      });
+    }
+
+    values.push(parseInt(id));
+
+    const query = `UPDATE books SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    
+    console.log('🔍 Update query:', query);
+    console.log('📊 Update parameters:', values);
+    
+    await db.execute(query, values);
+
+    // Get updated book
+    const [books] = await db.execute(
+      'SELECT * FROM books WHERE id = ?',
+      [parseInt(id)]
+    );
+
+    console.log(`✅ Book updated: ID ${id}`);
+
+    res.json({
+      success: true,
+      message: 'Book updated successfully',
+      data: {
+        book: books[0]
+      }
+    });
+  } catch (error) {
+    console.error('❌ Update book error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating book: ' + error.message
+    });
+  }
+});
+
+// DELETE /api/admin/books/:id
+router.delete('/books/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if book exists
+    const [existingBooks] = await db.execute(
+      'SELECT id, title FROM books WHERE id = ?',
+      [parseInt(id)]
+    );
+
+    if (existingBooks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Book not found'
+      });
+    }
+
+    const bookTitle = existingBooks[0].title;
+
+    // Delete the book
+    await db.execute(
+      'DELETE FROM books WHERE id = ?',
+      [parseInt(id)]
+    );
+
+    console.log(`🗑️ Book deleted: ${bookTitle} (ID: ${id})`);
+
+    res.json({
+      success: true,
+      message: 'Book deleted successfully'
+    });
+  } catch (error) {
+    console.error('❌ Delete book error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error deleting book: ' + error.message
+    });
+  }
+});
+
+// UPLOAD BOOK COVER
+router.post('/books/upload-cover', upload.single('coverImage'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No file uploaded'
+      });
+    }
+
+    const imageUrl = `/uploads/books/${req.file.filename}`;
+
+    console.log(`🖼️ Book cover uploaded: ${req.file.filename}`);
+
+    res.json({
+      success: true,
+      message: 'Book cover uploaded successfully',
+      data: {
+        imageUrl: imageUrl,
+        filename: req.file.filename
+      }
+    });
+  } catch (error) {
+    console.error('❌ Upload book cover error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error uploading book cover: ' + error.message
+    });
+  }
+});
+
+
+// USERS ROUTES
+
+// GET /api/admin/users
+router.get('/users', async (req, res) => {
+  try {
+    const [users] = await db.execute(`
+      SELECT 
+        id, name, email, role, is_active, 
+        affiliate_status, total_referrals, total_earnings,
+        join_date, last_login, bio, profile_image,
+        created_at, updated_at
+      FROM users 
+      ORDER BY created_at DESC
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        users: users.map(user => ({
+          ...user,
+          is_active: Boolean(user.is_active)
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Get users error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching users'
+    });
+  }
+});
+
+// PUT /api/admin/users/:id
+router.put('/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role, is_active, affiliate_status } = req.body;
+
+    // Check if user exists
+    const [existingUsers] = await db.execute(
+      'SELECT id FROM users WHERE id = ?',
+      [id]
+    );
+
+    if (existingUsers.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    const updates = [];
+    const values = [];
+
+    if (role !== undefined) {
+      updates.push('role = ?');
+      values.push(role);
+    }
+
+    if (is_active !== undefined) {
+      updates.push('is_active = ?');
+      values.push(Boolean(is_active));
+    }
+
+    if (affiliate_status !== undefined) {
+      updates.push('affiliate_status = ?');
+      values.push(affiliate_status);
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No valid fields to update'
+      });
+    }
+
+    values.push(id);
+
+    const query = `UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+    
+    await db.execute(query, values);
+
+    // Get updated user
+    const [users] = await db.execute(
+      'SELECT id, name, email, role, is_active, affiliate_status FROM users WHERE id = ?',
+      [id]
+    );
+
+    console.log(`✅ User updated: ID ${id}`);
+
+    res.json({
+      success: true,
+      message: 'User updated successfully',
+      data: {
+        user: users[0]
+      }
+    });
+  } catch (error) {
+    console.error('❌ Update user error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error updating user: ' + error.message
+    });
+  }
+});
+
+
 module.exports = router;
