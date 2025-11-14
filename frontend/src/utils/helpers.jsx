@@ -1,0 +1,103 @@
+// utils/helpers.jsx - Add the missing export
+import { API_BASE_URL } from "../config/apiConfig";
+
+// utils/helpers.jsx - More robust version
+export const getImageUrl = (imagePath) => {
+  if (!imagePath) {
+    console.log("🖼️ No image path provided");
+    return null;
+  }
+
+  console.log("🖼️ Processing image path:", imagePath);
+
+  // If it's already a full URL, use it directly
+  if (imagePath.startsWith("http")) {
+    return imagePath;
+  }
+
+  // Extract just the filename (handle both paths and plain filenames)
+  let filename = imagePath;
+  if (imagePath.includes("/")) {
+    filename = imagePath.split("/").pop();
+  }
+
+  // Construct the URL
+  const fullUrl = `http://localhost:5000/uploads/images/${filename}`;
+  console.log("✅ Constructed image URL:", fullUrl);
+  return fullUrl;
+};
+
+export const formatDate = (dateString) => {
+  if (!dateString) return "Date not available";
+
+  try {
+    return new Date(dateString).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  } catch (error) {
+    console.error("Date formatting error:", error);
+    return "Invalid date";
+  }
+};
+
+// ADD THE MISSING EXPORT
+export const handleImageError = (event, fallbackText = "📚") => {
+  console.error("❌ Image failed to load:", event.target.src);
+
+  const img = event.target;
+  const parent = img.parentElement;
+
+  if (parent) {
+    // Create fallback
+    const fallback = document.createElement("div");
+    fallback.className =
+      "w-full h-full flex items-center justify-center bg-gray-200 text-gray-400";
+    fallback.innerHTML = `<div class="text-center"><span class="text-2xl">${fallbackText}</span></div>`;
+
+    // Hide the broken image
+    img.style.display = "none";
+
+    // Add fallback if not already there
+    if (!parent.querySelector(".image-fallback")) {
+      parent.appendChild(fallback);
+    }
+  }
+};
+
+// Search utilities
+export const buildSearchParams = (filters) => {
+  const params = {};
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value && value !== "") {
+      params[key] = value;
+    }
+  });
+
+  return params;
+};
+
+// Error boundary utilities
+export const withErrorBoundary = (Component, FallbackComponent) => {
+  return (props) => {
+    try {
+      return <Component {...props} />;
+    } catch (error) {
+      console.error("Component error:", error);
+      return FallbackComponent ? (
+        <FallbackComponent error={error} />
+      ) : (
+        <div>Something went wrong</div>
+      );
+    }
+  };
+};
+
+// Debug helper
+export const debugAPI = (message, data = null) => {
+  if (import.meta.env.DEV) {
+    console.log(`🔧 ${message}`, data || "");
+  }
+};

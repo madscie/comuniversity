@@ -9,12 +9,14 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiDollarSign,
+  FiImage,
 } from "react-icons/fi";
+import { toast } from "react-toastify";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
-import BookFormModal from "./BookFormModal";
-// import { api } from "../../../config/api ne";
-import { api } from "../../../config/apibac";
+import BookFormModal from "../Pages/BookFormModal";
+import { bookService } from "../../../services/bookService";
+import { getImageUrl } from "../../../utils/helpers";
 
 const ManageBooksPage = () => {
   const [books, setBooks] = useState([]);
@@ -32,16 +34,26 @@ const ManageBooksPage = () => {
   const loadBooks = async () => {
     setLoading(true);
     try {
-      const response = await api.getAdminBooks();
+      const response = await bookService.getBooks();
+      console.log("📚 Books API Response:", response);
+
       if (response.success) {
-        setBooks(response.data.books || []);
+        const booksData = response.data?.books || response.data || [];
+        console.log("📖 Processed books data:", booksData);
+        setBooks(booksData);
+
+        if (booksData.length > 0) {
+          toast.success(`Loaded ${booksData.length} books successfully`);
+        }
       } else {
-        console.error('Failed to load books:', response.message);
+        console.error("Failed to load books:", response.message);
         setBooks([]);
+        toast.error("Failed to load books");
       }
     } catch (error) {
       console.error("Error loading books:", error);
       setBooks([]);
+      toast.error("Error loading books: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -60,24 +72,38 @@ const ManageBooksPage = () => {
   const handleSaveBook = async (bookData, bookId) => {
     setSaveLoading(true);
     try {
-      console.log('💾 Saving book data:', bookData);
+      console.log("💾 Saving book data:", bookData);
 
       let response;
       if (bookId) {
-        response = await api.updateBook(bookId, bookData);
+        response = await bookService.updateBook(bookId, bookData);
       } else {
-        response = await api.createBook(bookData);
+        response = await bookService.createBook(bookData);
       }
+
+      console.log("📥 Save response:", response);
 
       if (response.success) {
         await loadBooks();
+        toast.success(
+          bookId ? "Book updated successfully!" : "Book added successfully!"
+        );
         return response;
       } else {
-        throw new Error(response.message || 'Failed to save book');
+        throw new Error(response.message || "Failed to save book");
       }
     } catch (error) {
-      console.error("Error saving book:", error);
-      throw new Error(error.message || "Failed to save book. Please try again.");
+      console.error("❌ Error saving book:", error);
+
+      let errorMessage = "Failed to save book. Please try again.";
+      if (error.message.includes("Network Error")) {
+        errorMessage = "Network error. Please check your connection.";
+      } else if (error.message.includes("ISBN already exists")) {
+        errorMessage = "A book with this ISBN already exists.";
+      }
+
+      toast.error(errorMessage);
+      throw error;
     } finally {
       setSaveLoading(false);
     }
@@ -88,45 +114,31 @@ const ManageBooksPage = () => {
     setSelectedBook(null);
   };
 
-  const filteredBooks = books.filter((book) => {
-    const matchesSearch =
-      book.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      book.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (book.isbn && book.isbn.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (book.dewey_number && book.dewey_number.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesFilter =
-      filterStatus === "all" || book.status === filterStatus;
-
-    return matchesSearch && matchesFilter;
-  });
-
   const handleDeleteBook = async (id) => {
     if (window.confirm("Are you sure you want to delete this book?")) {
       try {
-        const response = await api.deleteBook(id);
+        const response = await bookService.deleteBook(id);
         if (response.success) {
           setBooks(books.filter((book) => book.id !== id));
+          toast.success("Book deleted successfully!");
         } else {
           throw new Error(response.message);
         }
       } catch (error) {
         console.error("Error deleting book:", error);
-        alert("Failed to delete book. Please try again.");
+        toast.error("Failed to delete book. Please try again.");
       }
     }
   };
 
   const handleToggleStatus = async (id) => {
     try {
-      const book = books.find(b => b.id === id);
-      const newStatus = book.status === "available" ? "unavailable" : "available";
-      
-      const response = await api.updateBook(id, { 
-        status: newStatus,
-        available_copies: newStatus === "available" ? book.total_copies : 0
-      });
-      
+      const book = books.find((b) => b.id === id);
+      const newStatus =
+        book.status === "available" ? "unavailable" : "available";
+
+      const response = await bookService.updateBookStatus(id, newStatus);
+
       if (response.success) {
         setBooks(
           books.map((book) =>
@@ -134,19 +146,91 @@ const ManageBooksPage = () => {
               ? {
                   ...book,
                   status: newStatus,
-                  available_copies: newStatus === "available" ? book.total_copies : 0,
+                  available_copies:
+                    newStatus === "available" ? book.total_copies : 0,
                 }
               : book
           )
         );
+        toast.success(`Book marked as ${newStatus}!`);
       } else {
         throw new Error(response.message);
       }
     } catch (error) {
       console.error("Error updating book status:", error);
-      alert("Failed to update book status. Please try again.");
+      toast.error("Failed to update book status. Please try again.");
     }
   };
+
+  // Helper function to render book image
+  // In ManageBooksPage.jsx - Update the renderBookImage function
+  const renderBookImage = (book) => {
+    const imageUrl = getImageUrl(book.cover_image);
+    console.log(`📖 Rendering book ${book.id}:`, {
+      title: book.title,
+      cover_image: book.cover_image,
+      imageUrl,
+    });
+
+    return (
+      <div className="relative flex-shrink-0 h-10 w-10 bg-gradient-to-br from-orange-100 to-orange-200 rounded flex items-center justify-center overflow-hidden">
+        {imageUrl ? (
+          <>
+            <img
+              src={imageUrl}
+              alt={book.title}
+              className="h-10 w-10 object-cover"
+              onError={(e) => {
+                console.error(
+                  `❌ Failed to load image for book ${book.id}:`,
+                  imageUrl
+                );
+                console.log(`Trying fallback for book:`, book);
+                e.target.style.display = "none";
+                // Show fallback
+                const fallback = e.target.nextSibling;
+                if (fallback) {
+                  fallback.classList.remove("hidden");
+                }
+              }}
+              onLoad={(e) => {
+                console.log(
+                  `✅ Image loaded successfully for book ${book.id}:`,
+                  imageUrl
+                );
+                // Hide fallback when image loads successfully
+                const fallback = e.target.nextSibling;
+                if (fallback) {
+                  fallback.classList.add("hidden");
+                }
+              }}
+            />
+            {/* Fallback icon - always present but hidden by default */}
+            <div className="image-fallback absolute inset-0 hidden items-center justify-center bg-gradient-to-br from-orange-100 to-orange-200">
+              <FiBook className="h-5 w-5 text-orange-600" />
+            </div>
+          </>
+        ) : (
+          <FiBook className="h-5 w-5 text-orange-600" />
+        )}
+      </div>
+    );
+  };
+
+  const filteredBooks = books.filter((book) => {
+    const matchesSearch =
+      book.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      book.author?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (book.isbn &&
+        book.isbn.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (book.dewey_number &&
+        book.dewey_number.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const matchesFilter =
+      filterStatus === "all" || book.status === filterStatus;
+
+    return matchesSearch && matchesFilter;
+  });
 
   const getStatusBadge = (status) => {
     return status === "available"
@@ -158,45 +242,30 @@ const ManageBooksPage = () => {
     const styles = {
       "General Works": "bg-blue-100 text-blue-800",
       "Philosophy & Psychology": "bg-purple-100 text-purple-800",
-      "Religion": "bg-red-100 text-red-800",
+      Religion: "bg-red-100 text-red-800",
       "Social Sciences": "bg-green-100 text-green-800",
-      "Language": "bg-yellow-100 text-yellow-800",
+      Language: "bg-yellow-100 text-yellow-800",
       "Natural Sciences & Math": "bg-indigo-100 text-indigo-800",
       "Technology & Applied Sciences": "bg-pink-100 text-pink-800",
       "Arts & Recreation": "bg-teal-100 text-teal-800",
-      "Literature": "bg-orange-100 text-orange-800",
+      Literature: "bg-orange-100 text-orange-800",
       "History & Geography": "bg-gray-100 text-gray-800",
-      "Children's General Works": "bg-blue-100 text-blue-800",
-      "Children's Philosophy & Psychology": "bg-purple-100 text-purple-800",
-      "Children's Religion": "bg-red-100 text-red-800",
-      "Children's Social Sciences": "bg-green-100 text-green-800",
-      "Children's Language": "bg-yellow-100 text-yellow-800",
-      "Children's Natural Sciences & Math": "bg-indigo-100 text-indigo-800",
-      "Children's Technology": "bg-pink-100 text-pink-800",
-      "Children's Arts & Recreation": "bg-teal-100 text-teal-800",
-      "Children's Literature": "bg-orange-100 text-orange-800",
-      "Children's History & Geography": "bg-gray-100 text-gray-800",
     };
     return styles[category] || "bg-gray-100 text-gray-800";
   };
 
   const getPriceBadge = (price) => {
-    if (price === 0 || price === null) {
-      return "bg-gray-100 text-gray-800";
-    } else if (price < 10) {
-      return "bg-green-100 text-green-800";
-    } else if (price < 25) {
-      return "bg-blue-100 text-blue-800";
-    } else {
-      return "bg-purple-100 text-purple-800";
-    }
+    const priceValue = parseFloat(price || 0);
+    if (priceValue === 0) return "bg-gray-100 text-gray-800";
+    if (priceValue < 10) return "bg-green-100 text-green-800";
+    if (priceValue < 25) return "bg-blue-100 text-blue-800";
+    return "bg-purple-100 text-purple-800";
   };
 
-  // Calculate total inventory value
   const totalInventoryValue = books.reduce((sum, book) => {
     const price = parseFloat(book.price) || 0;
     const copies = book.total_copies || 0;
-    return sum + (price * copies);
+    return sum + price * copies;
   }, 0);
 
   if (loading) {
@@ -330,7 +399,9 @@ const ManageBooksPage = () => {
                     <div className="text-gray-500">
                       <FiBook className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {books.length === 0 ? "No books found" : "No matching books"}
+                        {books.length === 0
+                          ? "No books found"
+                          : "No matching books"}
                       </h3>
                       <p className="text-gray-600">
                         {books.length === 0
@@ -351,23 +422,13 @@ const ManageBooksPage = () => {
                   <tr key={book.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-orange-100 to-orange-200 rounded flex items-center justify-center">
-                          {book.cover_image ? (
-                            <img 
-                              src={book.cover_image} 
-                              alt={book.title}
-                              className="h-10 w-10 object-cover rounded"
-                            />
-                          ) : (
-                            <FiBook className="h-5 w-5 text-orange-600" />
-                          )}
-                        </div>
+                        {renderBookImage(book)}
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900 line-clamp-1">
                             {book.title}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {book.publisher}
+                            {book.publisher || "No publisher"}
                           </div>
                         </div>
                       </div>
@@ -376,7 +437,7 @@ const ManageBooksPage = () => {
                       {book.author}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {book.isbn || 'N/A'}
+                      {book.isbn || "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
@@ -388,7 +449,7 @@ const ManageBooksPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                      {book.dewey_number || 'N/A'}
+                      {book.dewey_number || "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span
@@ -400,13 +461,23 @@ const ManageBooksPage = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {book.published_date ? new Date(book.published_date).getFullYear() : 'N/A'}
+                      {book.published_date
+                        ? new Date(book.published_date).getFullYear()
+                        : "N/A"}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div className="flex flex-col">
-                        <span>{book.available_copies}/{book.total_copies}</span>
+                        <span>
+                          {book.available_copies || 0}/{book.total_copies || 0}
+                        </span>
                         <span className="text-xs text-gray-500">
-                          {((book.available_copies / book.total_copies) * 100).toFixed(0)}% available
+                          {book.total_copies > 0
+                            ? `${Math.round(
+                                ((book.available_copies || 0) /
+                                  book.total_copies) *
+                                  100
+                              )}% available`
+                            : "0% available"}
                         </span>
                       </div>
                     </td>
@@ -416,7 +487,7 @@ const ManageBooksPage = () => {
                           book.status
                         )}`}
                       >
-                        {book.status}
+                        {book.status || "available"}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
@@ -427,16 +498,22 @@ const ManageBooksPage = () => {
                             ? "text-red-600 hover:text-red-900"
                             : "text-green-600 hover:text-green-900"
                         }`}
-                        title={book.status === "available" ? "Mark as unavailable" : "Mark as available"}
+                        title={
+                          book.status === "available"
+                            ? "Mark as unavailable"
+                            : "Mark as available"
+                        }
                       >
                         {book.status === "available" ? (
                           <FiXCircle className="mr-1" />
                         ) : (
                           <FiCheckCircle className="mr-1" />
                         )}
-                        {book.status === "available" ? "Unavailable" : "Available"}
+                        {book.status === "available"
+                          ? "Unavailable"
+                          : "Available"}
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleEditBook(book)}
                         className="text-blue-600 hover:text-blue-900 p-1"
                         title="Edit book"

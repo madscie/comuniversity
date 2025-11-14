@@ -1,12 +1,23 @@
 import { useState, useEffect } from "react";
 import {
-  FiVideo, FiCalendar, FiClock, FiEdit, FiTrash2, FiPlus,
-  FiSearch, FiUsers, FiExternalLink, FiImage, FiUpload, FiX,
-  FiDollarSign, FiTag
+  FiVideo,
+  FiCalendar,
+  FiClock,
+  FiEdit,
+  FiTrash2,
+  FiPlus,
+  FiSearch,
+  FiUsers,
+  FiExternalLink,
+  FiImage,
+  FiUpload,
+  FiX,
+  FiDollarSign,
+  FiTag,
 } from "react-icons/fi";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
-import { api } from "../../../config/apibac";
+import { webinarService } from "../../../services/webinarService"; // UPDATED IMPORT
 
 const ManageWebinarsPage = () => {
   const [webinars, setWebinars] = useState([]);
@@ -23,11 +34,11 @@ const ManageWebinarsPage = () => {
   const loadWebinars = async () => {
     setLoading(true);
     try {
-      const response = await api.getAdminWebinars();
+      const response = await webinarService.getWebinars(); // UPDATED
       if (response.success) {
         setWebinars(response.data.webinars || []);
       } else {
-        console.error('Failed to load webinars:', response.message);
+        console.error("Failed to load webinars:", response.message);
         setWebinars([]);
       }
     } catch (error) {
@@ -52,11 +63,11 @@ const ManageWebinarsPage = () => {
   const getWebinarStatus = (webinar) => {
     const now = new Date();
     const webinarDate = new Date(webinar.date);
-    if (webinar.status === 'cancelled') return 'cancelled';
-    if (webinar.status === 'completed') return 'completed';
-    if (webinarDate < now) return 'completed';
-    if (webinarDate > now) return 'scheduled';
-    return 'live';
+    if (webinar.status === "cancelled") return "cancelled";
+    if (webinar.status === "completed") return "completed";
+    if (webinarDate < now) return "completed";
+    if (webinarDate > now) return "scheduled";
+    return "live";
   };
 
   const filteredWebinars = webinars.filter(
@@ -69,7 +80,7 @@ const ManageWebinarsPage = () => {
   const handleDeleteWebinar = async (id) => {
     if (window.confirm("Are you sure you want to delete this webinar?")) {
       try {
-        const response = await api.deleteWebinar(id);
+        const response = await webinarService.deleteWebinar(id); // UPDATED
         if (response.success) {
           setWebinars(webinars.filter((webinar) => webinar.id !== id));
         } else {
@@ -97,9 +108,12 @@ const ManageWebinarsPage = () => {
     try {
       let response;
       if (editingWebinar) {
-        response = await api.updateWebinar(editingWebinar.id, webinarData);
+        response = await webinarService.updateWebinar(
+          editingWebinar.id,
+          webinarData
+        ); // UPDATED
       } else {
-        response = await api.createWebinar(webinarData);
+        response = await webinarService.createWebinar(webinarData); // UPDATED
       }
       if (response.success) {
         await loadWebinars();
@@ -117,11 +131,15 @@ const ManageWebinarsPage = () => {
 
   const handleToggleStatus = async (id, newStatus) => {
     try {
-      const response = await api.updateWebinar(id, { status: newStatus });
+      const response = await webinarService.updateWebinar(id, {
+        status: newStatus,
+      }); // UPDATED
       if (response.success) {
-        setWebinars(webinars.map(webinar =>
-          webinar.id === id ? { ...webinar, status: newStatus } : webinar
-        ));
+        setWebinars(
+          webinars.map((webinar) =>
+            webinar.id === id ? { ...webinar, status: newStatus } : webinar
+          )
+        );
       } else {
         throw new Error(response.message);
       }
@@ -144,7 +162,10 @@ const ManageWebinarsPage = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Manage Webinars</h1>
-          <p className="text-gray-600"> Create and manage educational webinars </p>
+          <p className="text-gray-600">
+            {" "}
+            Create and manage educational webinars{" "}
+          </p>
         </div>
         <Button onClick={handleAddWebinar}>
           <FiPlus className="mr-2" /> Add Webinar
@@ -155,18 +176,20 @@ const ManageWebinarsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
         <Card className="p-6 text-center">
           <FiVideo className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-900">{webinars.length}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {webinars.length}
+          </div>
           <div className="text-sm text-gray-600">Total Webinars</div>
         </Card>
         <Card className="p-6 text-center">
           <div className="text-2xl font-bold text-gray-900">
-            {webinars.filter(w => getWebinarStatus(w) === 'scheduled').length}
+            {webinars.filter((w) => getWebinarStatus(w) === "scheduled").length}
           </div>
           <div className="text-sm text-gray-600">Upcoming</div>
         </Card>
         <Card className="p-6 text-center">
           <div className="text-2xl font-bold text-gray-900">
-            {webinars.filter(w => getWebinarStatus(w) === 'completed').length}
+            {webinars.filter((w) => getWebinarStatus(w) === "completed").length}
           </div>
           <div className="text-sm text-gray-600">Completed</div>
         </Card>
@@ -201,7 +224,9 @@ const ManageWebinarsPage = () => {
               <FiVideo className="h-12 w-12 text-blue-600" />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-2">
-              {webinars.length === 0 ? "No Webinars Found" : "No Matching Webinars"}
+              {webinars.length === 0
+                ? "No Webinars Found"
+                : "No Matching Webinars"}
             </h3>
             <p className="text-gray-600 mb-6">
               {webinars.length === 0
@@ -217,9 +242,12 @@ const ManageWebinarsPage = () => {
         ) : (
           filteredWebinars.map((webinar) => {
             const status = getWebinarStatus(webinar);
-            const isUpcoming = status === 'scheduled';
+            const isUpcoming = status === "scheduled";
             return (
-              <Card key={webinar.id} className="p-6 hover:shadow-lg transition-shadow">
+              <Card
+                key={webinar.id}
+                className="p-6 hover:shadow-lg transition-shadow"
+              >
                 <div className="flex flex-col md:flex-row gap-6">
                   <div className="flex-shrink-0">
                     <div className="w-24 h-24 rounded-xl bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center overflow-hidden">
@@ -242,10 +270,13 @@ const ManageWebinarsPage = () => {
                       <div className="flex items-center space-x-2">
                         <span
                           className={`px-2 py-1 text-xs font-medium rounded-full ${
-                            status === 'scheduled' ? "bg-green-100 text-green-800" :
-                            status === 'completed' ? "bg-gray-100 text-gray-800" :
-                            status === 'live' ? "bg-red-100 text-red-800" :
-                            "bg-yellow-100 text-yellow-800"
+                            status === "scheduled"
+                              ? "bg-green-100 text-green-800"
+                              : status === "completed"
+                              ? "bg-gray-100 text-gray-800"
+                              : status === "live"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
                           }`}
                         >
                           {status}
@@ -257,7 +288,9 @@ const ManageWebinarsPage = () => {
                         )}
                       </div>
                     </div>
-                    <p className="text-gray-600 mb-4 line-clamp-2">{webinar.description}</p>
+                    <p className="text-gray-600 mb-4 line-clamp-2">
+                      {webinar.description}
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
                       <div className="flex items-center text-gray-700">
                         <FiCalendar className="mr-2 text-blue-600" />
@@ -270,7 +303,8 @@ const ManageWebinarsPage = () => {
                       <div className="flex items-center text-gray-700">
                         <FiUsers className="mr-2 text-blue-600" />
                         <span>
-                          {webinar.current_attendees || 0}/{webinar.max_attendees} attendees
+                          {webinar.current_attendees || 0}/
+                          {webinar.max_attendees} attendees
                         </span>
                       </div>
                       {webinar.price > 0 && (
@@ -294,7 +328,9 @@ const ManageWebinarsPage = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => window.open(webinar.join_link, "_blank")}
+                          onClick={() =>
+                            window.open(webinar.join_link, "_blank")
+                          }
                         >
                           <FiExternalLink className="mr-1" /> Join Link
                         </Button>
@@ -302,7 +338,9 @@ const ManageWebinarsPage = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => window.open(webinar.recording_link, "_blank")}
+                          onClick={() =>
+                            window.open(webinar.recording_link, "_blank")
+                          }
                         >
                           <FiVideo className="mr-1" /> Recording
                         </Button>
@@ -311,16 +349,20 @@ const ManageWebinarsPage = () => {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleToggleStatus(webinar.id, 'completed')}
+                          onClick={() =>
+                            handleToggleStatus(webinar.id, "completed")
+                          }
                         >
                           Mark Complete
                         </Button>
                       )}
-                      {status === 'completed' && (
+                      {status === "completed" && (
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => handleToggleStatus(webinar.id, 'scheduled')}
+                          onClick={() =>
+                            handleToggleStatus(webinar.id, "scheduled")
+                          }
                         >
                           Reschedule
                         </Button>
@@ -377,8 +419,8 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
     price: webinar?.price || 0,
     is_premium: webinar?.is_premium || false,
     category: webinar?.category || "Education",
-    tags: webinar?.tags ? webinar.tags.join(', ') : "",
-    status: webinar?.status || "scheduled"
+    tags: webinar?.tags ? webinar.tags.join(", ") : "",
+    status: webinar?.status || "scheduled",
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -386,41 +428,56 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
   const [errors, setErrors] = useState({});
 
   const categories = [
-    "Technology", "Education", "Science", "Health", "Business",
-    "Arts", "Literature", "History", "Travel", "Lifestyle", "Other"
+    "Technology",
+    "Education",
+    "Science",
+    "Health",
+    "Business",
+    "Arts",
+    "Literature",
+    "History",
+    "Travel",
+    "Lifestyle",
+    "Other",
   ];
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
+      [name]: type === "checkbox" ? checked : value,
     }));
     if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: "" }));
+      setErrors((prev) => ({ ...prev, [name]: "" }));
     }
   };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      const validTypes = [
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/gif",
+        "image/webp",
+      ];
       if (!validTypes.includes(file.type)) {
-        setErrors(prev => ({
+        setErrors((prev) => ({
           ...prev,
-          image: "Please select a valid image file (JPEG, PNG, GIF, WebP)"
+          image: "Please select a valid image file (JPEG, PNG, GIF, WebP)",
         }));
         return;
       }
       if (file.size > 5 * 1024 * 1024) {
-        setErrors(prev => ({
+        setErrors((prev) => ({
           ...prev,
-          image: "Image size should be less than 5MB"
+          image: "Image size should be less than 5MB",
         }));
         return;
       }
       setImageFile(file);
-      setErrors(prev => ({ ...prev, image: "" }));
+      setErrors((prev) => ({ ...prev, image: "" }));
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
@@ -478,8 +535,11 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
         max_attendees: parseInt(formData.max_attendees),
         price: parseFloat(formData.price),
         tags: formData.tags
-          ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '')
-          : []
+          ? formData.tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter((tag) => tag !== "")
+          : [],
       };
       if (imageFile) {
         submissionData.imageFile = imageFile;
@@ -487,9 +547,9 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
       await onSave(submissionData);
     } catch (error) {
       console.error("Error submitting webinar form:", error);
-      setErrors(prev => ({
+      setErrors((prev) => ({
         ...prev,
-        submit: error.message || "Failed to save webinar. Please try again."
+        submit: error.message || "Failed to save webinar. Please try again.",
       }));
     }
   };
@@ -552,7 +612,8 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                     />
                   </label>
                   <p className="text-xs text-gray-600 mt-2">
-                    Supports: JPEG, PNG, GIF, WebP<br />
+                    Supports: JPEG, PNG, GIF, WebP
+                    <br />
                     Max size: 5MB
                   </p>
                 </div>
@@ -573,7 +634,7 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                   name="title"
                   required
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.title ? 'border-red-500' : 'border-gray-300'
+                    errors.title ? "border-red-500" : "border-gray-300"
                   }`}
                   value={formData.title}
                   onChange={handleInputChange}
@@ -593,13 +654,15 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                   required
                   rows={4}
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.description ? 'border-red-500' : 'border-gray-300'
+                    errors.description ? "border-red-500" : "border-gray-300"
                   }`}
                   value={formData.description}
                   onChange={handleInputChange}
                 />
                 {errors.description && (
-                  <p className="text-red-500 text-sm mt-1">{errors.description}</p>
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.description}
+                  </p>
                 )}
               </div>
 
@@ -613,7 +676,7 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                   name="date"
                   required
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.date ? 'border-red-500' : 'border-gray-300'
+                    errors.date ? "border-red-500" : "border-gray-300"
                   }`}
                   value={formData.date}
                   onChange={handleInputChange}
@@ -631,7 +694,7 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                   name="time"
                   required
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.time ? 'border-red-500' : 'border-gray-300'
+                    errors.time ? "border-red-500" : "border-gray-300"
                   }`}
                   value={formData.time}
                   onChange={handleInputChange}
@@ -652,7 +715,7 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                   required
                   min="1"
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.duration ? 'border-red-500' : 'border-gray-300'
+                    errors.duration ? "border-red-500" : "border-gray-300"
                   }`}
                   value={formData.duration}
                   onChange={handleInputChange}
@@ -671,13 +734,15 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                   required
                   min="1"
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.max_attendees ? 'border-red-500' : 'border-gray-300'
+                    errors.max_attendees ? "border-red-500" : "border-gray-300"
                   }`}
                   value={formData.max_attendees}
                   onChange={handleInputChange}
                 />
                 {errors.max_attendees && (
-                  <p className="text-red-500 text-sm mt-1">{errors.max_attendees}</p>
+                  <p className="text-red-500 text-sm mt-1">
+                    {errors.max_attendees}
+                  </p>
                 )}
               </div>
 
@@ -691,7 +756,7 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                   name="speaker"
                   required
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.speaker ? 'border-red-500' : 'border-gray-300'
+                    errors.speaker ? "border-red-500" : "border-gray-300"
                   }`}
                   value={formData.speaker}
                   onChange={handleInputChange}
@@ -710,8 +775,10 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                   value={formData.category}
                   onChange={handleInputChange}
                 >
-                  {categories.map(category => (
-                    <option key={category} value={category}>{category}</option>
+                  {categories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -742,7 +809,7 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
                   step="0.01"
                   min="0"
                   className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors.price ? 'border-red-500' : 'border-gray-300'
+                    errors.price ? "border-red-500" : "border-gray-300"
                   }`}
                   value={formData.price}
                   onChange={handleInputChange}
@@ -846,18 +913,16 @@ const WebinarModal = ({ webinar, onSave, onClose, isLoading }) => {
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={isLoading}
-              >
+              <Button type="submit" variant="primary" disabled={isLoading}>
                 {isLoading ? (
                   <div className="flex items-center">
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     {webinar ? "Updating..." : "Creating..."}
                   </div>
+                ) : webinar ? (
+                  "Update Webinar"
                 ) : (
-                  webinar ? "Update Webinar" : "Create Webinar"
+                  "Create Webinar"
                 )}
               </Button>
             </div>

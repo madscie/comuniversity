@@ -1,30 +1,29 @@
-const express = require('express');
+import express from "express";
+
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
 
-// GET /api/users/profile
-router.get('/profile', authMiddleware, (req, res) => {
-  res.json({ 
+// User profile
+router.get("/profile", (req, res) => {
+  res.json({
     success: true,
-    message: 'User profile route - to be implemented',
-    user: req.user
+    message: "User profile route - to be implemented",
   });
 });
 
-// GET /api/users/library
-router.get('/library', authMiddleware, (req, res) => {
-  res.json({ 
+// User library
+router.get("/library", (req, res) => {
+  res.json({
     success: true,
-    message: 'User library route - to be implemented' 
+    message: "User library route - to be implemented",
   });
 });
 
-// GET /api/users/reading-list
-router.get('/reading-list', authMiddleware, (req, res) => {
-  res.json({ 
+// Reading list
+router.get("/reading-list", (req, res) => {
+  res.json({
     success: true,
-    message: 'Reading list route - to be implemented' 
+    message: "Reading list route - to be implemented",
   });
 });
 
-module.exports = router;
+export default router;

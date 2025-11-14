@@ -1,6 +1,6 @@
 // store/authStore.js
 import { create } from "zustand";
-import { api } from "../config/api ne";
+import { api } from "../config/api";
 
 export const useAuthStore = create((set, get) => ({
   user: true,
