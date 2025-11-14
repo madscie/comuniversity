@@ -1,21 +1,77 @@
-// controllers/bookController.js
-const db = require('../config/database');
+import db from "../config/database.js";
+import { cloudinary, testCloudinaryConnection } from "../config/cloudinary.js";
 
-exports.getBooks = async (req, res) => {
+// Helper function for building queries
+const buildBooksQuery = (filters = {}) => {
+  let query = `
+    SELECT id, title, author, description, isbn, category, dewey_number, price, 
+           format, cover_image, file_url, file_size, pages, publisher, 
+           published_date, language, rating, total_ratings, downloads, 
+           status, total_copies, available_copies, featured, created_at
+    FROM books 
+    WHERE status = 'available'
+  `;
+  const params = [];
+
+  const { category, search, minPrice, maxPrice } = filters;
+
+  if (category && category !== "all") {
+    query += ` AND category = ?`;
+    params.push(category);
+  }
+
+  if (search) {
+    query += ` AND (title LIKE ? OR author LIKE ? OR description LIKE ?)`;
+    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+  }
+
+  if (minPrice) {
+    query += ` AND price >= ?`;
+    params.push(parseFloat(minPrice));
+  }
+
+  if (maxPrice) {
+    query += ` AND price <= ?`;
+    params.push(parseFloat(maxPrice));
+  }
+
+  return { query, params };
+};
+
+// Get all books with filtering and pagination
+// Alternative getBooks function if the above still fails
+export const getBooks = async (req, res) => {
   try {
-    const { page = 1, limit = 12, category, search, minPrice, maxPrice } = req.query;
-    const offset = (page - 1) * limit;
+    const {
+      page = 1,
+      limit = 12,
+      category,
+      search,
+      minPrice,
+      maxPrice,
+    } = req.query;
+
+    // Convert to numbers
+    const pageNum = parseInt(page);
+    const limitNum = parseInt(limit);
+    const offset = (pageNum - 1) * limitNum;
+
+    console.log("=== BOOKS API DEBUG ===");
+    console.log("Page:", pageNum, "Limit:", limitNum, "Offset:", offset);
 
     let query = `
-      SELECT id, title, author, description, category, dewey_number, price, 
-             format, cover_image, file_size, pages, publisher, published_date,
-             language, rating, total_ratings, downloads, status, featured
+      SELECT id, title, author, description, isbn, category, dewey_number, price, 
+             format, cover_image, file_url, file_size, pages, publisher, 
+             published_date, language, rating, total_ratings, downloads, 
+             status, total_copies, available_copies, featured, created_at
       FROM books 
       WHERE status = 'available'
     `;
-    const params = [];
 
-    if (category && category !== 'all') {
+    let params = [];
+
+    // Add filters
+    if (category && category !== "all") {
       query += ` AND category = ?`;
       params.push(category);
     }
@@ -35,19 +91,19 @@ exports.getBooks = async (req, res) => {
       params.push(parseFloat(maxPrice));
     }
 
-    query += ` ORDER BY featured DESC, created_at DESC LIMIT ? OFFSET ?`;
-    params.push(parseInt(limit), offset);
+    // Add pagination - FIX: Use template literals instead of prepared statements for LIMIT/OFFSET
+    query += ` ORDER BY featured DESC, created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
 
-    console.log('Books query:', query);
-    console.log('Query params:', params);
+    console.log("Final Query:", query);
+    console.log("Params:", params);
 
     const [books] = await db.execute(query, params);
 
-    // Get total count
+    // Get total count (similar logic without LIMIT/OFFSET)
     let countQuery = `SELECT COUNT(*) as total FROM books WHERE status = 'available'`;
-    const countParams = [];
+    let countParams = [];
 
-    if (category && category !== 'all') {
+    if (category && category !== "all") {
       countQuery += ` AND category = ?`;
       countParams.push(category);
     }
@@ -55,6 +111,16 @@ exports.getBooks = async (req, res) => {
     if (search) {
       countQuery += ` AND (title LIKE ? OR author LIKE ? OR description LIKE ?)`;
       countParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    if (minPrice) {
+      countQuery += ` AND price >= ?`;
+      countParams.push(parseFloat(minPrice));
+    }
+
+    if (maxPrice) {
+      countQuery += ` AND price <= ?`;
+      countParams.push(parseFloat(maxPrice));
     }
 
     const [countResult] = await db.execute(countQuery, countParams);
@@ -65,23 +131,24 @@ exports.getBooks = async (req, res) => {
       data: {
         books,
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
+          page: pageNum,
+          limit: limitNum,
           total,
-          pages: Math.ceil(total / limit)
-        }
-      }
+          pages: Math.ceil(total / limitNum),
+        },
+      },
     });
   } catch (error) {
-    console.error('Get books error:', error);
+    console.error("❌ Get books error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching books: ' + error.message
+      message: "Error fetching books: " + error.message,
     });
   }
 };
 
-exports.getBookById = async (req, res) => {
+// Get single book by ID
+export const getBookById = async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -93,26 +160,421 @@ exports.getBookById = async (req, res) => {
     if (books.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Book not found'
+        message: "Book not found",
       });
     }
 
     res.json({
       success: true,
       data: {
-        book: books[0]
-      }
+        book: books[0],
+      },
     });
   } catch (error) {
-    console.error('Get book error:', error);
+    console.error("❌ Get book error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching book'
+      message: "Error fetching book",
     });
   }
 };
 
-exports.getFeaturedBooks = async (req, res) => {
+// controllers/bookController.js
+
+// Test Cloudinary on startup
+testCloudinaryConnection();
+
+// Improved upload function with better error handling
+const uploadToCloudinary = async (file, folder = "books") => {
+  try {
+    if (!file || !file.path) {
+      throw new Error("Invalid file provided");
+    }
+
+    console.log(
+      `☁️ Uploading to Cloudinary: ${file.originalname} -> ${folder}`
+    );
+
+    const result = await cloudinary.uploader.upload(file.path, {
+      folder: folder,
+      resource_type: "auto",
+      timeout: 60000, // 60 second timeout
+    });
+
+    console.log(`✅ Cloudinary upload successful: ${result.secure_url}`);
+    return result.secure_url;
+  } catch (error) {
+    console.error("❌ Cloudinary upload failed:", error);
+    throw new Error(`Cloudinary upload failed: ${error.message}`);
+  }
+};
+// controllers/bookController.js - FIXED createBook function
+export const createBook = async (req, res) => {
+  try {
+    console.log("📥 CREATE BOOK REQUEST BODY:", req.body);
+    console.log("📁 FILES RECEIVED:", req.files);
+
+    const {
+      title,
+      author,
+      description,
+      isbn,
+      category,
+      dewey_number,
+      price,
+      format,
+      pages,
+      publisher,
+      published_date,
+      language,
+      status,
+      total_copies,
+      featured,
+    } = req.body;
+
+    // Validate required fields
+    if (!title || !author || !category || !dewey_number) {
+      return res.status(400).json({
+        success: false,
+        message: "Title, author, category, and dewey number are required",
+      });
+    }
+
+    // Handle file uploads
+    let coverImageUrl = null;
+    let bookFileUrl = null;
+
+    if (req.files?.cover_image?.[0]) {
+      const coverFile = req.files.cover_image[0];
+      coverImageUrl = coverFile.filename;
+      console.log("🖼️ Cover image path:", coverImageUrl);
+    }
+
+    if (req.files?.book_file?.[0]) {
+      const bookFile = req.files.book_file[0];
+      bookFileUrl = bookFile.filename;
+      console.log("📄 Book file path:", bookFileUrl);
+    }
+
+    // Calculate available copies
+    const available_copies =
+      status === "available" ? parseInt(total_copies) : 0;
+
+    console.log("💾 CREATING BOOK WITH DATA:", {
+      title,
+      author,
+      category,
+      dewey_number,
+      coverImageUrl,
+      bookFileUrl,
+      available_copies,
+    });
+
+    // FIXED: Use the correct column name (cover_image instead of cover_images)
+    const [result] = await db.execute(
+      `INSERT INTO books (
+        title, author, description, isbn, category, dewey_number, price, 
+        format, cover_image, file_url, pages, publisher, published_date, 
+        language, status, total_copies, available_copies, featured
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        safeValue(title),
+        safeValue(author),
+        safeValue(description),
+        safeValue(isbn),
+        safeValue(category),
+        safeValue(dewey_number),
+        parseFloat(price) || 0.0,
+        safeValue(format) || "physical",
+        safeValue(coverImageUrl),
+        safeValue(bookFileUrl),
+        safeNumber(pages),
+        safeValue(publisher),
+        safeValue(published_date),
+        safeValue(language) || "English",
+        safeValue(status) || "available",
+        parseInt(total_copies) || 1,
+        available_copies,
+        featured ? 1 : 0,
+      ]
+    );
+
+    const [newBook] = await db.execute("SELECT * FROM books WHERE id = ?", [
+      result.insertId,
+    ]);
+
+    console.log("✅ BOOK CREATED SUCCESSFULLY, ID:", result.insertId);
+
+    res.status(201).json({
+      success: true,
+      message: "Book created successfully",
+      data: {
+        book: newBook[0],
+      },
+    });
+  } catch (error) {
+    console.error("❌ CREATE BOOK ERROR:", error);
+
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        success: false,
+        message: "A book with this ISBN already exists",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to create book",
+      error: error.message,
+    });
+  }
+};
+// controllers/bookController.js - SIMPLIFIED AND WORKING VERSION
+
+// Helper function to safely handle values
+const safeValue = (value) => {
+  if (value === undefined || value === "") return null;
+  return value;
+};
+
+const safeNumber = (value) => {
+  if (value === undefined || value === "") return null;
+  return parseInt(value);
+};
+
+// controllers/bookController.js - FIXED updateBookStatus
+
+export const updateBookStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    console.log("🔄 Updating book status:", { id, status });
+
+    // Check if book exists
+    const [existingBook] = await db.execute(
+      "SELECT * FROM books WHERE id = ?",
+      [id]
+    );
+
+    if (existingBook.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Book not found",
+      });
+    }
+
+    // Calculate available copies based on status
+    const available_copies =
+      status === "available" ? existingBook[0].total_copies : 0;
+
+    console.log("📊 Setting available copies to:", available_copies);
+
+    await db.execute(
+      `UPDATE books SET 
+        status = ?, available_copies = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?`,
+      [status, available_copies, id]
+    );
+
+    console.log("✅ BOOK STATUS UPDATED SUCCESSFULLY, ID:", id);
+
+    res.json({
+      success: true,
+      message: "Book status updated successfully",
+    });
+  } catch (error) {
+    console.error("❌ UPDATE BOOK STATUS ERROR:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update book status",
+      error: error.message,
+    });
+  }
+};
+
+// controllers/bookController.js - FIXED updateBook function
+export const updateBook = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log("📥 UPDATE BOOK REQUEST:", {
+      id,
+      body: req.body,
+      files: req.files,
+    });
+
+    // Check if book exists
+    const [existingBook] = await db.execute(
+      "SELECT * FROM books WHERE id = ?",
+      [id]
+    );
+
+    if (existingBook.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Book not found",
+      });
+    }
+
+    const {
+      title,
+      author,
+      description,
+      isbn,
+      category,
+      dewey_number,
+      price,
+      format,
+      pages,
+      publisher,
+      published_date,
+      language,
+      status,
+      total_copies,
+      featured,
+    } = req.body;
+
+    // Use existing values if not provided
+    const currentBook = existingBook[0];
+    const finalTitle = title || currentBook.title;
+    const finalAuthor = author || currentBook.author;
+    const finalCategory = category || currentBook.category;
+    const finalDeweyNumber = dewey_number || currentBook.dewey_number;
+
+    // Use existing file URLs unless new files are provided
+    let coverImageUrl = currentBook.cover_image;
+    let bookFileUrl = currentBook.file_url;
+
+    // Handle file uploads - FIXED: Check for files properly
+    if (req.files && req.files.cover_image && req.files.cover_image[0]) {
+      const coverFile = req.files.cover_image[0];
+      coverImageUrl = coverFile.filename;
+      console.log("🖼️ New cover image uploaded:", coverImageUrl);
+    }
+
+    if (req.files && req.files.book_file && req.files.book_file[0]) {
+      const bookFile = req.files.book_file[0];
+      bookFileUrl = bookFile.filename;
+      console.log("📄 New book file uploaded:", bookFileUrl);
+    }
+
+    // Calculate available copies
+    const available_copies =
+      status === "available" ? parseInt(total_copies || 1) : 0;
+
+    console.log("💾 UPDATING BOOK WITH DATA:", {
+      finalTitle,
+      finalAuthor,
+      finalCategory,
+      finalDeweyNumber,
+      coverImageUrl,
+      bookFileUrl,
+      available_copies,
+    });
+
+    // FIXED: Use the correct column name (cover_image instead of cover_images)
+    await db.execute(
+      `UPDATE books SET 
+        title = ?, author = ?, description = ?, isbn = ?, category = ?, 
+        dewey_number = ?, price = ?, format = ?, cover_image = ?, 
+        file_url = ?, pages = ?, publisher = ?, published_date = ?, 
+        language = ?, status = ?, total_copies = ?, available_copies = ?, 
+        featured = ?, updated_at = CURRENT_TIMESTAMP 
+      WHERE id = ?`,
+      [
+        safeValue(finalTitle),
+        safeValue(finalAuthor),
+        safeValue(description),
+        safeValue(isbn),
+        safeValue(finalCategory),
+        safeValue(finalDeweyNumber),
+        parseFloat(price || 0),
+        safeValue(format) || "physical",
+        safeValue(coverImageUrl),
+        safeValue(bookFileUrl),
+        safeNumber(pages),
+        safeValue(publisher),
+        safeValue(published_date),
+        safeValue(language) || "English",
+        safeValue(status) || "available",
+        parseInt(total_copies || 1),
+        available_copies,
+        featured ? 1 : 0,
+        id,
+      ]
+    );
+
+    const [updatedBook] = await db.execute("SELECT * FROM books WHERE id = ?", [
+      id,
+    ]);
+
+    console.log("✅ BOOK UPDATED SUCCESSFULLY, ID:", id);
+
+    res.json({
+      success: true,
+      message: "Book updated successfully",
+      data: {
+        book: updatedBook[0],
+      },
+    });
+  } catch (error) {
+    console.error("❌ UPDATE BOOK ERROR:", error);
+
+    if (error.code === "ER_DUP_ENTRY") {
+      return res.status(400).json({
+        success: false,
+        message: "A book with this ISBN already exists",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update book",
+      error: error.message,
+    });
+  }
+};
+// Delete book
+export const deleteBook = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if book exists
+    const [existingBooks] = await db.execute(
+      "SELECT id, title FROM books WHERE id = ?",
+      [id]
+    );
+
+    if (existingBooks.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Book not found",
+      });
+    }
+
+    const bookTitle = existingBooks[0].title;
+
+    // Delete the book
+    await db.execute("DELETE FROM books WHERE id = ?", [id]);
+
+    console.log(`🗑️ Book deleted: ${bookTitle} (ID: ${id})`);
+
+    res.json({
+      success: true,
+      message: "Book deleted successfully",
+    });
+  } catch (error) {
+    console.error("❌ Delete book error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error deleting book: " + error.message,
+    });
+  }
+};
+
+// Get featured books
+export const getFeaturedBooks = async (req, res) => {
   try {
     const { limit = 6 } = req.query;
 
@@ -128,19 +590,20 @@ exports.getFeaturedBooks = async (req, res) => {
     res.json({
       success: true,
       data: {
-        books
-      }
+        books,
+      },
     });
   } catch (error) {
-    console.error('Get featured books error:', error);
+    console.error("❌ Get featured books error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching featured books'
+      message: "Error fetching featured books",
     });
   }
 };
 
-exports.getBooksByCategory = async (req, res) => {
+// Get books by category
+export const getBooksByCategory = async (req, res) => {
   try {
     const { category } = req.params;
     const { page = 1, limit = 12 } = req.query;
@@ -168,20 +631,21 @@ exports.getBooksByCategory = async (req, res) => {
           page: parseInt(page),
           limit: parseInt(limit),
           total: countResult[0].total,
-          pages: Math.ceil(countResult[0].total / limit)
-        }
-      }
+          pages: Math.ceil(countResult[0].total / limit),
+        },
+      },
     });
   } catch (error) {
-    console.error('Get books by category error:', error);
+    console.error("❌ Get books by category error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching books by category'
+      message: "Error fetching books by category",
     });
   }
 };
 
-exports.searchBooks = async (req, res) => {
+// Search books
+export const searchBooks = async (req, res) => {
   try {
     const { q: query, page = 1, limit = 12 } = req.query;
     const offset = (page - 1) * limit;
@@ -189,7 +653,7 @@ exports.searchBooks = async (req, res) => {
     if (!query) {
       return res.status(400).json({
         success: false,
-        message: 'Search query is required'
+        message: "Search query is required",
       });
     }
 
@@ -207,9 +671,13 @@ exports.searchBooks = async (req, res) => {
          created_at DESC
        LIMIT ? OFFSET ?`,
       [
-        `%${query}%`, `%${query}%`, `%${query}%`,
-        `%${query}%`, `%${query}%`,
-        parseInt(limit), offset
+        `%${query}%`,
+        `%${query}%`,
+        `%${query}%`,
+        `%${query}%`,
+        `%${query}%`,
+        parseInt(limit),
+        offset,
       ]
     );
 
@@ -229,20 +697,21 @@ exports.searchBooks = async (req, res) => {
           page: parseInt(page),
           limit: parseInt(limit),
           total: countResult[0].total,
-          pages: Math.ceil(countResult[0].total / limit)
-        }
-      }
+          pages: Math.ceil(countResult[0].total / limit),
+        },
+      },
     });
   } catch (error) {
-    console.error('Search books error:', error);
+    console.error("❌ Search books error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error searching books'
+      message: "Error searching books",
     });
   }
 };
 
-exports.getCategories = async (req, res) => {
+// Get categories
+export const getCategories = async (req, res) => {
   try {
     const [categories] = await db.execute(
       `SELECT category, COUNT(*) as book_count 
@@ -254,267 +723,13 @@ exports.getCategories = async (req, res) => {
 
     res.json({
       success: true,
-      data: categories
+      data: categories,
     });
   } catch (error) {
-    console.error('Get categories error:', error);
+    console.error("❌ Get categories error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching categories'
-    });
-  }
-};
-
-// Add these new functions to your existing bookController.js
-
-exports.createBook = async (req, res) => {
-  try {
-    const {
-      title,
-      author,
-      description,
-      isbn,
-      category,
-      dewey_number,
-      price,
-      format,
-      cover_image,
-      file_url,
-      file_size,
-      pages,
-      publisher,
-      published_date,
-      language,
-      tags,
-      total_copies,
-      featured
-    } = req.body;
-
-    // Validate required fields
-    if (!title || !author || !category) {
-      return res.status(400).json({
-        success: false,
-        message: 'Title, author, and category are required fields'
-      });
-    }
-
-    // Check if book with same ISBN already exists
-    if (isbn) {
-      const [existingBooks] = await db.execute(
-        'SELECT id FROM books WHERE isbn = ?',
-        [isbn]
-      );
-      if (existingBooks.length > 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'A book with this ISBN already exists'
-        });
-      }
-    }
-
-    // Insert new book
-    const [result] = await db.execute(
-      `INSERT INTO books (
-        title, author, description, isbn, category, dewey_number, price, format,
-        cover_image, file_url, file_size, pages, publisher, published_date,
-        language, tags, total_copies, available_copies, featured
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        title,
-        author,
-        description || null,
-        isbn || null,
-        category,
-        dewey_number || null,
-        price ? parseFloat(price) : 0,
-        format || 'PDF',
-        cover_image || null,
-        file_url || null,
-        file_size || null,
-        pages ? parseInt(pages) : null,
-        publisher || null,
-        published_date || null,
-        language || 'English',
-        tags ? JSON.stringify(tags) : null,
-        total_copies ? parseInt(total_copies) : 1,
-        total_copies ? parseInt(total_copies) : 1, // available_copies same as total_copies initially
-        featured ? Boolean(featured) : false
-      ]
-    );
-
-    // Get the created book
-    const [books] = await db.execute(
-      'SELECT * FROM books WHERE id = ?',
-      [result.insertId]
-    );
-
-    console.log(`New book created: ${title} by ${author}`);
-
-    res.status(201).json({
-      success: true,
-      message: 'Book created successfully',
-      data: {
-        book: books[0]
-      }
-    });
-  } catch (error) {
-    console.error('Create book error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error creating book: ' + error.message
-    });
-  }
-};
-
-exports.updateBook = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updateData = req.body;
-
-    // Check if book exists
-    const [existingBooks] = await db.execute(
-      'SELECT id FROM books WHERE id = ?',
-      [id]
-    );
-
-    if (existingBooks.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Book not found'
-      });
-    }
-
-    // Build update query dynamically
-    const allowedFields = [
-      'title', 'author', 'description', 'isbn', 'category', 'dewey_number',
-      'price', 'format', 'cover_image', 'file_url', 'file_size', 'pages',
-      'publisher', 'published_date', 'language', 'tags', 'total_copies',
-      'available_copies', 'featured', 'status'
-    ];
-
-    const updates = [];
-    const values = [];
-
-    Object.keys(updateData).forEach(key => {
-      if (allowedFields.includes(key)) {
-        updates.push(`${key} = ?`);
-        
-        // Handle special cases
-        if (key === 'price') {
-          values.push(parseFloat(updateData[key]));
-        } else if (key === 'pages' || key === 'total_copies' || key === 'available_copies') {
-          values.push(parseInt(updateData[key]));
-        } else if (key === 'tags' && updateData[key]) {
-          values.push(JSON.stringify(updateData[key]));
-        } else if (key === 'featured') {
-          values.push(Boolean(updateData[key]));
-        } else {
-          values.push(updateData[key]);
-        }
-      }
-    });
-
-    if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'No valid fields to update'
-      });
-    }
-
-    values.push(id);
-
-    const query = `UPDATE books SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-    
-    await db.execute(query, values);
-
-    // Get updated book
-    const [books] = await db.execute(
-      'SELECT * FROM books WHERE id = ?',
-      [id]
-    );
-
-    console.log(`Book updated: ID ${id}`);
-
-    res.json({
-      success: true,
-      message: 'Book updated successfully',
-      data: {
-        book: books[0]
-      }
-    });
-  } catch (error) {
-    console.error('Update book error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error updating book: ' + error.message
-    });
-  }
-};
-
-exports.deleteBook = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Check if book exists
-    const [existingBooks] = await db.execute(
-      'SELECT id, title FROM books WHERE id = ?',
-      [id]
-    );
-
-    if (existingBooks.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Book not found'
-      });
-    }
-
-    const bookTitle = existingBooks[0].title;
-
-    // Delete the book
-    await db.execute(
-      'DELETE FROM books WHERE id = ?',
-      [id]
-    );
-
-    console.log(`Book deleted: ${bookTitle} (ID: ${id})`);
-
-    res.json({
-      success: true,
-      message: 'Book deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete book error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting book: ' + error.message
-    });
-  }
-};
-
-exports.uploadBookCover = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      });
-    }
-
-    const coverUrl = `/uploads/${req.file.filename}`;
-
-    res.json({
-      success: true,
-      message: 'Cover image uploaded successfully',
-      data: {
-        coverUrl: coverUrl,
-        filename: req.file.filename
-      }
-    });
-  } catch (error) {
-    console.error('Upload cover error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Error uploading cover image: ' + error.message
+      message: "Error fetching categories",
     });
   }
 };

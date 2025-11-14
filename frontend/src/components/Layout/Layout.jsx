@@ -19,13 +19,29 @@ import {
 import { FaDesktop } from "react-icons/fa";
 import { PiArticleNyTimes } from "react-icons/pi";
 import ProfileDropdown from "../../pages/public/Profile/ProfileDropdown";
-import { componentClasses, colorMap } from "../UI/TailwindColors";
+import { componentClasses } from "../UI/TailwindColors";
 
-// Option 1: If you have a logo image file, import it like this:
-import logo from "../../assets/logo.jpg"; // Make sure the path
+// Enhanced Loading Spinner Component
+const LoadingSpinner = ({ size = "medium" }) => {
+  const sizes = {
+    small: "w-6 h-6",
+    medium: "w-8 h-8",
+    large: "w-12 h-12",
+  };
 
-// Option 2: Or use an icon as fallback (current approach)
-// const LogoIcon = FiBookOpen;
+  return (
+    <div className="flex items-center justify-center">
+      <div className="relative">
+        <div
+          className={`${sizes[size]} border-4 border-gray-200 dark:border-gray-700 rounded-full animate-spin`}
+        ></div>
+        <div
+          className={`absolute top-0 left-0 ${sizes[size]} border-4 border-transparent border-t-green-600 dark:border-t-green-400 rounded-full animate-spin`}
+        ></div>
+      </div>
+    </div>
+  );
+};
 
 const baseNavigation = [
   { name: "Home", href: "/", icon: FiHome },
@@ -43,11 +59,16 @@ const Layout = ({ children }) => {
   const { user } = useUser();
   const location = useLocation();
 
-  // Wait until Clerk auth is loaded
+  // Wait until Clerk auth is loaded with enhanced loading
   if (!isLoaded) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-lg">Loading...</div>
+      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center transition-colors duration-300">
+        <div className="text-center">
+          <LoadingSpinner size="large" />
+          <p className="mt-4 text-gray-600 dark:text-gray-400 font-medium">
+            Loading Library...
+          </p>
+        </div>
       </div>
     );
   }
@@ -58,12 +79,21 @@ const Layout = ({ children }) => {
 
     if (isSignedIn && user) {
       const isAffiliate = user.publicMetadata?.isAffiliate || false;
-      const affiliateStatus = user.publicMetadata?.affiliateStatus || "not_applied";
+      const affiliateStatus =
+        user.publicMetadata?.affiliateStatus || "not_applied";
 
       if (isAffiliate || affiliateStatus === "pending") {
-        nav.push({ name: "Affiliate", href: "/affiliate-dashboard", icon: FiDollarSign });
+        nav.push({
+          name: "Affiliate",
+          href: "/affiliate-dashboard",
+          icon: FiDollarSign,
+        });
       } else if (affiliateStatus === "not_applied") {
-        nav.push({ name: "Become Affiliate", href: "/affiliate-signup", icon: FiDollarSign });
+        nav.push({
+          name: "Become Affiliate",
+          href: "/affiliate-signup",
+          icon: FiDollarSign,
+        });
       }
     }
 
@@ -73,32 +103,28 @@ const Layout = ({ children }) => {
   const navigation = getNavigation();
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col transition-colors duration-300">
       {/* NAVBAR */}
-      <Disclosure as="nav" className="bg-white shadow-lg sticky top-0 z-50">
+      <Disclosure
+        as="nav"
+        className="bg-white dark:bg-gray-800 shadow-lg sticky top-0 z-50 transition-colors duration-300"
+      >
         {({ open }) => (
           <>
-           <div className="mx-auto max-w-7xl px-3 sm:px-4 lg:px-8">
-                         <div className="flex justify-between h-14 sm:h-16">
-                           {/* Logo and main nav */}
-                           <div className="flex items-center">
-                             <Link to="/" className="flex-shrink-0 flex items-center">
-                               {/* Option 1: Using an image logo */}
-                               <img
-                                 src={logo}
-                                 alt="Communiversity Library"
-                                 className="h-8 w-8 sm:h-10 sm:w-10 rounded-3xl"
-                               />
-           
-                               {/* Option 2: Using an icon as logo (current approach) */}
-                               {/* <LogoIcon className="h-6 w-6 sm:h-7 sm:w-7 lg:h-8 lg:w-8 text-gray-800 dark:text-gray-200" /> */}
-           
-                               <span className="ml-2 text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white  xs:block">
-                                 Communiversity
-                               </span>
-                               <span className="ml-2 text-lg sm:text-xl font-bold text-gray-900 dark:text-white hidden sm:block ">
-                                 Library
-                               </span>
+            <div className="mx-auto max-w-7xl px-3 sm:px-4 lg:px-8">
+              <div className="flex justify-between h-14 sm:h-16">
+                {/* Logo and main nav */}
+                <div className="flex items-center">
+                  <Link to="/" className="flex-shrink-0 flex items-center">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-gray-700 to-green-600 rounded-3xl flex items-center justify-center">
+                      <FiBookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
+                    </div>
+                    <span className="ml-2 text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white xs:block">
+                      Communiversity
+                    </span>
+                    <span className="ml-2 text-lg sm:text-xl font-bold text-gray-900 dark:text-white hidden sm:block">
+                      Library
+                    </span>
                   </Link>
 
                   {/* Desktop Menu */}
@@ -111,9 +137,9 @@ const Layout = ({ children }) => {
                           to={item.href}
                           className={classNames(
                             isActive
-                              ? "bg-blue-100 text-blue-700"
-                              : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
-                            "flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                              : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
+                            "flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
                           )}
                         >
                           <item.icon className="h-4 w-4 mr-2" />
@@ -132,14 +158,14 @@ const Layout = ({ children }) => {
                     <div className="flex items-center space-x-3">
                       <Link
                         to="/sign-up"
-                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
+                        className={`${componentClasses.btn.primary} px-4 py-2 text-sm font-medium flex items-center transition-colors`}
                       >
                         <FiUserPlus className="h-4 w-4 mr-1" />
                         Sign Up
                       </Link>
                       <Link
                         to="/sign-in"
-                        className="bg-gray-200 hover:bg-gray-300 text-gray-900 px-4 py-2 rounded-md text-sm font-medium flex items-center transition-colors"
+                        className={`${componentClasses.btn.secondary} px-4 py-2 text-sm font-medium flex items-center transition-colors`}
                       >
                         <FiUser className="h-4 w-4 mr-1" />
                         Sign In
@@ -149,9 +175,13 @@ const Layout = ({ children }) => {
 
                   {/* Mobile Menu Button */}
                   <div className="sm:hidden">
-                    <Disclosure.Button className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500">
+                    <Disclosure.Button className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-green-500 transition-colors duration-200">
                       <span className="sr-only">Open main menu</span>
-                      {open ? <FiX className="h-6 w-6" /> : <FiMenu className="h-6 w-6" />}
+                      {open ? (
+                        <FiX className="h-6 w-6" />
+                      ) : (
+                        <FiMenu className="h-6 w-6" />
+                      )}
                     </Disclosure.Button>
                   </div>
                 </div>
@@ -160,7 +190,7 @@ const Layout = ({ children }) => {
 
             {/* Mobile Menu */}
             <Disclosure.Panel className="sm:hidden">
-              <div className="px-2 pt-2 pb-3 space-y-1 bg-white border-t">
+              <div className="px-2 pt-2 pb-3 space-y-1 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 transition-colors duration-300">
                 {navigation.map((item) => {
                   const isActive = location.pathname === item.href;
                   return (
@@ -170,9 +200,9 @@ const Layout = ({ children }) => {
                       to={item.href}
                       className={classNames(
                         isActive
-                          ? "bg-blue-100 text-blue-700"
-                          : "text-gray-700 hover:bg-gray-100 hover:text-gray-900",
-                        "flex items-center px-3 py-2 rounded-md text-base font-medium"
+                          ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
+                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white",
+                        "flex items-center px-3 py-2 rounded-md text-base font-medium transition-colors duration-200"
                       )}
                     >
                       <item.icon className="h-5 w-5 mr-3" />
@@ -186,7 +216,7 @@ const Layout = ({ children }) => {
                     <Disclosure.Button
                       as={Link}
                       to="/sign-in?redirect=/admin/dashboard"
-                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-gray-900 dark:hover:text-white transition-colors duration-200"
                     >
                       <FiBarChart2 className="h-5 w-5 mr-3" />
                       Admin Login
@@ -194,7 +224,7 @@ const Layout = ({ children }) => {
                     <Disclosure.Button
                       as={Link}
                       to="/sign-up"
-                      className="flex items-center px-3 py-2 rounded-md text-base font-medium text-white bg-blue-600 hover:bg-blue-700"
+                      className={`${componentClasses.btn.primary} flex items-center px-3 py-2 rounded-md text-base font-medium mx-2`}
                     >
                       <FiUserPlus className="h-5 w-5 mr-3" />
                       Sign Up
@@ -208,26 +238,34 @@ const Layout = ({ children }) => {
       </Disclosure>
 
       {/* MAIN CONTENT */}
-      <main className="flex-grow container mx-auto px-4 py-8">{children}</main>
+      <main className="flex-grow container mx-auto px-4 py-8 transition-colors duration-300">
+        {children}
+      </main>
 
       {/* FOOTER */}
-      <footer className="bg-gray-900 text-gray-300 mt-auto">
+      <footer className="bg-gray-900 dark:bg-gray-800 text-gray-300 mt-auto transition-colors duration-300">
         <div className="container mx-auto px-4 py-12 grid md:grid-cols-4 gap-8">
           {/* About */}
           <div>
             <h4 className="text-white font-semibold text-lg mb-4">About Us</h4>
             <p className="text-sm leading-relaxed">
-              Communityersity Library is a digital-first initiative to make knowledge accessible globally.
+              Communiversity Library is a digital-first initiative to make
+              knowledge accessible globally.
             </p>
           </div>
 
           {/* Quick Links */}
           <div>
-            <h4 className="text-white font-semibold text-lg mb-4">Quick Links</h4>
+            <h4 className="text-white font-semibold text-lg mb-4">
+              Quick Links
+            </h4>
             <ul className="space-y-2 text-sm">
               {navigation.map((item) => (
                 <li key={item.name}>
-                  <Link to={item.href} className="hover:text-white flex items-center">
+                  <Link
+                    to={item.href}
+                    className="hover:text-white flex items-center transition-colors duration-200"
+                  >
                     <item.icon className="h-4 w-4 mr-2" />
                     {item.name}
                   </Link>
@@ -242,7 +280,10 @@ const Layout = ({ children }) => {
             <ul className="space-y-2 text-sm">
               {[2024, 2023, 2022].map((year) => (
                 <li key={year}>
-                  <Link to={`/archives/${year}`} className="hover:text-white flex items-center">
+                  <Link
+                    to={`/archives/${year}`}
+                    className="hover:text-white flex items-center transition-colors duration-200"
+                  >
                     <FiArchive className="h-4 w-4 mr-2" />
                     {year}
                   </Link>
@@ -253,15 +294,26 @@ const Layout = ({ children }) => {
 
           {/* Socials */}
           <div>
-            <h4 className="text-white font-semibold text-lg mb-4">Connect With Us</h4>
+            <h4 className="text-white font-semibold text-lg mb-4">
+              Connect With Us
+            </h4>
             <div className="flex space-x-4">
-              <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-blue-600 transition">
+              <a
+                href="#"
+                className="p-2 bg-gray-800 dark:bg-gray-700 rounded-full hover:bg-green-600 transition-colors duration-200"
+              >
                 <FiTwitter className="h-5 w-5" />
               </a>
-              <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-blue-800 transition">
+              <a
+                href="#"
+                className="p-2 bg-gray-800 dark:bg-gray-700 rounded-full hover:bg-green-700 transition-colors duration-200"
+              >
                 <FiFacebook className="h-5 w-5" />
               </a>
-              <a href="#" className="p-2 bg-gray-800 rounded-full hover:bg-blue-700 transition">
+              <a
+                href="#"
+                className="p-2 bg-gray-800 dark:bg-gray-700 rounded-full hover:bg-green-800 transition-colors duration-200"
+              >
                 <FiLinkedin className="h-5 w-5" />
               </a>
             </div>
@@ -269,7 +321,8 @@ const Layout = ({ children }) => {
         </div>
 
         <div className="border-t border-gray-700 py-4 text-center text-sm text-gray-500">
-          © {new Date().getFullYear()} Communityersity Digital Library. All rights reserved.
+          © {new Date().getFullYear()} Communiversity Digital Library. All
+          rights reserved.
         </div>
       </footer>
     </div>

@@ -1,550 +1,489 @@
-const db = require('../config/database')
+import db from "../config/database.js";
 
-exports.getAllArticles = async (req, res) => {
+// Helper function for building article queries
+const buildArticlesQuery = (filters = {}) => {
+  let query = `
+    SELECT id, title, content, excerpt, author, category, image_url,
+           views, read_time, published_date, status, featured, tags,
+           dewey_decimal, amount, file_url, file_name, file_size,
+           file_type, created_at, updated_at
+    FROM articles
+    WHERE status = 'published'
+  `;
+  const params = [];
+
+  const { category, search } = filters;
+
+  if (category && category !== "all") {
+    query += " AND category = ?";
+    params.push(category);
+  }
+
+  if (search) {
+    query += " AND (title LIKE ? OR author LIKE ? OR excerpt LIKE ?)";
+    const searchTerm = `%${search}%`;
+    params.push(searchTerm, searchTerm, searchTerm);
+  }
+
+  return { query, params };
+};
+
+// Parse article tags safely
+const parseArticleTags = (article) => ({
+  ...article,
+  tags: article.tags
+    ? typeof article.tags === "string"
+      ? JSON.parse(article.tags)
+      : article.tags
+    : [],
+  amount: parseFloat(article.amount) || 0,
+  file_size: article.file_size ? parseInt(article.file_size) : null,
+});
+
+// Get all published articles
+export const getArticles = async (req, res) => {
   try {
-    const { page = 1, limit = 9, search, category } = req.query
-    const offset = (page - 1) * limit
+    const { category, search, page = 1, limit = 12 } = req.query;
+    const offset = (page - 1) * limit;
 
-    let query = `
-      SELECT id, title, excerpt, author, category, image_url, views,
-             read_time, published_date, created_at, file_url, file_name,
-             file_type, file_size, amount
-      FROM articles
-      WHERE status = 'published'
-    `
-    const params = []
+    console.log("📄 Fetching articles with params:", {
+      category,
+      search,
+      page,
+      limit,
+    });
 
-    if (search) {
-      query += ` AND (title LIKE ? OR excerpt LIKE ? OR author LIKE ?)`
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`)
-    }
+    const { query: baseQuery, params: baseParams } = buildArticlesQuery({
+      category,
+      search,
+    });
 
-    if (category && category !== 'all') {
-      query += ` AND category = ?`
-      params.push(category)
-    }
+    const query = `${baseQuery} ORDER BY created_at DESC`;
+    const params = [...baseParams];
 
-    query += ` ORDER BY published_date DESC LIMIT ? OFFSET ?`
-    params.push(parseInt(limit), offset)
+    console.log("🔍 Base query:", query);
+    console.log("📊 Base params:", params);
 
-    const [articles] = await db.execute(query, params)
+    // Execute query without LIMIT/OFFSET first
+    const [allArticles] = await db.execute(query, params);
 
-    // Get total count
-    let countQuery = `SELECT COUNT(*) as total FROM articles WHERE status = 'published'`
-    const countParams = []
+    // Apply pagination manually in JavaScript
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + parseInt(limit);
+    const paginatedArticles = allArticles.slice(startIndex, endIndex);
 
-    if (search) {
-      countQuery += ` AND (title LIKE ? OR excerpt LIKE ? OR author LIKE ?)`
-      countParams.push(`%${search}%`, `%${search}%`, `%${search}%`)
-    }
+    console.log(
+      `✅ Found ${allArticles.length} total articles, showing ${paginatedArticles.length} after pagination`
+    );
 
-    if (category && category !== 'all') {
-      countQuery += ` AND category = ?`
-      countParams.push(category)
-    }
-
-    const [countResult] = await db.execute(countQuery, countParams)
-    const total = countResult[0].total
+    // Parse tags safely
+    const articlesWithParsedTags = paginatedArticles.map(parseArticleTags);
 
     res.json({
       success: true,
       data: {
-        articles: articles.map(article => ({
-          ...article,
-          tags: article.tags ? JSON.parse(article.tags) : [],
-          amount: parseFloat(article.amount) || 0,
-          file_size: article.file_size ? parseInt(article.file_size) : null
-        })),
+        articles: articlesWithParsedTags,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
-          total,
-          pages: Math.ceil(total / limit)
-        }
-      }
-    })
+          total: allArticles.length,
+          pages: Math.ceil(allArticles.length / limit),
+        },
+      },
+    });
   } catch (error) {
-    console.error('Get articles error:', error)
+    console.error("❌ Get articles error:", error.message);
     res.status(500).json({
       success: false,
-      message: 'Error fetching articles: ' + error.message
-    })
+      message: "Error fetching articles: " + error.message,
+    });
   }
-}
+};
 
-exports.getArticleById = async (req, res) => {
+// Get single article by ID
+export const getArticleById = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
     const [articles] = await db.execute(
-      'SELECT * FROM articles WHERE id = ? AND status = \'published\'',
+      "SELECT * FROM articles WHERE id = ? AND status = 'published'",
       [id]
-    )
+    );
 
     if (articles.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Article not found'
-      })
+        message: "Article not found",
+      });
     }
 
-    // Increment view count
-    await db.execute(
-      'UPDATE articles SET views = views + 1 WHERE id = ?',
-      [id]
-    )
+    const article = articles[0];
 
-    const article = articles[0]
+    // Update view count
+    await db.execute("UPDATE articles SET views = views + 1 WHERE id = ?", [
+      id,
+    ]);
+
+    // Parse tags and other fields
+    const parsedArticle = parseArticleTags(article);
+
+    res.json({
+      success: true,
+      data: { article: parsedArticle },
+    });
+  } catch (error) {
+    console.error("❌ Get article error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching article",
+    });
+  }
+};
+
+// Get article categories
+export const getArticleCategories = async (req, res) => {
+  try {
+    const [categories] = await db.execute(`
+      SELECT DISTINCT category
+      FROM articles
+      WHERE status = 'published' AND category IS NOT NULL
+      ORDER BY category
+    `);
 
     res.json({
       success: true,
       data: {
-        article: {
-          ...article,
-          tags: article.tags ? JSON.parse(article.tags) : [],
-          amount: parseFloat(article.amount) || 0,
-          file_size: article.file_size ? parseInt(article.file_size) : null
-        }
-      }
-    })
+        categories: categories.map((cat) => cat.category),
+      },
+    });
   } catch (error) {
-    console.error('Get article error:', error)
+    console.error("❌ Get categories error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error fetching article'
-    })
+      message: "Error fetching categories",
+    });
   }
-}
+};
 
-exports.createArticle = async (req, res) => {
+// Get featured articles
+export const getFeaturedArticles = async (req, res) => {
+  try {
+    const [articles] = await db.execute(`
+      SELECT id, title, excerpt, author, category, image_url, views,
+             read_time, published_date, tags, file_url, file_name,
+             file_type, file_size, amount
+      FROM articles
+      WHERE status = 'published' AND featured = 1
+      ORDER BY created_at DESC
+      LIMIT 6
+    `);
+
+    const articlesWithParsedTags = articles.map(parseArticleTags);
+
+    res.json({
+      success: true,
+      data: { articles: articlesWithParsedTags },
+    });
+  } catch (error) {
+    console.error("❌ Get featured articles error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching featured articles",
+    });
+  }
+};
+
+// Download article document
+export const downloadArticle = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const [articles] = await db.execute(
+      "SELECT file_url, file_name, file_type FROM articles WHERE id = ? AND status = 'published'",
+      [id]
+    );
+
+    if (articles.length === 0 || !articles[0].file_url) {
+      return res.status(404).json({
+        success: false,
+        message: "Article or document not found",
+      });
+    }
+
+    const article = articles[0];
+    res.redirect(`http://localhost:5000${article.file_url}`);
+  } catch (error) {
+    console.error("❌ Download article document error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error downloading document",
+    });
+  }
+};
+
+// Get all articles for admin (including drafts)
+export const getAdminArticles = async (req, res) => {
+  try {
+    console.log("📄 Admin: Fetching all articles...");
+
+    const [articles] = await db.execute(`
+      SELECT id, title, content, excerpt, author, category, image_url, 
+             views, read_time, published_date, status, featured, tags,
+             dewey_decimal, amount, file_url, file_name, file_size, file_type,
+             created_at, updated_at
+      FROM articles 
+      ORDER BY created_at DESC
+    `);
+
+    const articlesWithParsedTags = articles.map(parseArticleTags);
+
+    console.log(`✅ Admin: Found ${articles.length} articles`);
+
+    res.json({
+      success: true,
+      data: {
+        articles: articlesWithParsedTags,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Admin: Get articles error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching articles: " + error.message,
+    });
+  }
+};
+
+// Create article
+export const createArticle = async (req, res) => {
   try {
     const {
-      title, content, excerpt, author, category, read_time, status, tags,
-      featured, image_url, dewey_decimal, amount, file_url, file_name,
-      file_type, file_size
-    } = req.body
-     // ✅ ADD THESE DEBUG LINES for  image cover:
-    console.log('📸 CREATE ARTICLE - Received data:');
-    console.log('Title:', title);
-    console.log('Author:', author);
-    console.log('Category:', category);
-    console.log('Image URL received:', image_url); // ← This will show if image_url is coming from frontend
-    console.log('Full body:', req.body);
+      title,
+      content,
+      excerpt,
+      author,
+      category,
+      read_time,
+      status,
+      featured,
+      tags,
+      dewey_decimal,
+      amount,
+    } = req.body;
 
-    // Validate required fields
     if (!title || !author || !category) {
       return res.status(400).json({
         success: false,
-        message: 'Title, author, and category are required fields'
-      })
+        message: "Title, author, and category are required fields",
+      });
     }
 
-    // Validate that either content or file is provided
-    if (!content && !file_url) {
-      return res.status(400).json({
-        success: false,
-        message: 'Either content or a document file is required'
-      })
+    let tagsValue = null;
+    if (tags) {
+      if (Array.isArray(tags)) {
+        tagsValue = JSON.stringify(tags);
+      } else if (typeof tags === "string") {
+        const tagsArray = tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter((tag) => tag !== "");
+        tagsValue = JSON.stringify(tagsArray);
+      }
     }
 
-    // Insert new article
     const [result] = await db.execute(
       `INSERT INTO articles (
-        title, content, excerpt, author, category, image_url, read_time,
-        status, tags, featured, published_date, dewey_decimal, amount,
-        file_url, file_name, file_type, file_size
-      ) VALUES (
-        ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
-      )`,
+        title, content, excerpt, author, category, image_url,
+        read_time, status, featured, tags, dewey_decimal, amount,
+        file_url, file_name, file_type, file_size, published_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        title, content || '', excerpt || '', author, category,
-        image_url || null, parseInt(read_time) || 5,
-        status || 'draft',
-        tags ? JSON.stringify(tags) : null,
-        featured ? Boolean(featured) : false,
-        status === 'published' ? new Date().toISOString().split('T')[0] : null,
+        title,
+        content || "",
+        excerpt || "",
+        author,
+        category,
+        null, // image_url - will be handled by upload route
+        parseInt(read_time) || 5,
+        status || "draft",
+        featured === "true" ? 1 : 0,
+        tagsValue,
         dewey_decimal || null,
-        amount ? parseFloat(amount) : 0.00,
-        file_url || null,
-        file_name || null,
-        file_type || null,
-        file_size ? parseInt(file_size) : null
+        amount ? parseFloat(amount) : 0.0,
+        null, // file_url - will be handled by upload route
+        null, // file_name
+        null, // file_type
+        null, // file_size
+        status === "published" ? new Date().toISOString().split("T")[0] : null,
       ]
-    )
+    );
 
-    // Get the created article
-    const [articles] = await db.execute(
-      'SELECT * FROM articles WHERE id = ?',
-      [result.insertId]
-    )
+    const [articles] = await db.execute("SELECT * FROM articles WHERE id = ?", [
+      result.insertId,
+    ]);
 
-    const createdArticle = articles[0]
+    const createdArticle = parseArticleTags(articles[0]);
 
-    console.log(`New article created: ${title} by ${author}`)
+    console.log(`✅ Admin: New article created: ${title} by ${author}`);
 
     res.status(201).json({
       success: true,
-      message: 'Article created successfully',
+      message: "Article created successfully",
       data: {
-        article: {
-          ...createdArticle,
-          tags: createdArticle.tags ? JSON.parse(createdArticle.tags) : []
-        }
-      }
-    })
+        article: createdArticle,
+      },
+    });
   } catch (error) {
-    console.error('Create article error:', error)
+    console.error("❌ Admin: Create article error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error creating article: ' + error.message
-    })
+      message: "Error creating article: " + error.message,
+    });
   }
-}
+};
 
-exports.updateArticle = async (req, res) => {
+// Update article
+export const updateArticle = async (req, res) => {
   try {
-    const { id } = req.params
-    const updateData = req.body
+    const { id } = req.params;
+    const updateData = req.body;
 
-    // Check if article exists
     const [existingArticles] = await db.execute(
-      'SELECT id FROM articles WHERE id = ?',
+      "SELECT id FROM articles WHERE id = ?",
       [id]
-    )
+    );
 
     if (existingArticles.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Article not found'
-      })
+        message: "Article not found",
+      });
     }
 
-    // Build update query dynamically
     const allowedFields = [
-      'title', 'content', 'excerpt', 'author', 'category', 'image_url',
-      'read_time', 'status', 'tags', 'featured', 'published_date',
-      'dewey_decimal', 'amount', 'file_url', 'file_name', 'file_type',
-      'file_size'
-    ]
+      "title",
+      "content",
+      "excerpt",
+      "author",
+      "category",
+      "read_time",
+      "status",
+      "featured",
+      "tags",
+      "dewey_decimal",
+      "amount",
+      "image_url",
+      "file_url",
+      "file_name",
+      "file_type",
+      "file_size",
+    ];
 
-    const updates = []
-    const values = []
+    const updates = [];
+    const values = [];
 
-    Object.keys(updateData).forEach(key => {
+    Object.keys(updateData).forEach((key) => {
       if (allowedFields.includes(key)) {
-        updates.push(`${key} = ?`)
+        updates.push(`${key} = ?`);
 
-        // Handle special cases
-        if (key === 'read_time') {
-          values.push(parseInt(updateData[key]))
-        } else if (key === 'tags' && updateData[key]) {
-          values.push(JSON.stringify(updateData[key]))
-        } else if (key === 'featured') {
-          values.push(Boolean(updateData[key]))
-        } else if (key === 'amount') {
-          values.push(parseFloat(updateData[key]) || 0.00)
-        } else if (key === 'file_size') {
-          values.push(parseInt(updateData[key]) || null)
-        } else if (key === 'published_date' && updateData.status === 'published' && !updateData.published_date) {
-          values.push(new Date().toISOString().split('T')[0])
+        if (key === "read_time") {
+          values.push(parseInt(updateData[key]));
+        } else if (key === "featured") {
+          values.push(updateData[key] === "true" ? 1 : 0);
+        } else if (key === "tags" && updateData[key]) {
+          let tagsValue = null;
+          if (Array.isArray(updateData[key])) {
+            tagsValue = JSON.stringify(updateData[key]);
+          } else if (typeof updateData[key] === "string") {
+            const tagsArray = updateData[key]
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter((tag) => tag !== "");
+            tagsValue = JSON.stringify(tagsArray);
+          }
+          values.push(tagsValue);
+        } else if (key === "amount") {
+          values.push(updateData[key] ? parseFloat(updateData[key]) : 0.0);
         } else {
-          values.push(updateData[key])
+          values.push(updateData[key]);
         }
       }
-    })
+    });
 
     if (updates.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'No valid fields to update'
-      })
+        message: "No valid fields to update",
+      });
     }
 
-    values.push(id)
+    // Add published_date if status is being updated to published
+    if (updateData.status === "published") {
+      updates.push("published_date = ?");
+      values.push(new Date().toISOString().split("T")[0]);
+    }
 
-    const query = `
-      UPDATE articles
-      SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `
+    updates.push("updated_at = CURRENT_TIMESTAMP");
+    values.push(id);
 
-    await db.execute(query, values)
+    const query = `UPDATE articles SET ${updates.join(", ")} WHERE id = ?`;
 
-    // Get updated article
-    const [articles] = await db.execute(
-      'SELECT * FROM articles WHERE id = ?',
-      [id]
-    )
+    await db.execute(query, values);
 
-    const updatedArticle = articles[0]
+    const [articles] = await db.execute("SELECT * FROM articles WHERE id = ?", [
+      id,
+    ]);
 
-    console.log(`Article updated: ID ${id}`)
+    const updatedArticle = parseArticleTags(articles[0]);
+
+    console.log(`✅ Admin: Article updated: ID ${id}`);
 
     res.json({
       success: true,
-      message: 'Article updated successfully',
+      message: "Article updated successfully",
       data: {
-        article: {
-          ...updatedArticle,
-          tags: updatedArticle.tags ? JSON.parse(updatedArticle.tags) : []
-        }
-      }
-    })
+        article: updatedArticle,
+      },
+    });
   } catch (error) {
-    console.error('Update article error:', error)
+    console.error("❌ Admin: Update article error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error updating article: ' + error.message
-    })
+      message: "Error updating article: " + error.message,
+    });
   }
-}
+};
 
-exports.deleteArticle = async (req, res) => {
+// Delete article
+export const deleteArticle = async (req, res) => {
   try {
-    const { id } = req.params
+    const { id } = req.params;
 
-    // Check if article exists
     const [existingArticles] = await db.execute(
-      'SELECT id, title FROM articles WHERE id = ?',
+      "SELECT id, title FROM articles WHERE id = ?",
       [id]
-    )
+    );
 
     if (existingArticles.length === 0) {
       return res.status(404).json({
         success: false,
-        message: 'Article not found'
-      })
+        message: "Article not found",
+      });
     }
 
-    const articleTitle = existingArticles[0].title
+    const articleTitle = existingArticles[0].title;
 
-    // Delete the article
-    await db.execute(
-      'DELETE FROM articles WHERE id = ?',
-      [id]
-    )
+    await db.execute("DELETE FROM articles WHERE id = ?", [id]);
 
-    console.log(`Article deleted: ${articleTitle} (ID: ${id})`)
+    console.log(`🗑️ Admin: Article deleted: ${articleTitle} (ID: ${id})`);
 
     res.json({
       success: true,
-      message: 'Article deleted successfully'
-    })
-  } catch (error) {
-    console.error('Delete article error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Error deleting article: ' + error.message
-    })
-  }
-}
-
-exports.uploadArticleImage = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      })
-    }
-
-    const imageUrl = `/uploads/articles/images/${req.file.filename}`
-        // ✅ ADD THESE DEBUG LINES for image cover:
-    console.log('📁 UPLOAD SUCCESS:');
-    console.log('Filename:', req.file.filename);
-    console.log('Image URL to return:', imageUrl);
-    console.log('File details:', {
-      originalname: req.file.originalname,
-      size: req.file.size,
-      mimetype: req.file.mimetype
+      message: "Article deleted successfully",
     });
-
-    res.json({
-      success: true,
-      message: 'Article image uploaded successfully',
-      data: {
-        imageUrl,
-        filename: req.file.filename
-      }
-    })
   } catch (error) {
-    console.error('Upload article image error:', error)
+    console.error("❌ Admin: Delete article error:", error);
     res.status(500).json({
       success: false,
-      message: 'Error uploading article image: ' + error.message
-    })
+      message: "Error deleting article: " + error.message,
+    });
   }
-}
-
-exports.uploadArticleDocument = async (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No file uploaded'
-      })
-    }
-
-    const fileUrl = `/uploads/articles/documents/${req.file.filename}`
-
-    res.json({
-      success: true,
-      message: 'Article document uploaded successfully',
-      data: {
-        fileUrl,
-        filename: req.file.filename,
-        originalName: req.file.originalname,
-        fileSize: req.file.size,
-        fileType: req.file.mimetype
-      }
-    })
-  } catch (error) {
-    console.error('Upload article document error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Error uploading article document: ' + error.message
-    })
-  }
-}
-
-exports.getCategories = async (req, res) => {
-  try {
-    const [categories] = await db.execute(
-      `SELECT category, COUNT(*) as article_count
-       FROM articles
-       WHERE status = 'published'
-       GROUP BY category
-       ORDER BY article_count DESC`
-    )
-
-    res.json({
-      success: true,
-      data: categories
-    })
-  } catch (error) {
-    console.error('Get categories error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching categories'
-    })
-  }
-}
-
-exports.getArticlesByCategory = async (req, res) => {
-  try {
-    const { category } = req.params
-    const { page = 1, limit = 9 } = req.query
-    const offset = (page - 1) * limit
-
-    const [articles] = await db.execute(
-      `SELECT id, title, excerpt, author, category, image_url, views,
-              read_time, published_date, file_url, file_name, file_type,
-              file_size, amount
-       FROM articles
-       WHERE category = ? AND status = 'published'
-       ORDER BY published_date DESC
-       LIMIT ? OFFSET ?`,
-      [category, parseInt(limit), offset]
-    )
-
-    const [countResult] = await db.execute(
-      `SELECT COUNT(*) as total
-       FROM articles
-       WHERE category = ? AND status = 'published'`,
-      [category]
-    )
-
-    res.json({
-      success: true,
-      data: {
-        articles: articles.map(article => ({
-          ...article,
-          tags: article.tags ? JSON.parse(article.tags) : [],
-          amount: parseFloat(article.amount) || 0,
-          file_size: article.file_size ? parseInt(article.file_size) : null
-        })),
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: countResult[0].total,
-          pages: Math.ceil(countResult[0].total / limit)
-        }
-      }
-    })
-  } catch (error) {
-    console.error('Get articles by category error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Error fetching articles by category'
-    })
-  }
-}
-
-exports.searchArticles = async (req, res) => {
-  try {
-    const { q: query, page = 1, limit = 9 } = req.query
-    const offset = (page - 1) * limit
-
-    if (!query) {
-      return res.status(400).json({
-        success: false,
-        message: 'Search query is required'
-      })
-    }
-
-    const [articles] = await db.execute(
-      `SELECT id, title, excerpt, author, category, image_url, views,
-              read_time, published_date, file_url, file_name, file_type,
-              file_size, amount
-       FROM articles
-       WHERE (title LIKE ? OR excerpt LIKE ? OR author LIKE ? OR content LIKE ?)
-         AND status = 'published'
-       ORDER BY
-         CASE
-           WHEN title LIKE ? THEN 1
-           WHEN excerpt LIKE ? THEN 2
-           WHEN author LIKE ? THEN 3
-           ELSE 4
-         END,
-         published_date DESC
-       LIMIT ? OFFSET ?`,
-      [
-        `%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`,
-        `%${query}%`, `%${query}%`, `%${query}%`,
-        parseInt(limit), offset
-      ]
-    )
-
-    const [countResult] = await db.execute(
-      `SELECT COUNT(*) as total
-       FROM articles
-       WHERE (title LIKE ? OR excerpt LIKE ? OR author LIKE ? OR content LIKE ?)
-         AND status = 'published'`,
-      [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`]
-    )
-
-    res.json({
-      success: true,
-      data: {
-        articles: articles.map(article => ({
-          ...article,
-          tags: article.tags ? JSON.parse(article.tags) : [],
-          amount: parseFloat(article.amount) || 0,
-          file_size: article.file_size ? parseInt(article.file_size) : null
-        })),
-        query,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: countResult[0].total,
-          pages: Math.ceil(countResult[0].total / limit)
-        }
-      }
-    })
-  } catch (error) {
-    console.error('Search articles error:', error)
-    res.status(500).json({
-      success: false,
-      message: 'Error searching articles'
-    })
-  }
-}
+};

@@ -12,12 +12,12 @@ import {
   FiCalendar,
   FiBarChart2,
   FiDollarSign,
-  FiBook
+  FiBook,
 } from "react-icons/fi";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
 import ArticleFormModal from "./ArticleFormModal";
-import { api } from "../../../config/api ne";
+import { api } from "../../../config/api";
 
 const ManageArticlesPage = () => {
   const [articles, setArticles] = useState([]);
@@ -40,7 +40,7 @@ const ManageArticlesPage = () => {
     "History",
     "Travel",
     "Lifestyle",
-    "Other"
+    "Other",
   ];
 
   useEffect(() => {
@@ -54,7 +54,7 @@ const ManageArticlesPage = () => {
       if (response.success) {
         setArticles(response.data.articles || []);
       } else {
-        console.error('Failed to load articles:', response.message);
+        console.error("Failed to load articles:", response.message);
         setArticles([]);
       }
     } catch (error) {
@@ -88,24 +88,31 @@ const ManageArticlesPage = () => {
         read_time: parseInt(articleData.readTime) || 5,
         status: articleData.status,
         featured: Boolean(articleData.featured),
-        tags: articleData.tags ? articleData.tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [],
+        tags: articleData.tags
+          ? articleData.tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter((tag) => tag !== "")
+          : [],
         dewey_decimal: articleData.deweyDecimal || null,
-        amount: articleData.amount ? parseFloat(articleData.amount) : null
+        amount: articleData.amount ? parseFloat(articleData.amount) : null,
       };
 
-      console.log('💾 Saving article with data:', submissionData);
+      console.log("💾 Saving article with data:", submissionData);
 
       // Handle image upload if available
       if (articleData.imageFile) {
         try {
-          console.log('🖼️ Uploading article image...');
-          const uploadResponse = await api.uploadArticleImage(articleData.imageFile);
+          console.log("🖼️ Uploading article image...");
+          const uploadResponse = await api.uploadArticleImage(
+            articleData.imageFile
+          );
           if (uploadResponse.success) {
             submissionData.image_url = uploadResponse.data.imageUrl;
-            console.log('✅ Image uploaded:', uploadResponse.data.imageUrl);
+            console.log("✅ Image uploaded:", uploadResponse.data.imageUrl);
           }
         } catch (uploadError) {
-          console.error('❌ Error uploading image:', uploadError);
+          console.error("❌ Error uploading image:", uploadError);
           // Continue without image - don't throw error
         }
       }
@@ -113,17 +120,19 @@ const ManageArticlesPage = () => {
       // Handle document upload if available
       if (articleData.documentFile) {
         try {
-          console.log('📄 Uploading article document...');
-          const uploadResponse = await api.uploadArticleDocument(articleData.documentFile);
+          console.log("📄 Uploading article document...");
+          const uploadResponse = await api.uploadArticleDocument(
+            articleData.documentFile
+          );
           if (uploadResponse.success) {
             submissionData.file_url = uploadResponse.data.fileUrl;
             submissionData.file_name = uploadResponse.data.fileName;
             submissionData.file_type = uploadResponse.data.fileType;
             submissionData.file_size = uploadResponse.data.fileSize;
-            console.log('✅ Document uploaded:', uploadResponse.data.fileUrl);
+            console.log("✅ Document uploaded:", uploadResponse.data.fileUrl);
           }
         } catch (uploadError) {
-          console.error('❌ Error uploading document:', uploadError);
+          console.error("❌ Error uploading document:", uploadError);
           // Continue without document - don't throw error
         }
       }
@@ -133,21 +142,23 @@ const ManageArticlesPage = () => {
         console.log(`🔄 Updating existing article: ${articleId}`);
         response = await api.updateArticle(articleId, submissionData);
       } else {
-        console.log('🆕 Creating new article');
+        console.log("🆕 Creating new article");
         response = await api.createArticle(submissionData);
       }
 
       if (response.success) {
-        console.log('✅ Article saved successfully');
+        console.log("✅ Article saved successfully");
         await loadArticles();
         return response;
       } else {
-        console.error('❌ Save failed:', response.message);
-        throw new Error(response.message || 'Failed to save article');
+        console.error("❌ Save failed:", response.message);
+        throw new Error(response.message || "Failed to save article");
       }
     } catch (error) {
       console.error("💥 Error in handleSaveArticle:", error);
-      throw new Error(error.message || "Failed to save article. Please try again.");
+      throw new Error(
+        error.message || "Failed to save article. Please try again."
+      );
     } finally {
       setSaveLoading(false);
     }
@@ -162,8 +173,10 @@ const ManageArticlesPage = () => {
     const matchesSearch =
       article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       article.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (article.excerpt && article.excerpt.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (article.dewey_decimal && article.dewey_decimal.toLowerCase().includes(searchTerm.toLowerCase()));
+      (article.excerpt &&
+        article.excerpt.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (article.dewey_decimal &&
+        article.dewey_decimal.toLowerCase().includes(searchTerm.toLowerCase()));
 
     const matchesCategory =
       filterCategory === "all" || article.category === filterCategory;
@@ -192,14 +205,17 @@ const ManageArticlesPage = () => {
 
   const handleToggleStatus = async (id) => {
     try {
-      const article = articles.find(a => a.id === id);
+      const article = articles.find((a) => a.id === id);
       const newStatus = article.status === "published" ? "draft" : "published";
-      
-      const response = await api.updateArticle(id, { 
+
+      const response = await api.updateArticle(id, {
         status: newStatus,
-        published_date: newStatus === "published" ? new Date().toISOString().split('T')[0] : null
+        published_date:
+          newStatus === "published"
+            ? new Date().toISOString().split("T")[0]
+            : null,
       });
-      
+
       if (response.success) {
         setArticles(
           articles.map((article) =>
@@ -207,7 +223,10 @@ const ManageArticlesPage = () => {
               ? {
                   ...article,
                   status: newStatus,
-                  published_date: newStatus === "published" ? new Date().toISOString().split('T')[0] : article.published_date
+                  published_date:
+                    newStatus === "published"
+                      ? new Date().toISOString().split("T")[0]
+                      : article.published_date,
                 }
               : article
           )
@@ -223,20 +242,20 @@ const ManageArticlesPage = () => {
 
   const handleToggleFeatured = async (id) => {
     try {
-      const article = articles.find(a => a.id === id);
+      const article = articles.find((a) => a.id === id);
       const newFeatured = !article.featured;
-      
-      const response = await api.updateArticle(id, { 
-        featured: newFeatured
+
+      const response = await api.updateArticle(id, {
+        featured: newFeatured,
       });
-      
+
       if (response.success) {
         setArticles(
           articles.map((article) =>
             article.id === id
               ? {
                   ...article,
-                  featured: newFeatured
+                  featured: newFeatured,
                 }
               : article
           )
@@ -275,10 +294,15 @@ const ManageArticlesPage = () => {
 
   // Calculate statistics
   const totalArticles = articles.length;
-  const publishedArticles = articles.filter(a => a.status === "published").length;
-  const draftArticles = articles.filter(a => a.status === "draft").length;
-  const totalViews = articles.reduce((sum, article) => sum + (article.views || 0), 0);
-  const featuredArticles = articles.filter(a => a.featured).length;
+  const publishedArticles = articles.filter(
+    (a) => a.status === "published"
+  ).length;
+  const draftArticles = articles.filter((a) => a.status === "draft").length;
+  const totalViews = articles.reduce(
+    (sum, article) => sum + (article.views || 0),
+    0
+  );
+  const featuredArticles = articles.filter((a) => a.featured).length;
 
   if (isLoading) {
     return (
@@ -293,7 +317,9 @@ const ManageArticlesPage = () => {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Manage Articles</h1>
-          <p className="text-gray-600">Create, edit, and publish blog articles</p>
+          <p className="text-gray-600">
+            Create, edit, and publish blog articles
+          </p>
         </div>
         <Button onClick={handleAddArticle}>
           <FiPlus className="mr-2" />
@@ -305,15 +331,21 @@ const ManageArticlesPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
         <Card className="p-6 text-center">
           <FiFileText className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-900">{totalArticles}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {totalArticles}
+          </div>
           <div className="text-sm text-gray-600">Total Articles</div>
         </Card>
         <Card className="p-6 text-center">
-          <div className="text-2xl font-bold text-gray-900">{publishedArticles}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {publishedArticles}
+          </div>
           <div className="text-sm text-gray-600">Published</div>
         </Card>
         <Card className="p-6 text-center">
-          <div className="text-2xl font-bold text-gray-900">{draftArticles}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {draftArticles}
+          </div>
           <div className="text-sm text-gray-600">Drafts</div>
         </Card>
         <Card className="p-6 text-center">
@@ -322,7 +354,9 @@ const ManageArticlesPage = () => {
           <div className="text-sm text-gray-600">Total Views</div>
         </Card>
         <Card className="p-6 text-center">
-          <div className="text-2xl font-bold text-gray-900">{featuredArticles}</div>
+          <div className="text-2xl font-bold text-gray-900">
+            {featuredArticles}
+          </div>
           <div className="text-sm text-gray-600">Featured</div>
         </Card>
       </div>
@@ -340,17 +374,19 @@ const ManageArticlesPage = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <select 
+          <select
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
           >
             <option value="all">All Categories</option>
-            {categories.map(category => (
-              <option key={category} value={category}>{category}</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
             ))}
           </select>
-          <select 
+          <select
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -401,7 +437,9 @@ const ManageArticlesPage = () => {
                     <div className="text-gray-500">
                       <FiFileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 mb-2">
-                        {articles.length === 0 ? "No articles found" : "No matching articles"}
+                        {articles.length === 0
+                          ? "No articles found"
+                          : "No matching articles"}
                       </h3>
                       <p className="text-gray-600">
                         {articles.length === 0
@@ -424,8 +462,8 @@ const ManageArticlesPage = () => {
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center">
                           {article.image_url ? (
-                            <img 
-                              src={article.image_url} 
+                            <img
+                              src={article.image_url}
                               alt={article.title}
                               className="h-10 w-10 object-cover rounded"
                             />
@@ -478,7 +516,9 @@ const ManageArticlesPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div className="flex items-center">
                         <FiDollarSign className="h-4 w-4 text-gray-400 mr-2" />
-                        {article.amount ? `$${parseFloat(article.amount).toFixed(2)}` : "N/A"}
+                        {article.amount
+                          ? `$${parseFloat(article.amount).toFixed(2)}`
+                          : "N/A"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -504,7 +544,11 @@ const ManageArticlesPage = () => {
                             ? "text-yellow-600 hover:text-yellow-900"
                             : "text-green-600 hover:text-green-900"
                         }`}
-                        title={article.status === "published" ? "Mark as draft" : "Publish article"}
+                        title={
+                          article.status === "published"
+                            ? "Mark as draft"
+                            : "Publish article"
+                        }
                       >
                         {article.status === "published" ? "Draft" : "Publish"}
                       </button>
@@ -515,11 +559,15 @@ const ManageArticlesPage = () => {
                             ? "text-gray-600 hover:text-gray-900"
                             : "text-purple-600 hover:text-purple-900"
                         }`}
-                        title={article.featured ? "Remove featured" : "Mark as featured"}
+                        title={
+                          article.featured
+                            ? "Remove featured"
+                            : "Mark as featured"
+                        }
                       >
                         {article.featured ? "Unfeature" : "Feature"}
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleEditArticle(article)}
                         className="text-blue-600 hover:text-blue-900 p-1"
                         title="Edit article"
