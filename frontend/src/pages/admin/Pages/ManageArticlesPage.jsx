@@ -1,4 +1,3 @@
-// src/pages/admin/ManageArticlesPage.jsx
 import { useState, useEffect } from "react";
 import {
   FiEdit,
@@ -28,6 +27,7 @@ const ManageArticlesPage = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [saveLoading, setSaveLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   const categories = [
     "Technology",
@@ -49,16 +49,24 @@ const ManageArticlesPage = () => {
 
   const loadArticles = async () => {
     setIsLoading(true);
+    setError(null);
     try {
+      console.log("📄 Loading articles...");
       const response = await api.getAdminArticles();
+      console.log("📥 Articles API response:", response);
+
       if (response.success) {
-        setArticles(response.data.articles || []);
+        const articlesData = response.data?.articles || response.data || [];
+        console.log(`✅ Loaded ${articlesData.length} articles:`, articlesData);
+        setArticles(articlesData);
       } else {
-        console.error("Failed to load articles:", response.message);
+        console.error("❌ Failed to load articles:", response.message);
+        setError(response.message || "Failed to load articles");
         setArticles([]);
       }
     } catch (error) {
-      console.error("Error loading articles:", error);
+      console.error("💥 Error loading articles:", error);
+      setError("Failed to load articles. Please try again.");
       setArticles([]);
     } finally {
       setIsLoading(false);
@@ -104,9 +112,7 @@ const ManageArticlesPage = () => {
       if (articleData.imageFile) {
         try {
           console.log("🖼️ Uploading article image...");
-          const uploadResponse = await api.uploadArticleImage(
-            articleData.imageFile
-          );
+          const uploadResponse = await api.uploadImage(articleData.imageFile);
           if (uploadResponse.success) {
             submissionData.image_url = uploadResponse.data.imageUrl;
             console.log("✅ Image uploaded:", uploadResponse.data.imageUrl);
@@ -121,9 +127,7 @@ const ManageArticlesPage = () => {
       if (articleData.documentFile) {
         try {
           console.log("📄 Uploading article document...");
-          const uploadResponse = await api.uploadArticleDocument(
-            articleData.documentFile
-          );
+          const uploadResponse = await api.uploadFile(articleData.documentFile);
           if (uploadResponse.success) {
             submissionData.file_url = uploadResponse.data.fileUrl;
             submissionData.file_name = uploadResponse.data.fileName;
@@ -171,8 +175,8 @@ const ManageArticlesPage = () => {
 
   const filteredArticles = articles.filter((article) => {
     const matchesSearch =
-      article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.author.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.author?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (article.excerpt &&
         article.excerpt.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (article.dewey_decimal &&
@@ -271,25 +275,35 @@ const ManageArticlesPage = () => {
 
   const getStatusBadge = (status) => {
     return status === "published"
-      ? "bg-green-100 text-green-800"
-      : "bg-yellow-100 text-yellow-800";
+      ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+      : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200";
   };
 
   const getCategoryBadge = (category) => {
     const styles = {
-      Technology: "bg-blue-100 text-blue-800",
-      Education: "bg-purple-100 text-purple-800",
-      Science: "bg-green-100 text-green-800",
-      Health: "bg-red-100 text-red-800",
-      Business: "bg-indigo-100 text-indigo-800",
-      Arts: "bg-pink-100 text-pink-800",
-      Literature: "bg-orange-100 text-orange-800",
-      History: "bg-amber-100 text-amber-800",
-      Travel: "bg-teal-100 text-teal-800",
-      Lifestyle: "bg-cyan-100 text-cyan-800",
-      Other: "bg-gray-100 text-gray-800",
+      Technology:
+        "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
+      Education:
+        "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+      Science:
+        "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+      Health: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+      Business:
+        "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200",
+      Arts: "bg-pink-100 text-pink-800 dark:bg-pink-900 dark:text-pink-200",
+      Literature:
+        "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
+      History:
+        "bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200",
+      Travel: "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200",
+      Lifestyle:
+        "bg-cyan-100 text-cyan-800 dark:bg-cyan-900 dark:text-cyan-200",
+      Other: "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200",
     };
-    return styles[category] || "bg-gray-100 text-gray-800";
+    return (
+      styles[category] ||
+      "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"
+    );
   };
 
   // Calculate statistics
@@ -307,7 +321,7 @@ const ManageArticlesPage = () => {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center min-h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
       </div>
     );
   }
@@ -316,8 +330,10 @@ const ManageArticlesPage = () => {
     <div>
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Manage Articles</h1>
-          <p className="text-gray-600">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            Manage Articles
+          </h1>
+          <p className="text-gray-600 dark:text-gray-400">
             Create, edit, and publish blog articles
           </p>
         </div>
@@ -327,37 +343,57 @@ const ManageArticlesPage = () => {
         </Button>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
+          <p className="text-red-700 dark:text-red-400">{error}</p>
+          <Button variant="primary" onClick={loadArticles} className="mt-2">
+            Retry
+          </Button>
+        </div>
+      )}
+
       {/* Statistics Summary */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
         <Card className="p-6 text-center">
-          <FiFileText className="h-8 w-8 text-blue-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-900">
+          <FiFileText className="h-8 w-8 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {totalArticles}
           </div>
-          <div className="text-sm text-gray-600">Total Articles</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Total Articles
+          </div>
         </Card>
         <Card className="p-6 text-center">
-          <div className="text-2xl font-bold text-gray-900">
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {publishedArticles}
           </div>
-          <div className="text-sm text-gray-600">Published</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Published
+          </div>
         </Card>
         <Card className="p-6 text-center">
-          <div className="text-2xl font-bold text-gray-900">
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {draftArticles}
           </div>
-          <div className="text-sm text-gray-600">Drafts</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">Drafts</div>
         </Card>
         <Card className="p-6 text-center">
-          <FiBarChart2 className="h-8 w-8 text-green-600 mx-auto mb-2" />
-          <div className="text-2xl font-bold text-gray-900">{totalViews}</div>
-          <div className="text-sm text-gray-600">Total Views</div>
+          <FiBarChart2 className="h-8 w-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
+            {totalViews}
+          </div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Total Views
+          </div>
         </Card>
         <Card className="p-6 text-center">
-          <div className="text-2xl font-bold text-gray-900">
+          <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {featuredArticles}
           </div>
-          <div className="text-sm text-gray-600">Featured</div>
+          <div className="text-sm text-gray-600 dark:text-gray-400">
+            Featured
+          </div>
         </Card>
       </div>
 
@@ -369,13 +405,13 @@ const ManageArticlesPage = () => {
             <input
               type="text"
               placeholder="Search articles by title, author, content, or Dewey Decimal..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
           >
@@ -387,7 +423,7 @@ const ManageArticlesPage = () => {
             ))}
           </select>
           <select
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
@@ -402,46 +438,46 @@ const ManageArticlesPage = () => {
       <Card className="p-0 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Article
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Author
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Category
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Dewey Decimal
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Amount
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Views
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredArticles.length === 0 ? (
                 <tr>
                   <td colSpan="8" className="px-6 py-12 text-center">
-                    <div className="text-gray-500">
-                      <FiFileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                    <div className="text-gray-500 dark:text-gray-400">
+                      <FiFileText className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
                         {articles.length === 0
                           ? "No articles found"
                           : "No matching articles"}
                       </h3>
-                      <p className="text-gray-600">
+                      <p className="text-gray-600 dark:text-gray-400">
                         {articles.length === 0
                           ? "Get started by creating your first article."
                           : "Try changing your search or filter criteria."}
@@ -457,10 +493,13 @@ const ManageArticlesPage = () => {
                 </tr>
               ) : (
                 filteredArticles.map((article) => (
-                  <tr key={article.id} className="hover:bg-gray-50">
+                  <tr
+                    key={article.id}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center">
+                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 rounded flex items-center justify-center">
                           {article.image_url ? (
                             <img
                               src={article.image_url}
@@ -468,31 +507,31 @@ const ManageArticlesPage = () => {
                               className="h-10 w-10 object-cover rounded"
                             />
                           ) : (
-                            <FiFileText className="h-5 w-5 text-blue-600" />
+                            <FiFileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                           )}
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 flex items-center">
+                          <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
                             {article.title}
                             {article.featured && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">
+                              <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full">
                                 Featured
                               </span>
                             )}
                             {article.file_url && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full flex items-center">
+                              <span className="ml-2 px-2 py-1 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full flex items-center">
                                 <FiFileText className="h-3 w-3 mr-1" />
                                 Document
                               </span>
                             )}
                           </div>
-                          <div className="text-sm text-gray-500 line-clamp-2">
+                          <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
                             {article.excerpt || "No excerpt available"}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       <div className="flex items-center">
                         <FiUser className="h-4 w-4 text-gray-400 mr-2" />
                         {article.author}
@@ -507,13 +546,13 @@ const ManageArticlesPage = () => {
                         {article.category}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       <div className="flex items-center">
                         <FiBook className="h-4 w-4 text-gray-400 mr-2" />
                         {article.dewey_decimal || "N/A"}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       <div className="flex items-center">
                         <FiDollarSign className="h-4 w-4 text-gray-400 mr-2" />
                         {article.amount
@@ -530,7 +569,7 @@ const ManageArticlesPage = () => {
                         {article.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                       <div className="flex items-center">
                         <FiBarChart2 className="h-4 w-4 text-gray-400 mr-2" />
                         {article.views || 0}
@@ -541,8 +580,8 @@ const ManageArticlesPage = () => {
                         onClick={() => handleToggleStatus(article.id)}
                         className={`inline-flex items-center px-2 py-1 rounded text-xs ${
                           article.status === "published"
-                            ? "text-yellow-600 hover:text-yellow-900"
-                            : "text-green-600 hover:text-green-900"
+                            ? "text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300"
+                            : "text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
                         }`}
                         title={
                           article.status === "published"
@@ -556,8 +595,8 @@ const ManageArticlesPage = () => {
                         onClick={() => handleToggleFeatured(article.id)}
                         className={`inline-flex items-center px-2 py-1 rounded text-xs ${
                           article.featured
-                            ? "text-gray-600 hover:text-gray-900"
-                            : "text-purple-600 hover:text-purple-900"
+                            ? "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300"
+                            : "text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300"
                         }`}
                         title={
                           article.featured
@@ -569,14 +608,14 @@ const ManageArticlesPage = () => {
                       </button>
                       <button
                         onClick={() => handleEditArticle(article)}
-                        className="text-blue-600 hover:text-blue-900 p-1"
+                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
                         title="Edit article"
                       >
                         <FiEdit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(article.id)}
-                        className="text-red-600 hover:text-red-900 p-1"
+                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
                         title="Delete article"
                       >
                         <FiTrash2 className="h-4 w-4" />

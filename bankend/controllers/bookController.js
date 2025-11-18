@@ -40,15 +40,124 @@ const buildBooksQuery = (filters = {}) => {
 
 // Get all books with filtering and pagination
 // Alternative getBooks function if the above still fails
+// export const getBooks = async (req, res) => {
+//   try {
+//     const {
+//       page = 1,
+//       limit = 12,
+//       category,
+//       search,
+//       minPrice,
+//       maxPrice,
+//     } = req.query;
+
+//     // Convert to numbers
+//     const pageNum = parseInt(page);
+//     const limitNum = parseInt(limit);
+//     const offset = (pageNum - 1) * limitNum;
+
+//     console.log("=== BOOKS API DEBUG ===");
+//     console.log("Page:", pageNum, "Limit:", limitNum, "Offset:", offset);
+
+//     let query = `
+//       SELECT id, title, author, description, isbn, category, dewey_number, price,
+//              format, cover_image, file_url, file_size, pages, publisher,
+//              published_date, language, rating, total_ratings, downloads,
+//              status, total_copies, available_copies, featured, created_at
+//       FROM books
+//       WHERE status = 'available'
+//     `;
+
+//     let params = [];
+
+//     // Add filters
+//     if (category && category !== "all") {
+//       query += ` AND category = ?`;
+//       params.push(category);
+//     }
+
+//     if (search) {
+//       query += ` AND (title LIKE ? OR author LIKE ? OR description LIKE ?)`;
+//       params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+//     }
+
+//     if (minPrice) {
+//       query += ` AND price >= ?`;
+//       params.push(parseFloat(minPrice));
+//     }
+
+//     if (maxPrice) {
+//       query += ` AND price <= ?`;
+//       params.push(parseFloat(maxPrice));
+//     }
+
+//     // Add pagination - FIX: Use template literals instead of prepared statements for LIMIT/OFFSET
+//     query += ` ORDER BY featured DESC, created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
+
+//     console.log("Final Query:", query);
+//     console.log("Params:", params);
+
+//     const [books] = await db.execute(query, params);
+
+//     // Get total count (similar logic without LIMIT/OFFSET)
+//     let countQuery = `SELECT COUNT(*) as total FROM books WHERE status = 'available'`;
+//     let countParams = [];
+
+//     if (category && category !== "all") {
+//       countQuery += ` AND category = ?`;
+//       countParams.push(category);
+//     }
+
+//     if (search) {
+//       countQuery += ` AND (title LIKE ? OR author LIKE ? OR description LIKE ?)`;
+//       countParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
+//     }
+
+//     if (minPrice) {
+//       countQuery += ` AND price >= ?`;
+//       countParams.push(parseFloat(minPrice));
+//     }
+
+//     if (maxPrice) {
+//       countQuery += ` AND price <= ?`;
+//       countParams.push(parseFloat(maxPrice));
+//     }
+
+//     const [countResult] = await db.execute(countQuery, countParams);
+//     const total = countResult[0].total;
+
+//     res.json({
+//       success: true,
+//       data: {
+//         books,
+//         pagination: {
+//           page: pageNum,
+//           limit: limitNum,
+//           total,
+//           pages: Math.ceil(total / limitNum),
+//         },
+//       },
+//     });
+//   } catch (error) {
+//     console.error("❌ Get books error:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error fetching books: " + error.message,
+//     });
+//   }
+// };
+
 export const getBooks = async (req, res) => {
   try {
     const {
       page = 1,
-      limit = 12,
+      limit = 50, // Increased limit for admin
       category,
       search,
       minPrice,
       maxPrice,
+      includeAll = false, // NEW: Add flag to include all books
+      status = "available", // Default to available only
     } = req.query;
 
     // Convert to numbers
@@ -58,6 +167,7 @@ export const getBooks = async (req, res) => {
 
     console.log("=== BOOKS API DEBUG ===");
     console.log("Page:", pageNum, "Limit:", limitNum, "Offset:", offset);
+    console.log("Include All:", includeAll, "Status:", status);
 
     let query = `
       SELECT id, title, author, description, isbn, category, dewey_number, price, 
@@ -65,10 +175,16 @@ export const getBooks = async (req, res) => {
              published_date, language, rating, total_ratings, downloads, 
              status, total_copies, available_copies, featured, created_at
       FROM books 
-      WHERE status = 'available'
+      WHERE 1=1
     `;
 
     let params = [];
+
+    // Only filter by status if not including all books
+    if (!includeAll) {
+      query += ` AND status = ?`;
+      params.push(status);
+    }
 
     // Add filters
     if (category && category !== "all") {
@@ -91,8 +207,8 @@ export const getBooks = async (req, res) => {
       params.push(parseFloat(maxPrice));
     }
 
-    // Add pagination - FIX: Use template literals instead of prepared statements for LIMIT/OFFSET
-    query += ` ORDER BY featured DESC, created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
+    // Add pagination
+    query += ` ORDER BY created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
 
     console.log("Final Query:", query);
     console.log("Params:", params);
@@ -100,8 +216,13 @@ export const getBooks = async (req, res) => {
     const [books] = await db.execute(query, params);
 
     // Get total count (similar logic without LIMIT/OFFSET)
-    let countQuery = `SELECT COUNT(*) as total FROM books WHERE status = 'available'`;
+    let countQuery = `SELECT COUNT(*) as total FROM books WHERE 1=1`;
     let countParams = [];
+
+    if (!includeAll) {
+      countQuery += ` AND status = ?`;
+      countParams.push(status);
+    }
 
     if (category && category !== "all") {
       countQuery += ` AND category = ?`;
@@ -126,6 +247,8 @@ export const getBooks = async (req, res) => {
     const [countResult] = await db.execute(countQuery, countParams);
     const total = countResult[0].total;
 
+    console.log(`📊 Returning ${books.length} books out of ${total} total`);
+
     res.json({
       success: true,
       data: {
@@ -135,6 +258,10 @@ export const getBooks = async (req, res) => {
           limit: limitNum,
           total,
           pages: Math.ceil(total / limitNum),
+        },
+        filters: {
+          includeAll,
+          status,
         },
       },
     });

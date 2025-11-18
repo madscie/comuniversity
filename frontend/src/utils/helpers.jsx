@@ -1,7 +1,7 @@
 // utils/helpers.jsx - Add the missing export
 import { API_BASE_URL } from "../config/apiConfig";
 
-// utils/helpers.jsx - More robust version
+// // utils/helpers.jsx - More robust version
 export const getImageUrl = (imagePath) => {
   if (!imagePath) {
     console.log("🖼️ No image path provided");
@@ -25,6 +25,28 @@ export const getImageUrl = (imagePath) => {
   const fullUrl = `http://localhost:5000/uploads/images/${filename}`;
   console.log("✅ Constructed image URL:", fullUrl);
   return fullUrl;
+};
+
+export const formatPrice = (price) => {
+  const num = parseFloat(price || 0);
+  return isNaN(num) ? "0.00" : num.toFixed(2);
+};
+
+// Validate ISBN
+export const validateISBN = (isbn) => {
+  if (!isbn) return true; // ISBN is optional
+
+  const cleanISBN = isbn.replace(/[-\s]/g, "");
+  return /^(?:\d{10}|\d{13})$/.test(cleanISBN);
+};
+
+// Validate Dewey Decimal
+export const validateDeweyDecimal = (dewey) => {
+  if (!dewey) return false;
+
+  // Basic Dewey Decimal validation (000-999 or J 000-999 for children's)
+  const deweyRegex = /^(J\s?)?(\d{1,3}(?:\.\d+)?|\d{1,3}-\d{1,3})$/;
+  return deweyRegex.test(dewey.trim());
 };
 
 export const formatDate = (dateString) => {
