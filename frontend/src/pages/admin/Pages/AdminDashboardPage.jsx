@@ -18,6 +18,8 @@ import { useAuthStore } from "../../../store/authStore";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
 import { api } from "../../../config/api";
+import { toast } from "react-toastify";
+import { bookService } from "../../../config/api";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -84,15 +86,43 @@ const AdminDashboard = () => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
-        const response = await api.getDashboardStats();
-        if (response.success) {
-          setStats(response.data.stats);
-          setRecentActivity(response.data.recentActivity || []);
+
+        // Fetch ALL data in parallel for consistency
+        const [statsResponse, booksResponse] = await Promise.all([
+          api.getDashboardStats(),
+          bookService.getBooks({ includeAll: true }), // Get ALL books, not just available
+        ]);
+
+        console.log("📊 Dashboard Stats Response:", statsResponse);
+        console.log("📚 Direct Books Fetch Response:", booksResponse);
+
+        if (statsResponse.success) {
+          setStats(statsResponse.data.stats);
+          setRecentActivity(statsResponse.data.recentActivity || []);
+
+          // Verify book counts match
+          const directBookCount = booksResponse.success
+            ? (booksResponse.data?.books || booksResponse.data || []).length
+            : 0;
+
+          console.log(
+            `📊 Book Counts - Dashboard: ${statsResponse.data.stats.totalBooks}, Direct: ${directBookCount}`
+          );
+
+          if (directBookCount !== statsResponse.data.stats.totalBooks) {
+            console.warn(
+              `📊 Data discrepancy detected: Dashboard shows ${statsResponse.data.stats.totalBooks} books, but direct fetch found ${directBookCount}`
+            );
+          }
         } else {
-          console.error("Failed to load dashboard stats:", response.message);
+          console.error(
+            "Failed to load dashboard stats:",
+            statsResponse.message
+          );
         }
       } catch (error) {
         console.error("Failed to fetch dashboard data:", error);
+        toast.error("Failed to load dashboard data");
       } finally {
         setLoading(false);
       }
@@ -100,7 +130,6 @@ const AdminDashboard = () => {
 
     fetchDashboardData();
   }, []);
-
   const StatCard = ({ title, value, icon: Icon, color, change }) => (
     <Card className="p-6 hover:shadow-lg transition-shadow bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
       <div className="flex items-center justify-between">
@@ -173,7 +202,7 @@ const AdminDashboard = () => {
 
             <div className="flex items-center space-x-4">
               {/* Theme Toggle */}
-              <button
+              {/* <button
                 onClick={toggleTheme}
                 className="flex items-center px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 title={`Switch to ${
@@ -186,7 +215,7 @@ const AdminDashboard = () => {
                   <FiSun className="h-4 w-4 mr-2" />
                 )}
                 {theme === "light" ? "Dark" : "Light"}
-              </button>
+              </button> */}
               <button
                 onClick={() => navigate("/")}
                 className="flex items-center px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"

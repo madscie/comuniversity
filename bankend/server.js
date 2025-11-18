@@ -424,7 +424,61 @@ app.get("/api/quick-fix-images", async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 });
+// Debug endpoint to check all books in database
+app.get("/api/debug/all-books", async (req, res) => {
+  try {
+    const [allBooks] = await db.execute(`
+      SELECT id, title, author, status, created_at 
+      FROM books 
+      ORDER BY id DESC
+    `);
 
+    const [availableBooks] = await db.execute(`
+      SELECT id, title, author, status, created_at 
+      FROM books 
+      WHERE status = 'available'
+      ORDER BY id DESC
+    `);
+
+    res.json({
+      success: true,
+      data: {
+        totalBooks: allBooks.length,
+        availableBooks: availableBooks.length,
+        allBooks: allBooks,
+        availableBooksList: availableBooks,
+      },
+    });
+  } catch (error) {
+    console.error("Debug books error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+// Temporary test route
+app.get('/api/test-book-counts', async (req, res) => {
+  try {
+    // Count all books
+    const [allCount] = await db.execute('SELECT COUNT(*) as count FROM books');
+    
+    // Count available books only
+    const [availableCount] = await db.execute('SELECT COUNT(*) as count FROM books WHERE status = "available"');
+    
+    // Get lists
+    const [allBooks] = await db.execute('SELECT id, title, status FROM books ORDER BY id');
+    const [availableBooks] = await db.execute('SELECT id, title, status FROM books WHERE status = "available" ORDER BY id');
+
+    res.json({
+      totalBooks: allCount[0].count,
+      availableBooks: availableCount[0].count,
+      discrepancy: allCount[0].count - availableCount[0].count,
+      allBooks: allBooks,
+      availableBooks: availableBooks
+    });
+  } catch (error) {
+    console.error('Test book counts error:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 // ==================== MIDDLEWARE ====================
 app.use(
   cors({
