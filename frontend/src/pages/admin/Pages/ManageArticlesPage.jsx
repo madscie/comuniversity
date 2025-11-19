@@ -10,13 +10,14 @@ import {
   FiTag,
   FiCalendar,
   FiBarChart2,
-  FiDollarSign,
   FiBook,
 } from "react-icons/fi";
+import { toast } from "react-toastify";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
 import ArticleFormModal from "./ArticleFormModal";
-import { api } from "../../../config/api";
+import { articleService } from "../../../services/articleService";
+import { getImageUrl } from "../../../utils/helpers";
 
 const ManageArticlesPage = () => {
   const [articles, setArticles] = useState([]);
@@ -52,7 +53,7 @@ const ManageArticlesPage = () => {
     setError(null);
     try {
       console.log("📄 Loading articles...");
-      const response = await api.getAdminArticles();
+      const response = await articleService.getArticles();
       console.log("📥 Articles API response:", response);
 
       if (response.success) {
@@ -63,11 +64,13 @@ const ManageArticlesPage = () => {
         console.error("❌ Failed to load articles:", response.message);
         setError(response.message || "Failed to load articles");
         setArticles([]);
+        toast.error("❌ Failed to load articles: " + response.message);
       }
     } catch (error) {
       console.error("💥 Error loading articles:", error);
       setError("Failed to load articles. Please try again.");
       setArticles([]);
+      toast.error("❌ Error loading articles: " + error.message);
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +89,10 @@ const ManageArticlesPage = () => {
   const handleSaveArticle = async (articleData, articleId) => {
     setSaveLoading(true);
     try {
-      // Prepare data for API - ensure all fields are properly formatted
+      console.log("💾 Saving article data:", articleData);
+      console.log("📝 Article ID (if editing):", articleId);
+
+      // Prepare data for API - FIXED: Handle tags properly
       const submissionData = {
         title: articleData.title,
         content: articleData.content,
@@ -96,113 +102,91 @@ const ManageArticlesPage = () => {
         read_time: parseInt(articleData.readTime) || 5,
         status: articleData.status,
         featured: Boolean(articleData.featured),
-        tags: articleData.tags
-          ? articleData.tags
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter((tag) => tag !== "")
-          : [],
         dewey_decimal: articleData.deweyDecimal || null,
-        amount: articleData.amount ? parseFloat(articleData.amount) : null,
+        // REMOVED: amount field completely - articles are free
       };
 
-      console.log("💾 Saving article with data:", submissionData);
-
-      // Handle image upload if available
-      if (articleData.imageFile) {
-        try {
-          console.log("🖼️ Uploading article image...");
-          const uploadResponse = await api.uploadImage(articleData.imageFile);
-          if (uploadResponse.success) {
-            submissionData.image_url = uploadResponse.data.imageUrl;
-            console.log("✅ Image uploaded:", uploadResponse.data.imageUrl);
-          }
-        } catch (uploadError) {
-          console.error("❌ Error uploading image:", uploadError);
-          // Continue without image - don't throw error
+      // FIXED: Handle tags properly - check if it's already an array or needs processing
+      if (articleData.tags) {
+        if (Array.isArray(articleData.tags)) {
+          // If it's already an array, use it directly
+          submissionData.tags = articleData.tags;
+        } else if (typeof articleData.tags === "string") {
+          // If it's a string, split it into an array
+          submissionData.tags = articleData.tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag !== "");
         }
+      } else {
+        // If no tags provided, use empty array
+        submissionData.tags = [];
       }
 
-      // Handle document upload if available
-      if (articleData.documentFile) {
-        try {
-          console.log("📄 Uploading article document...");
-          const uploadResponse = await api.uploadFile(articleData.documentFile);
-          if (uploadResponse.success) {
-            submissionData.file_url = uploadResponse.data.fileUrl;
-            submissionData.file_name = uploadResponse.data.fileName;
-            submissionData.file_type = uploadResponse.data.fileType;
-            submissionData.file_size = uploadResponse.data.fileSize;
-            console.log("✅ Document uploaded:", uploadResponse.data.fileUrl);
-          }
-        } catch (uploadError) {
-          console.error("❌ Error uploading document:", uploadError);
-          // Continue without document - don't throw error
-        }
-      }
+      console.log("📤 Submission data:", submissionData);
 
       let response;
       if (articleId) {
-        console.log(`🔄 Updating existing article: ${articleId}`);
-        response = await api.updateArticle(articleId, submissionData);
+        console.log("🔄 Updating existing article...");
+        response = await articleService.updateArticle(articleId, {
+          ...submissionData,
+          imageFile: articleData.imageFile,
+          documentFile: articleData.documentFile,
+        });
       } else {
-        console.log("🆕 Creating new article");
-        response = await api.createArticle(submissionData);
+        console.log("🆕 Creating new article...");
+        response = await articleService.createArticle({
+          ...submissionData,
+          imageFile: articleData.imageFile,
+          documentFile: articleData.documentFile,
+        });
       }
 
+      console.log("📥 Save response:", response);
+
       if (response.success) {
-        console.log("✅ Article saved successfully");
         await loadArticles();
+        toast.success(
+          articleId
+            ? "Article updated successfully!"
+            : "Article added successfully!"
+        );
         return response;
       } else {
-        console.error("❌ Save failed:", response.message);
         throw new Error(response.message || "Failed to save article");
       }
     } catch (error) {
-      console.error("💥 Error in handleSaveArticle:", error);
-      throw new Error(
-        error.message || "Failed to save article. Please try again."
-      );
+      console.error("❌ Error saving article:", error);
+      let errorMessage = "Failed to save article. Please try again.";
+      if (error.message.includes("Network Error")) {
+        errorMessage = "Network error. Please check your connection.";
+      } else if (error.data?.error) {
+        errorMessage = error.data.error;
+      }
+      toast.error(errorMessage);
+      throw error;
     } finally {
       setSaveLoading(false);
     }
   };
-
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedArticle(null);
   };
 
-  const filteredArticles = articles.filter((article) => {
-    const matchesSearch =
-      article.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      article.author?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (article.excerpt &&
-        article.excerpt.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (article.dewey_decimal &&
-        article.dewey_decimal.toLowerCase().includes(searchTerm.toLowerCase()));
-
-    const matchesCategory =
-      filterCategory === "all" || article.category === filterCategory;
-
-    const matchesStatus =
-      filterStatus === "all" || article.status === filterStatus;
-
-    return matchesSearch && matchesCategory && matchesStatus;
-  });
-
-  const handleDelete = async (articleId) => {
+  const handleDeleteArticle = async (id) => {
     if (window.confirm("Are you sure you want to delete this article?")) {
       try {
-        const response = await api.deleteArticle(articleId);
+        const response = await articleService.deleteArticle(id);
         if (response.success) {
-          setArticles(articles.filter((article) => article.id !== articleId));
+          setArticles(articles.filter((article) => article.id !== id));
+          toast.success("Article deleted successfully!");
         } else {
           throw new Error(response.message);
         }
       } catch (error) {
         console.error("Error deleting article:", error);
-        alert("Failed to delete article. Please try again.");
+        toast.error("Failed to delete article. Please try again.");
       }
     }
   };
@@ -212,7 +196,7 @@ const ManageArticlesPage = () => {
       const article = articles.find((a) => a.id === id);
       const newStatus = article.status === "published" ? "draft" : "published";
 
-      const response = await api.updateArticle(id, {
+      const response = await articleService.updateArticle(id, {
         status: newStatus,
         published_date:
           newStatus === "published"
@@ -235,12 +219,13 @@ const ManageArticlesPage = () => {
               : article
           )
         );
+        toast.success(`Article marked as ${newStatus}!`);
       } else {
         throw new Error(response.message);
       }
     } catch (error) {
       console.error("Error updating article status:", error);
-      alert("Failed to update article status. Please try again.");
+      toast.error("Failed to update article status. Please try again.");
     }
   };
 
@@ -249,7 +234,7 @@ const ManageArticlesPage = () => {
       const article = articles.find((a) => a.id === id);
       const newFeatured = !article.featured;
 
-      const response = await api.updateArticle(id, {
+      const response = await articleService.updateArticle(id, {
         featured: newFeatured,
       });
 
@@ -264,14 +249,80 @@ const ManageArticlesPage = () => {
               : article
           )
         );
+        toast.success(
+          newFeatured ? "Article featured!" : "Article unfeatured!"
+        );
       } else {
         throw new Error(response.message);
       }
     } catch (error) {
       console.error("Error updating featured status:", error);
-      alert("Failed to update featured status. Please try again.");
+      toast.error("Failed to update featured status. Please try again.");
     }
   };
+
+  // Helper function to render article image with proper URL handling
+  const renderArticleImage = (article) => {
+    const imageUrl = getImageUrl(article.image_url);
+
+    return (
+      <div className="relative flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded flex items-center justify-center overflow-hidden cursor-pointer">
+        {imageUrl ? (
+          <>
+            <img
+              src={imageUrl}
+              alt={article.title}
+              className="h-10 w-10 object-cover"
+              onError={(e) => {
+                console.error(
+                  `❌ Failed to load image for article ${article.id}:`,
+                  imageUrl
+                );
+                e.target.style.display = "none";
+                const fallback = e.target.nextSibling;
+                if (fallback) {
+                  fallback.classList.remove("hidden");
+                }
+              }}
+              onLoad={(e) => {
+                console.log(
+                  `✅ Image loaded successfully for article ${article.id}:`,
+                  imageUrl
+                );
+                const fallback = e.target.nextSibling;
+                if (fallback) {
+                  fallback.classList.add("hidden");
+                }
+              }}
+            />
+            <div className="image-fallback absolute inset-0 hidden items-center justify-center bg-gradient-to-br from-blue-100 to-blue-200">
+              <FiFileText className="h-5 w-5 text-blue-600" />
+            </div>
+          </>
+        ) : (
+          <FiFileText className="h-5 w-5 text-blue-600" />
+        )}
+      </div>
+    );
+  };
+
+  const filteredArticles = articles.filter((article) => {
+    const matchesSearch =
+      article.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      article.author?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (article.excerpt &&
+        article.excerpt.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (article.dewey_decimal &&
+        article.dewey_decimal.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    const matchesCategory =
+      filterCategory === "all" || article.category === filterCategory;
+
+    const matchesStatus =
+      filterStatus === "all" || article.status === filterStatus;
+
+    return matchesSearch && matchesCategory && matchesStatus;
+  });
 
   const getStatusBadge = (status) => {
     return status === "published"
@@ -337,7 +388,7 @@ const ManageArticlesPage = () => {
             Create, edit, and publish blog articles
           </p>
         </div>
-        <Button onClick={handleAddArticle}>
+        <Button onClick={handleAddArticle} className="cursor-pointer">
           <FiPlus className="mr-2" />
           New Article
         </Button>
@@ -347,7 +398,11 @@ const ManageArticlesPage = () => {
       {error && (
         <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
           <p className="text-red-700 dark:text-red-400">{error}</p>
-          <Button variant="primary" onClick={loadArticles} className="mt-2">
+          <Button
+            variant="primary"
+            onClick={loadArticles}
+            className="mt-2 cursor-pointer"
+          >
             Retry
           </Button>
         </div>
@@ -355,7 +410,7 @@ const ManageArticlesPage = () => {
 
       {/* Statistics Summary */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
-        <Card className="p-6 text-center">
+        <Card className="p-6 text-center cursor-default">
           <FiFileText className="h-8 w-8 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
           <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {totalArticles}
@@ -364,7 +419,7 @@ const ManageArticlesPage = () => {
             Total Articles
           </div>
         </Card>
-        <Card className="p-6 text-center">
+        <Card className="p-6 text-center cursor-default">
           <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {publishedArticles}
           </div>
@@ -372,13 +427,13 @@ const ManageArticlesPage = () => {
             Published
           </div>
         </Card>
-        <Card className="p-6 text-center">
+        <Card className="p-6 text-center cursor-default">
           <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {draftArticles}
           </div>
           <div className="text-sm text-gray-600 dark:text-gray-400">Drafts</div>
         </Card>
-        <Card className="p-6 text-center">
+        <Card className="p-6 text-center cursor-default">
           <FiBarChart2 className="h-8 w-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
           <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {totalViews}
@@ -387,7 +442,7 @@ const ManageArticlesPage = () => {
             Total Views
           </div>
         </Card>
-        <Card className="p-6 text-center">
+        <Card className="p-6 text-center cursor-default">
           <div className="text-2xl font-bold text-gray-900 dark:text-white">
             {featuredArticles}
           </div>
@@ -405,13 +460,13 @@ const ManageArticlesPage = () => {
             <input
               type="text"
               placeholder="Search articles by title, author, content, or Dewey Decimal..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white cursor-text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <select
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white cursor-pointer"
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
           >
@@ -423,7 +478,7 @@ const ManageArticlesPage = () => {
             ))}
           </select>
           <select
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white cursor-pointer"
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
@@ -440,28 +495,25 @@ const ManageArticlesPage = () => {
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-default">
                   Article
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-default">
                   Author
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-default">
                   Category
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-default">
                   Dewey Decimal
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-default">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-default">
                   Views
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider cursor-default">
                   Actions
                 </th>
               </tr>
@@ -469,7 +521,10 @@ const ManageArticlesPage = () => {
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredArticles.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="px-6 py-12 text-center">
+                  <td
+                    colSpan="7"
+                    className="px-6 py-12 text-center cursor-default"
+                  >
                     <div className="text-gray-500 dark:text-gray-400">
                       <FiFileText className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
                       <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
@@ -483,7 +538,10 @@ const ManageArticlesPage = () => {
                           : "Try changing your search or filter criteria."}
                       </p>
                       {articles.length === 0 && (
-                        <Button onClick={handleAddArticle} className="mt-4">
+                        <Button
+                          onClick={handleAddArticle}
+                          className="mt-4 cursor-pointer"
+                        >
                           <FiPlus className="mr-2" />
                           Create Your First Article
                         </Button>
@@ -495,49 +553,39 @@ const ManageArticlesPage = () => {
                 filteredArticles.map((article) => (
                   <tr
                     key={article.id}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-700"
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700 cursor-default"
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900 dark:to-blue-800 rounded flex items-center justify-center">
-                          {article.image_url ? (
-                            <img
-                              src={article.image_url}
-                              alt={article.title}
-                              className="h-10 w-10 object-cover rounded"
-                            />
-                          ) : (
-                            <FiFileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          )}
-                        </div>
+                        {renderArticleImage(article)}
                         <div className="ml-4">
                           <div className="text-sm font-medium text-gray-900 dark:text-white flex items-center">
                             {article.title}
                             {article.featured && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full">
+                              <span className="ml-2 px-2 py-1 text-xs bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded-full cursor-default">
                                 Featured
                               </span>
                             )}
                             {article.file_url && (
-                              <span className="ml-2 px-2 py-1 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full flex items-center">
+                              <span className="ml-2 px-2 py-1 text-xs bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded-full flex items-center cursor-default">
                                 <FiFileText className="h-3 w-3 mr-1" />
                                 Document
                               </span>
                             )}
                           </div>
-                          <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                          <div className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 cursor-default">
                             {article.excerpt || "No excerpt available"}
                           </div>
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white cursor-default">
                       <div className="flex items-center">
                         <FiUser className="h-4 w-4 text-gray-400 mr-2" />
                         {article.author}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap cursor-default">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getCategoryBadge(
                           article.category
@@ -546,21 +594,13 @@ const ManageArticlesPage = () => {
                         {article.category}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white cursor-default">
                       <div className="flex items-center">
                         <FiBook className="h-4 w-4 text-gray-400 mr-2" />
                         {article.dewey_decimal || "N/A"}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                      <div className="flex items-center">
-                        <FiDollarSign className="h-4 w-4 text-gray-400 mr-2" />
-                        {article.amount
-                          ? `$${parseFloat(article.amount).toFixed(2)}`
-                          : "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap cursor-default">
                       <span
                         className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(
                           article.status
@@ -569,7 +609,7 @@ const ManageArticlesPage = () => {
                         {article.status}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white cursor-default">
                       <div className="flex items-center">
                         <FiBarChart2 className="h-4 w-4 text-gray-400 mr-2" />
                         {article.views || 0}
@@ -578,7 +618,7 @@ const ManageArticlesPage = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
                       <button
                         onClick={() => handleToggleStatus(article.id)}
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs cursor-pointer ${
                           article.status === "published"
                             ? "text-yellow-600 hover:text-yellow-900 dark:text-yellow-400 dark:hover:text-yellow-300"
                             : "text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
@@ -593,7 +633,7 @@ const ManageArticlesPage = () => {
                       </button>
                       <button
                         onClick={() => handleToggleFeatured(article.id)}
-                        className={`inline-flex items-center px-2 py-1 rounded text-xs ${
+                        className={`inline-flex items-center cursor-pointer px-2 py-1 rounded text-xs ${
                           article.featured
                             ? "text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300"
                             : "text-purple-600 hover:text-purple-900 dark:text-purple-400 dark:hover:text-purple-300"
@@ -608,14 +648,14 @@ const ManageArticlesPage = () => {
                       </button>
                       <button
                         onClick={() => handleEditArticle(article)}
-                        className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
+                        className="text-blue-600 cursor-pointer hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 p-1"
                         title="Edit article"
                       >
                         <FiEdit className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(article.id)}
-                        className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
+                        onClick={() => handleDeleteArticle(article.id)}
+                        className="text-red-600 cursor-pointer hover:text-red-900 dark:text-red-400 dark:hover:text-red-300 p-1"
                         title="Delete article"
                       >
                         <FiTrash2 className="h-4 w-4" />

@@ -13,6 +13,7 @@ import TextInput from "../../components/UI/TextInput";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
 import axios from "axios";
+import { getImageUrl, handleImageError, formatDate } from "../../utils/helpers";
 
 const ArticlesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -34,6 +35,7 @@ const ArticlesPage = () => {
 
       if (response.data.success) {
         setArticles(response.data.data.articles);
+        console.log("Articles:", response.data.data.articles);
       } else {
         throw new Error(response.data.message || "Failed to fetch articles");
       }
@@ -213,23 +215,30 @@ const ArticlesPage = () => {
             >
               {/* Article Image */}
               <div className="w-full h-32 sm:h-40 lg:h-48 rounded-lg mb-3 sm:mb-4 overflow-hidden bg-gray-100 dark:bg-gray-800">
+                // In ArticlesPage.jsx - Update the image rendering section
                 {article.image_url &&
                 article.image_url !== "" &&
                 article.image_url !== "null" ? (
                   <img
-                    src={
-                      article.image_url.startsWith("http")
-                        ? article.image_url
-                        : `http://localhost:5000${article.image_url}`
-                    }
+                    src={getImageUrl(article.image_url)} // Use the same helper function
                     alt={article.title}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     onError={(e) => {
+                      console.error("Image failed to load:", article.image_url);
                       e.target.style.display = "none";
+                      // Create fallback
+                      const parent = e.target.parentElement;
+                      if (parent && !parent.querySelector(".image-fallback")) {
+                        const fallback = document.createElement("div");
+                        fallback.className =
+                          "image-fallback w-full h-full bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/20 dark:to-green-800/20 flex items-center justify-center";
+                        fallback.innerHTML =
+                          '<FiBook class="h-16 w-16 text-green-600 dark:text-green-400" />';
+                        parent.appendChild(fallback);
+                      }
                     }}
                   />
                 ) : null}
-
                 {/* Fallback */}
                 {(!article.image_url ||
                   article.image_url === "" ||

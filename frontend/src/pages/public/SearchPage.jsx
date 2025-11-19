@@ -16,6 +16,7 @@ import Button from "../../components/UI/Button";
 import TextInput from "../../components/UI/TextInput";
 import { api } from "../../config/api";
 import { componentClasses } from "../../components/UI/TailwindColors";
+import { getImageUrl, handleImageError } from "../../utils/helpers";
 
 // Enhanced Loading Spinner
 const LoadingSpinner = ({ message = "Searching..." }) => (
@@ -102,7 +103,8 @@ const SearchPage = () => {
 
       if (response.success) {
         setSearchResults(response.data.books || []);
-        console.log(`✅ Found ${response.data.books.length} books`);
+        // console.log(`✅ Found ${response.data.books.length} books`);
+        console.log(`✅ Found ${response} books`);
       } else {
         setSearchResults([]);
         setError("Failed to search books");
@@ -353,9 +355,10 @@ const SearchPage = () => {
                     <div className="w-20 h-24 bg-gradient-to-br from-gray-700 to-green-600 rounded-xl flex items-center justify-center text-white text-2xl overflow-hidden">
                       {book.cover_image ? (
                         <img
-                          src={book.cover_image}
+                          src={getImageUrl(book.cover_image)}
                           alt={book.title}
                           className="w-full h-full object-cover"
+                          onError={(e) => handleImageError(e, "📚")}
                         />
                       ) : (
                         <FiBook />
