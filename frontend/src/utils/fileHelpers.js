@@ -1,3 +1,6 @@
+// utils/fileHelpers.js - Updated version
+import { API_BASE_URL } from "../config/apiConfig";
+
 export const formatFileSize = (bytes) => {
   if (!bytes || bytes === 0) return "0 Bytes";
   const k = 1024;
@@ -30,12 +33,38 @@ export const getFileTypeName = (fileType) => {
   return "Document";
 };
 
+// utils/fileHelpers.js - Updated version
+
+export const getFileUrl = (filePath) => {
+  if (!filePath) return null;
+
+  console.log("📁 Original file path:", filePath);
+
+  // If it's already a full URL, use it directly
+  if (filePath.startsWith("http")) {
+    return filePath;
+  }
+
+  // Extract filename (your file_url is just a filename like "image-1763572856445-433081217.pdf")
+  let filename = filePath;
+  if (filePath.includes("/")) {
+    filename = filePath.split("/").pop();
+  }
+
+  // Your files are likely in the root uploads directory
+  const fullUrl = `${API_BASE_URL}/uploads/${filename}`;
+  console.log("✅ Final file URL:", fullUrl);
+
+  return fullUrl;
+};
+
 export const handleDownload = async (fileUrl, fileName = "document") => {
   try {
+    const fullUrl = getFileUrl(fileUrl);
+    console.log("⬇️ Downloading from:", fullUrl);
+
     const link = document.createElement("a");
-    link.href = fileUrl.startsWith("http")
-      ? fileUrl
-      : `http://localhost:5000${fileUrl}`;
+    link.href = fullUrl;
     link.target = "_blank";
     link.download = fileName;
     document.body.appendChild(link);
@@ -49,8 +78,7 @@ export const handleDownload = async (fileUrl, fileName = "document") => {
 };
 
 export const handleViewDocument = (fileUrl) => {
-  const fullUrl = fileUrl.startsWith("http")
-    ? fileUrl
-    : `http://localhost:5000${fileUrl}`;
+  const fullUrl = getFileUrl(fileUrl);
+  console.log("👀 Viewing document:", fullUrl);
   window.open(fullUrl, "_blank");
 };

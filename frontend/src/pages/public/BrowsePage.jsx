@@ -170,6 +170,8 @@ const BrowsePage = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingCategory, setLoadingCategory] = useState(false);
+  const [allBooks, setAllBooks] = useState([]); // All books
+  const [filteredBooks, setFilteredBooks] = useState([]); // Books for current category
 
   // Use custom hooks for API calls
   const {
@@ -192,6 +194,15 @@ const BrowsePage = () => {
     loadBooks();
   }, []);
 
+  // Update allBooks when booksData changes
+  useEffect(() => {
+    if (booksData) {
+      const books = booksData.books || booksData.data?.books || [];
+      setAllBooks(books);
+      setFilteredBooks(books); // Initially show all books
+    }
+  }, [booksData]);
+
   // Set selected category based on URL parameter
   useEffect(() => {
     if (urlCategory) {
@@ -209,24 +220,33 @@ const BrowsePage = () => {
   const loadBooksByCategory = async (categoryName) => {
     setLoadingCategory(true);
     try {
-      await loadBooks({ category: categoryName });
+      // Filter books client-side based on category
+      const filtered = allBooks.filter(
+        (book) => book.category?.toLowerCase() === categoryName.toLowerCase()
+      );
+      setFilteredBooks(filtered);
     } catch (error) {
-      console.error("Error loading category books:", error);
+      console.error("Error filtering books by category:", error);
+      setFilteredBooks([]);
     } finally {
       setLoadingCategory(false);
     }
   };
-
   const handleCategorySelect = async (category) => {
     setSelectedCategory(category);
     setSearchParams({ category: category.number });
+    await loadBooksByCategory(category.name);
   };
 
   const handleClearSelection = () => {
     setSelectedCategory(null);
     setSearchParams({});
-    loadBooks();
+    setFilteredBooks(allBooks); // Show all books when clearing selection
   };
+
+  // Update the books variable to use filteredBooks
+  const books = filteredBooks;
+  const totalBooks = allBooks.length; // Total books in library
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -248,12 +268,12 @@ const BrowsePage = () => {
   };
 
   // Get book count for a category
+
   const getBookCount = (categoryName) => {
-    if (!categoriesData?.data) return 0;
-    const category = categoriesData.data.find(
-      (cat) => cat.category === categoryName
-    );
-    return category ? category.book_count : 0;
+    if (!allBooks.length) return 0;
+    return allBooks.filter(
+      (book) => book.category?.toLowerCase() === categoryName.toLowerCase()
+    ).length;
   };
 
   // Enhanced Loading Spinner
@@ -270,9 +290,7 @@ const BrowsePage = () => {
   );
 
   // Calculate totals
-  const totalBooks =
-    booksData?.books?.length || booksData?.data?.books?.length || 0;
-  const books = booksData?.books || booksData?.data?.books || [];
+
   const categoryBooksCount = categoriesData?.data || [];
 
   const loading = categoriesLoading || booksLoading;
@@ -499,7 +517,7 @@ const BrowsePage = () => {
                   onClick={handleViewAllBooks}
                 >
                   <FiBook className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                  View All {books.length} Books
+                  View All {filteredBooks.length} Books
                 </Button>
                 <Button
                   variant="secondary"
@@ -515,43 +533,47 @@ const BrowsePage = () => {
         )}
 
         {/* Books List for Selected Category */}
-        {selectedCategory && !loadingCategory && books.length > 0 && (
+        {selectedCategory && !loadingCategory && filteredBooks.length > 0 && (
           <Card className="mb-12 border-0 shadow-xl dark:shadow-gray-900/50">
             <div className="p-6">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-                Books in {selectedCategory.name}
+                Books in {selectedCategory.name} ({filteredBooks.length})
               </h2>
               <div className="space-y-4">
-                {books.map((book) => (
-                  <div
-                    key={book.id}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:border-gray-700"
-                  >
-                    <div className="flex items-center space-x-4">
-                      {renderBookImage(book)}
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white">
-                          {book.title}
-                        </h3>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          by {book.author}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-500">
-                          {book.published_date
-                            ? formatDate(book.published_date)
-                            : "Year not available"}
-                        </p>
-                      </div>
-                    </div>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => navigate(`/books/${book.id}`)}
+                {filteredBooks.map(
+                  (
+                    book // Use filteredBooks instead of books
+                  ) => (
+                    <div
+                      key={book.id}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors dark:border-gray-700"
                     >
-                      View Book
-                    </Button>
-                  </div>
-                ))}
+                      <div className="flex items-center space-x-4">
+                        {renderBookImage(book)}
+                        <div>
+                          <h3 className="font-semibold text-gray-900 dark:text-white">
+                            {book.title}
+                          </h3>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            by {book.author}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-500">
+                            {book.published_date
+                              ? formatDate(book.published_date)
+                              : "Year not available"}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={() => navigate(`/books/${book.id}`)}
+                      >
+                        View Book
+                      </Button>
+                    </div>
+                  )
+                )}
               </div>
             </div>
           </Card>
