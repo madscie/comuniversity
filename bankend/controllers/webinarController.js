@@ -1,4 +1,11 @@
+// controllers/webinarController.js
 import db from "../config/database.js";
+import path from "path";
+import fs from "fs";
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Helper function for parsing webinar tags safely
 const parseWebinarTags = (webinar) => {
@@ -52,7 +59,22 @@ export const getWebinars = async (req, res) => {
     const [webinars] = await db.execute(query);
     console.log(`✅ Found ${webinars.length} scheduled webinars`);
 
-    const webinarsWithParsedTags = webinars.map(parseWebinarTags);
+    // Process image URLs to ensure correct paths
+    const webinarsWithParsedTags = webinars.map(webinar => {
+      const parsed = parseWebinarTags(webinar);
+      
+      // Fix image URL if exists
+      if (parsed.image_url) {
+        // If it's just a filename, convert to full URL
+        if (!parsed.image_url.startsWith('http') && !parsed.image_url.startsWith('/uploads')) {
+          parsed.image_url = `/uploads/webinars/images/${parsed.image_url}`;
+        } else if (parsed.image_url.startsWith('uploads/webinars/images/')) {
+          parsed.image_url = `/${parsed.image_url}`;
+        }
+      }
+      
+      return parsed;
+    });
 
     res.json({
       success: true,
@@ -76,7 +98,7 @@ export const getWebinarById = async (req, res) => {
   try {
     const { id } = req.params;
     const [webinars] = await db.execute(
-      "SELECT * FROM webinars WHERE id = ? AND status = 'scheduled'",
+      "SELECT * FROM webinars WHERE id = ?",
       [id]
     );
 
@@ -87,7 +109,12 @@ export const getWebinarById = async (req, res) => {
       });
     }
 
-    const webinar = parseWebinarTags(webinars[0]);
+    let webinar = parseWebinarTags(webinars[0]);
+    
+    // Fix image URL
+    if (webinar.image_url && !webinar.image_url.startsWith('http') && !webinar.image_url.startsWith('/uploads')) {
+      webinar.image_url = `/uploads/webinars/images/${webinar.image_url}`;
+    }
 
     res.json({
       success: true,
@@ -133,16 +160,18 @@ export const registerForWebinar = async (req, res) => {
     const { id } = req.params;
     const { name, email, company } = req.body;
 
+    console.log(`📝 Registration attempt for webinar ${id}:`, { name, email, company });
+
     // Check if webinar exists and has available spots
     const [webinars] = await db.execute(
-      'SELECT id, title, max_attendees, current_attendees FROM webinars WHERE id = ? AND status = "scheduled"',
+      'SELECT id, title, max_attendees, current_attendees FROM webinars WHERE id = ?',
       [id]
     );
 
     if (webinars.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "Webinar not found or not available for registration",
+        message: "Webinar not found",
       });
     }
 
@@ -180,15 +209,26 @@ export const registerForWebinar = async (req, res) => {
       [id]
     );
 
+    // Get updated webinar data
+    const [updatedWebinars] = await db.execute(
+      "SELECT current_attendees FROM webinars WHERE id = ?",
+      [id]
+    );
+
+    console.log(`✅ Registration successful for ${name}. Total attendees: ${updatedWebinars[0].current_attendees}`);
+
     res.json({
       success: true,
       message: "Successfully registered for webinar",
+      data: {
+        attendees: updatedWebinars[0].current_attendees
+      }
     });
   } catch (error) {
     console.error("❌ Register for webinar error:", error);
     res.status(500).json({
       success: false,
-      message: "Error registering for webinar",
+      message: "Error registering for webinar: " + error.message,
     });
   }
 };
@@ -225,7 +265,16 @@ export const getAdminWebinars = async (req, res) => {
       ORDER BY date DESC
     `);
 
-    const webinarsWithSafeTags = webinars.map(parseWebinarTags);
+    const webinarsWithSafeTags = webinars.map(webinar => {
+      const parsed = parseWebinarTags(webinar);
+      
+      // Fix image URL
+      if (parsed.image_url && !parsed.image_url.startsWith('http') && !parsed.image_url.startsWith('/uploads')) {
+        parsed.image_url = `/uploads/webinars/images/${parsed.image_url}`;
+      }
+      
+      return parsed;
+    });
 
     res.json({
       success: true,
@@ -293,6 +342,7 @@ export const createWebinar = async (req, res) => {
     } = req.body;
 
     console.log("📥 Creating webinar with data:", req.body);
+    console.log("📁 Files received:", req.files);
 
     if (
       !title ||
@@ -322,12 +372,36 @@ export const createWebinar = async (req, res) => {
       }
     }
 
+    // Handle image upload
+    let imageUrl = null;
+    if (req.files && req.files.image && req.files.image[0]) {
+      const imageFile = req.files.image[0];
+      
+      // Store just the filename (not full path)
+      imageUrl = imageFile.filename;
+      
+      console.log("🖼️ Webinar image saved:", imageUrl);
+      
+      // Move the file to correct directory
+      const uploadDir = path.join(__dirname, '../uploads/webinars/images');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      
+      const oldPath = imageFile.path;
+      const newPath = path.join(uploadDir, imageFile.filename);
+      
+      if (fs.existsSync(oldPath) && oldPath !== newPath) {
+        fs.renameSync(oldPath, newPath);
+      }
+    }
+
     const [result] = await db.execute(
       `INSERT INTO webinars (
         title, description, speaker, speaker_bio, date, duration,
         max_attendees, join_link, recording_link, price, is_premium,
-        category, tags, status, image_url
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        category, tags, status, image_url, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       [
         title,
         description,
@@ -343,7 +417,7 @@ export const createWebinar = async (req, res) => {
         category || "Education",
         tagsValue,
         status || "scheduled",
-        null, // image_url - will be handled by upload route
+        imageUrl,
       ]
     );
 
@@ -351,7 +425,12 @@ export const createWebinar = async (req, res) => {
       result.insertId,
     ]);
 
-    const createdWebinar = parseWebinarTags(webinars[0]);
+    let createdWebinar = parseWebinarTags(webinars[0]);
+    
+    // Add full image URL to response
+    if (createdWebinar.image_url) {
+      createdWebinar.image_url = `/uploads/webinars/images/${createdWebinar.image_url}`;
+    }
 
     console.log(`✅ New webinar created: ${title} by ${speaker}`);
 
@@ -378,9 +457,10 @@ export const updateWebinar = async (req, res) => {
     const updateData = req.body;
 
     console.log(`📥 Admin: Updating webinar ${id} with data:`, updateData);
+    console.log("📁 Files:", req.files);
 
     const [existingWebinars] = await db.execute(
-      "SELECT id FROM webinars WHERE id = ?",
+      "SELECT id, image_url FROM webinars WHERE id = ?",
       [id]
     );
 
@@ -389,6 +469,41 @@ export const updateWebinar = async (req, res) => {
         success: false,
         message: "Webinar not found",
       });
+    }
+
+    const existingWebinar = existingWebinars[0];
+
+    // Handle image upload
+    let imageUrl = existingWebinar.image_url; // Keep existing image by default
+    
+    if (req.files && req.files.image && req.files.image[0]) {
+      const imageFile = req.files.image[0];
+      
+      // Delete old image if exists
+      if (existingWebinar.image_url) {
+        const oldImagePath = path.join(__dirname, '../uploads/webinars/images', existingWebinar.image_url);
+        if (fs.existsSync(oldImagePath)) {
+          fs.unlinkSync(oldImagePath);
+        }
+      }
+      
+      // Store new image filename
+      imageUrl = imageFile.filename;
+      
+      // Move to correct directory
+      const uploadDir = path.join(__dirname, '../uploads/webinars/images');
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      
+      const oldPath = imageFile.path;
+      const newPath = path.join(uploadDir, imageFile.filename);
+      
+      if (fs.existsSync(oldPath) && oldPath !== newPath) {
+        fs.renameSync(oldPath, newPath);
+      }
+      
+      console.log("🖼️ Webinar image updated:", imageUrl);
     }
 
     const allowedFields = [
@@ -406,11 +521,14 @@ export const updateWebinar = async (req, res) => {
       "category",
       "tags",
       "status",
-      "image_url",
     ];
 
     const updates = [];
     const values = [];
+
+    // Always update image_url (even if unchanged)
+    updates.push("image_url = ?");
+    values.push(imageUrl);
 
     Object.keys(updateData).forEach((key) => {
       if (allowedFields.includes(key)) {
@@ -442,13 +560,6 @@ export const updateWebinar = async (req, res) => {
       }
     });
 
-    if (updates.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "No valid fields to update",
-      });
-    }
-
     updates.push("updated_at = CURRENT_TIMESTAMP");
     values.push(id);
 
@@ -460,7 +571,12 @@ export const updateWebinar = async (req, res) => {
       id,
     ]);
 
-    const updatedWebinar = parseWebinarTags(webinars[0]);
+    let updatedWebinar = parseWebinarTags(webinars[0]);
+    
+    // Add full image URL to response
+    if (updatedWebinar.image_url) {
+      updatedWebinar.image_url = `/uploads/webinars/images/${updatedWebinar.image_url}`;
+    }
 
     console.log(`✅ Admin: Webinar updated: ID ${id}`);
 
@@ -486,7 +602,7 @@ export const deleteWebinar = async (req, res) => {
     const { id } = req.params;
 
     const [existingWebinars] = await db.execute(
-      "SELECT id, title FROM webinars WHERE id = ?",
+      "SELECT id, title, image_url FROM webinars WHERE id = ?",
       [id]
     );
 
@@ -497,15 +613,25 @@ export const deleteWebinar = async (req, res) => {
       });
     }
 
-    const webinarTitle = existingWebinars[0].title;
+    const webinar = existingWebinars[0];
 
+    // Delete associated image if exists
+    if (webinar.image_url) {
+      const imagePath = path.join(__dirname, '../uploads/webinars/images', webinar.image_url);
+      if (fs.existsSync(imagePath)) {
+        fs.unlinkSync(imagePath);
+      }
+    }
+
+    // Delete registrations first
     await db.execute("DELETE FROM webinar_registrations WHERE webinar_id = ?", [
       id,
     ]);
 
+    // Delete webinar
     await db.execute("DELETE FROM webinars WHERE id = ?", [id]);
 
-    console.log(`🗑️ Webinar deleted: ${webinarTitle} (ID: ${id})`);
+    console.log(`🗑️ Webinar deleted: ${webinar.title} (ID: ${id})`);
 
     res.json({
       success: true,

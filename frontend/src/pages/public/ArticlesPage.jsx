@@ -13,7 +13,7 @@ import TextInput from "../../components/UI/TextInput";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
 import axios from "axios";
-import { getImageUrl, handleImageError, formatDate } from "../../utils/helpers";
+import { getImageUrl, handleImageError, formatDate } from "../../utils/fileHelpers";
 
 const ArticlesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -215,12 +215,11 @@ const ArticlesPage = () => {
             >
               {/* Article Image */}
               <div className="w-full h-32 sm:h-40 lg:h-48 rounded-lg mb-3 sm:mb-4 overflow-hidden bg-gray-100 dark:bg-gray-800">
-                // In ArticlesPage.jsx - Update the image rendering section
                 {article.image_url &&
                 article.image_url !== "" &&
                 article.image_url !== "null" ? (
                   <img
-                    src={getImageUrl(article.image_url)} // Use the same helper function
+                    src={getImageUrl(article.image_url)}
                     alt={article.title}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                     onError={(e) => {

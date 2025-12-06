@@ -17,7 +17,7 @@ import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
 import ArticleFormModal from "./ArticleFormModal";
 import { articleService } from "../../../services/articleService";
-import { getImageUrl } from "../../../utils/helpers";
+import { getImageUrl } from "../../../utils/fileHelpers";
 
 const ManageArticlesPage = () => {
   const [articles, setArticles] = useState([]);

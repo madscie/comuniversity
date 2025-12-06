@@ -1,4 +1,6 @@
+// pages/Webinars/WebinarsPage.jsx
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FiCalendar,
   FiClock,
@@ -10,9 +12,12 @@ import {
   FiSearch,
   FiBookOpen,
   FiArrowRight,
+  FiUsers,
 } from "react-icons/fi";
 import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
+import Modal from "../../../components/UI/Modal";
+import WebinarRegistration from "./WebinarRegistration";
 import axios from "axios";
 import { componentClasses } from "../../../components/UI/TailwindColors";
 
@@ -21,6 +26,10 @@ const WebinarsPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("upcoming");
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
+  const [selectedWebinar, setSelectedWebinar] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchWebinars();
@@ -31,7 +40,6 @@ const WebinarsPage = () => {
       setLoading(true);
       setError(null);
 
-      // ACTUAL API CALL - FIXED
       const response = await axios.get("http://localhost:5000/api/webinars");
       console.log("Webinars API response:", response.data);
 
@@ -46,6 +54,11 @@ const WebinarsPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRegisterClick = (webinar) => {
+    setSelectedWebinar(webinar);
+    setShowRegistrationModal(true);
   };
 
   const handleJoinWebinar = async (webinarId) => {
@@ -76,6 +89,19 @@ const WebinarsPage = () => {
     }
   };
 
+  const handleRegistrationSuccess = (attendeeCount) => {
+    // Update the specific webinar's attendee count
+    if (selectedWebinar) {
+      setWebinars(prevWebinars => 
+        prevWebinars.map(w => 
+          w.id === selectedWebinar.id 
+            ? { ...w, current_attendees: attendeeCount }
+            : w
+        )
+      );
+    }
+  };
+
   const formatDate = (dateString) => {
     const options = {
       year: "numeric",
@@ -101,7 +127,19 @@ const WebinarsPage = () => {
     (webinar) => !isWebinarUpcoming(webinar)
   );
 
-  // Loading spinner component matching homepage
+  // Filter webinars based on search
+  const filteredWebinars = (activeTab === "upcoming" ? upcomingWebinars : pastWebinars)
+    .filter(webinar => {
+      const searchLower = searchQuery.toLowerCase();
+      return (
+        webinar.title.toLowerCase().includes(searchLower) ||
+        webinar.description.toLowerCase().includes(searchLower) ||
+        webinar.speaker.toLowerCase().includes(searchLower) ||
+        webinar.tags?.some(tag => tag.toLowerCase().includes(searchLower))
+      );
+    });
+
+  // Loading spinner component
   const LoadingSpinner = () => (
     <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center">
       <div className="text-center">
@@ -122,16 +160,35 @@ const WebinarsPage = () => {
 
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
+      {/* Registration Modal */}
+      {showRegistrationModal && selectedWebinar && (
+        <Modal
+          isOpen={showRegistrationModal}
+          onClose={() => {
+            setShowRegistrationModal(false);
+            setSelectedWebinar(null);
+          }}
+          title="Register for Webinar"
+        >
+          <WebinarRegistration
+            webinar={selectedWebinar}
+            onClose={() => {
+              setShowRegistrationModal(false);
+              setSelectedWebinar(null);
+            }}
+            onRegistrationSuccess={handleRegistrationSuccess}
+          />
+        </Modal>
+      )}
+
       {/* Hero Section */}
       <section className="relative py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8 overflow-hidden">
-        {/* Background Elements */}
         <div className="absolute inset-0 overflow-hidden">
           <div className="absolute -top-20 -right-20 sm:-top-32 sm:-right-32 w-40 h-40 sm:w-60 sm:h-60 lg:w-80 lg:h-80 bg-green-100 dark:bg-green-900/20 rounded-full blur-2xl sm:blur-3xl opacity-30" />
           <div className="absolute -bottom-20 -left-20 sm:-bottom-32 sm:-left-32 w-40 h-40 sm:w-60 sm:h-60 lg:w-80 lg:h-80 bg-gray-100 dark:bg-gray-800/30 rounded-full blur-2xl sm:blur-3xl opacity-30" />
         </div>
 
         <div className="relative max-w-7xl mx-auto text-center">
-          {/* Main Heading */}
           <div className="mb-8 sm:mb-12">
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6 leading-tight">
               Explore Our{" "}
@@ -145,7 +202,6 @@ const WebinarsPage = () => {
             </p>
           </div>
 
-          {/* Quick Actions */}
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center max-w-2xl mx-auto">
             <button
               onClick={() => setActiveTab("upcoming")}
@@ -220,6 +276,20 @@ const WebinarsPage = () => {
             </div>
           )}
 
+          {/* Search Bar */}
+          <div className="mb-8">
+            <div className="relative">
+              <FiSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search webinars by title, speaker, or topic..."
+                className="w-full pl-12 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
           {/* Tab Navigation */}
           <div className="flex justify-center mb-10">
             <div className="flex border-b border-gray-200 dark:border-gray-700">
@@ -248,107 +318,168 @@ const WebinarsPage = () => {
 
           {/* Webinars List */}
           <div className="grid gap-6">
-            {(activeTab === "upcoming" ? upcomingWebinars : pastWebinars).map(
-              (webinar) => (
-                <Card
-                  key={webinar.id}
-                  className="p-6 hover:shadow-xl transition-all duration-300 bg-white dark:bg-gray-800 border-0 group"
-                >
-                  <div className="flex flex-col md:flex-row gap-6">
-                    {/* Webinar Image or Icon */}
-                    <div className="flex-shrink-0">
-                      {webinar.image_url ? (
-                        <img
-                          src={`http://localhost:5000${webinar.image_url}`}
-                          alt={webinar.title}
-                          className="w-24 h-24 rounded-2xl object-cover shadow-lg group-hover:scale-105 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-gray-800 to-gray-900 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform duration-300">
-                          <FiVideo className="h-10 w-10 text-white" />
-                        </div>
-                      )}
-                    </div>
+            {filteredWebinars.length === 0 ? (
+              <Card className="text-center py-12">
+                <div className="mx-auto bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 p-6 rounded-2xl mb-6 w-24 h-24 flex items-center justify-center">
+                  <FiVideo className="h-12 w-12 text-gray-600 dark:text-gray-400" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                  No Webinars Found
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400">
+                  {searchQuery
+                    ? "No webinars match your search. Try different keywords."
+                    : `No ${activeTab} webinars available.`}
+                </p>
+                {searchQuery && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setSearchQuery("")}
+                    className="mt-4"
+                  >
+                    Clear Search
+                  </Button>
+                )}
+              </Card>
+            ) : (
+              filteredWebinars.map((webinar) => {
+                const isUpcoming = isWebinarUpcoming(webinar);
+                const imageUrl = webinar.image_url 
+                  ? `http://localhost:5000${webinar.image_url}`
+                  : null;
 
-                    <div className="flex-grow">
-                      <div className="flex flex-wrap items-center gap-2 mb-3">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">
-                          {webinar.title}
-                        </h3>
-                        {webinar.is_premium && (
-                          <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-                            PREMIUM
-                          </span>
-                        )}
-                      </div>
-
-                      <p className="text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
-                        {webinar.description}
-                      </p>
-
-                      <div className="flex flex-wrap gap-4 mb-4">
-                        <div className="flex items-center text-gray-700 dark:text-gray-300">
-                          <FiCalendar className="mr-2 text-green-600 dark:text-green-400" />
-                          <span>{formatDate(webinar.date)}</span>
-                        </div>
-                        <div className="flex items-center text-gray-700 dark:text-gray-300">
-                          <FiClock className="mr-2 text-green-600 dark:text-green-400" />
-                          <span>{webinar.duration} minutes</span>
-                        </div>
-                        <div className="flex items-center text-gray-700 dark:text-gray-300">
-                          <FiUser className="mr-2 text-green-600 dark:text-green-400" />
-                          <span>{webinar.speaker}</span>
-                        </div>
-                        {webinar.price > 0 && (
-                          <div className="flex items-center text-gray-700 dark:text-gray-300">
-                            <FiDollarSign className="mr-2 text-green-600 dark:text-green-400" />
-                            <span>${webinar.price}</span>
-                          </div>
-                        )}
-                        {webinar.tags && webinar.tags.length > 0 && (
-                          <div className="flex items-center text-gray-700 dark:text-gray-300">
-                            <FiTag className="mr-2 text-purple-600 dark:text-purple-400" />
-                            <span>{webinar.tags.join(", ")}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex flex-wrap gap-3 items-center">
-                        {isWebinarUpcoming(webinar) ? (
-                          <>
-                            <Button
-                              variant="gradient"
-                              onClick={() => handleJoinWebinar(webinar.id)}
-                              className="flex items-center group/btn"
-                            >
-                              <FiExternalLink className="mr-2 group-hover/btn:translate-x-1 transition-transform duration-300" />
-                              Join Webinar
-                            </Button>
-                            <div className="text-sm text-gray-600 dark:text-gray-400">
-                              {webinar.current_attendees}/
-                              {webinar.max_attendees} registered
+                return (
+                  <Card
+                    key={webinar.id}
+                    className="p-6 hover:shadow-xl transition-all duration-300 bg-white dark:bg-gray-800 border-0 group"
+                  >
+                    <div className="flex flex-col md:flex-row gap-6">
+                      {/* Webinar Image */}
+                      <div className="flex-shrink-0">
+                        <div className="w-48 h-48 rounded-2xl overflow-hidden shadow-lg group-hover:shadow-2xl transition-shadow duration-300">
+                          {imageUrl ? (
+                            <img
+                              src={imageUrl}
+                              alt={webinar.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextElementSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
+                              <FiVideo className="h-16 w-16 text-white" />
                             </div>
-                          </>
-                        ) : (
-                          <Button
-                            variant="outline"
-                            onClick={() => handleWatchRecording(webinar.id)}
-                            className="flex items-center group/btn"
-                          >
-                            <FiVideo className="mr-2 group-hover/btn:scale-110 transition-transform duration-300" />
-                            Watch Recording
-                          </Button>
-                        )}
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex-grow">
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          <h3 className="text-xl font-bold text-gray-900 dark:text-white group-hover:text-green-600 dark:group-hover:text-green-400 transition-colors duration-300">
+                            {webinar.title}
+                          </h3>
+                          {webinar.is_premium && (
+                            <span className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold">
+                              PREMIUM
+                            </span>
+                          )}
+                        </div>
+
+                        <p className="text-gray-600 dark:text-gray-400 mb-4 leading-relaxed">
+                          {webinar.description}
+                        </p>
+
+                        <div className="flex flex-wrap gap-4 mb-4">
+                          <div className="flex items-center text-gray-700 dark:text-gray-300">
+                            <FiCalendar className="mr-2 text-green-600 dark:text-green-400" />
+                            <span>{formatDate(webinar.date)}</span>
+                          </div>
+                          <div className="flex items-center text-gray-700 dark:text-gray-300">
+                            <FiClock className="mr-2 text-green-600 dark:text-green-400" />
+                            <span>{webinar.duration} minutes</span>
+                          </div>
+                          <div className="flex items-center text-gray-700 dark:text-gray-300">
+                            <FiUser className="mr-2 text-green-600 dark:text-green-400" />
+                            <span>{webinar.speaker}</span>
+                          </div>
+                          <div className="flex items-center text-gray-700 dark:text-gray-300">
+                            <FiUsers className="mr-2 text-green-600 dark:text-green-400" />
+                            <span>{webinar.current_attendees || 0}/{webinar.max_attendees} registered</span>
+                          </div>
+                          {webinar.price > 0 && (
+                            <div className="flex items-center text-gray-700 dark:text-gray-300">
+                              <FiDollarSign className="mr-2 text-green-600 dark:text-green-400" />
+                              <span>${webinar.price}</span>
+                            </div>
+                          )}
+                          {webinar.tags && webinar.tags.length > 0 && (
+                            <div className="flex items-center text-gray-700 dark:text-gray-300">
+                              <FiTag className="mr-2 text-purple-600 dark:text-purple-400" />
+                              <span>{webinar.tags.join(", ")}</span>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-wrap gap-3 items-center">
+                          {isUpcoming ? (
+                            <>
+                              <Button
+                                variant="gradient"
+                                onClick={() => handleRegisterClick(webinar)}
+                                className="flex items-center group/btn"
+                                disabled={webinar.current_attendees >= webinar.max_attendees}
+                              >
+                                <FiUser className="mr-2 group-hover/btn:translate-x-1 transition-transform duration-300" />
+                                {webinar.current_attendees >= webinar.max_attendees 
+                                  ? "Fully Booked" 
+                                  : "Register Now"}
+                              </Button>
+                              {webinar.join_link && (
+                                <Button
+                                  variant="outline"
+                                  onClick={() => handleJoinWebinar(webinar.id)}
+                                  className="flex items-center group/btn"
+                                >
+                                  <FiExternalLink className="mr-2 group-hover/btn:translate-x-1 transition-transform duration-300" />
+                                  Join Link
+                                </Button>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                variant="outline"
+                                onClick={() => handleWatchRecording(webinar.id)}
+                                className="flex items-center group/btn"
+                              >
+                                <FiVideo className="mr-2 group-hover/btn:scale-110 transition-transform duration-300" />
+                                Watch Recording
+                              </Button>
+                              {webinar.recording_link && (
+                                <a
+                                  href={webinar.recording_link}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400"
+                                >
+                                  Direct Link
+                                </a>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              )
+                  </Card>
+                );
+              })
             )}
           </div>
 
           {/* Empty State */}
-          {activeTab === "upcoming" && upcomingWebinars.length === 0 && (
+          {activeTab === "upcoming" && upcomingWebinars.length === 0 && !searchQuery && (
             <div className="text-center py-12">
               <div className="mx-auto bg-gradient-to-br from-gray-800 to-gray-900 dark:from-gray-700 dark:to-gray-800 p-6 rounded-2xl mb-6 w-24 h-24 flex items-center justify-center shadow-lg">
                 <FiCalendar className="h-12 w-12 text-white" />
@@ -370,7 +501,7 @@ const WebinarsPage = () => {
             </div>
           )}
 
-          {activeTab === "past" && pastWebinars.length === 0 && (
+          {activeTab === "past" && pastWebinars.length === 0 && !searchQuery && (
             <div className="text-center py-12">
               <div className="mx-auto bg-gradient-to-br from-gray-800 to-gray-900 dark:from-gray-700 dark:to-gray-800 p-6 rounded-2xl mb-6 w-24 h-24 flex items-center justify-center shadow-lg">
                 <FiVideo className="h-12 w-12 text-white" />

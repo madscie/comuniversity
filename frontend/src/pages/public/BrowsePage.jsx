@@ -13,7 +13,7 @@ import Button from "../../components/UI/Button";
 import { componentClasses } from "../../components/UI/TailwindColors";
 import { bookService } from "../../services/bookService";
 import { useApi } from "../../hooks/useApi";
-import { getImageUrl, handleImageError, formatDate } from "../../utils/helpers";
+import { getImageUrl, handleImageError, formatDate } from "../../utils/fileHelpers";
 
 // Dewey Decimal Categories
 const DEWEY_CATEGORIES = [

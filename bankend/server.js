@@ -1,3 +1,4 @@
+// server.js - COMPLETE FIXED VERSION
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv/config";
@@ -7,7 +8,7 @@ import { fileURLToPath } from "url";
 
 // Import configs
 import connectDB from "./config/database.js";
-import db from "./config/database.js"; // ADD THIS
+import db from "./config/database.js";
 
 // Import routes
 import authRoutes from "./routes/auth.js";
@@ -16,7 +17,6 @@ import articleRoutes from "./routes/articles.js";
 import webinarRoutes from "./routes/webinars.js";
 import adminRoutes from "./routes/admin.js";
 import userRoutes from "./routes/users.js";
-import uploadRoutes from "./routes/upload.js";
 
 // Import database initialization
 import initializeDatabase from "./utils/initializeDatabase.js";
@@ -29,58 +29,134 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ==================== STATIC FILE SERVING ====================
-console.log(
-  "📁 Setting up static file serving from:",
-  path.join(__dirname, "uploads")
-);
+console.log("📁 Setting up static file serving from:", path.join(__dirname, "uploads"));
 
-// Serve files from uploads/images directory
+// Create uploads directories if they don't exist
+const createUploadsDirectories = () => {
+  const directories = [
+    path.join(__dirname, "uploads"),
+    path.join(__dirname, "uploads/images"),
+    path.join(__dirname, "uploads/files"),
+    path.join(__dirname, "uploads/articles/images"),
+    path.join(__dirname, "uploads/articles/files")
+  ];
+  
+  directories.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+      console.log(`✅ Created directory: ${dir}`);
+    }
+  });
+};
+
+createUploadsDirectories();
+
+// ===== CORRECT STATIC FILE SERVING PATHS =====
+
+// 1. Serve BOOK images from /uploads/images
 app.use(
   "/uploads/images",
   express.static(path.join(__dirname, "uploads/images"), {
     setHeaders: (res, filePath) => {
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
-      console.log(`📤 Serving static file: ${filePath}`);
+      console.log(`📤 Serving BOOK image: ${filePath}`);
     },
   })
 );
 
-// Also serve from root uploads path for backward compatibility
+// 2. Serve BOOK files from /uploads/files
+app.use(
+  "/uploads/files",
+  express.static(path.join(__dirname, "uploads/files"), {
+    setHeaders: (res, filePath) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      console.log(`📤 Serving BOOK file: ${filePath}`);
+    },
+  })
+);
+
+// 3. Serve ARTICLE images from /uploads/articles/images
+app.use(
+  "/uploads/articles/images",
+  express.static(path.join(__dirname, "uploads/articles/images"), {
+    setHeaders: (res, filePath) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      console.log(`📤 Serving ARTICLE image: ${filePath}`);
+    },
+  })
+);
+
+// 4. Serve ARTICLE files from /uploads/articles/files
+app.use(
+  "/uploads/articles/files",
+  express.static(path.join(__dirname, "uploads/articles/files"), {
+    setHeaders: (res, filePath) => {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      console.log(`📤 Serving ARTICLE file: ${filePath}`);
+    },
+  })
+);
+
+// 5. ALSO serve OLD article images from root /uploads (for backward compatibility)
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
     setHeaders: (res, filePath) => {
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      console.log(`📤 Serving from root uploads: ${filePath}`);
     },
   })
 );
 
 // ==================== DEBUG ROUTES ====================
 
-// Debug route to check uploaded files
+// Debug route to check uploaded files (all directories)
 app.get("/api/debug/uploads", (req, res) => {
   try {
-    const uploadsPath = path.join(__dirname, "uploads/images");
-    console.log("📁 Checking uploads path:", uploadsPath);
-
-    if (!fs.existsSync(uploadsPath)) {
-      return res.json({
-        success: false,
-        message: "Uploads directory doesn't exist",
-        path: uploadsPath,
-      });
+    console.log("📁 Checking all uploads directories:");
+    
+    const directories = {
+      book_images: path.join(__dirname, "uploads/images"),
+      book_files: path.join(__dirname, "uploads/files"),
+      article_images: path.join(__dirname, "uploads/articles/images"),
+      article_files: path.join(__dirname, "uploads/articles/files")
+    };
+    
+    const results = {};
+    
+    for (const [name, dirPath] of Object.entries(directories)) {
+      try {
+        if (fs.existsSync(dirPath)) {
+          results[name] = {
+            path: dirPath,
+            exists: true,
+            files: fs.readdirSync(dirPath)
+          };
+          console.log(`📄 ${name}:`, results[name].files);
+        } else {
+          results[name] = {
+            path: dirPath,
+            exists: false,
+            files: []
+          };
+        }
+      } catch (error) {
+        results[name] = {
+          path: dirPath,
+          exists: false,
+          error: error.message
+        };
+      }
     }
-
-    const files = fs.readdirSync(uploadsPath);
-    console.log("📄 Files in uploads:", files);
-
+    
     res.json({
       success: true,
-      path: uploadsPath,
-      files: files,
-      count: files.length,
+      directories: results,
     });
   } catch (error) {
     console.error("❌ Debug uploads error:", error);
@@ -95,9 +171,9 @@ app.get("/api/debug/uploads", (req, res) => {
 app.get("/api/debug/books-images", async (req, res) => {
   try {
     const [books] = await db.execute(`
-      SELECT id, title, cover_image 
+      SELECT id, title, cover_image, file_url
       FROM books 
-      WHERE cover_image IS NOT NULL 
+      WHERE cover_image IS NOT NULL OR file_url IS NOT NULL
       ORDER BY id DESC
     `);
 
@@ -107,9 +183,9 @@ app.get("/api/debug/books-images", async (req, res) => {
         id: book.id,
         title: book.title,
         cover_image: book.cover_image,
-        constructed_url: `http://localhost:5000/uploads/images/${book.cover_image
-          .split("/")
-          .pop()}`,
+        file_url: book.file_url,
+        image_url: book.cover_image ? `http://localhost:5000/uploads/images/${book.cover_image}` : null,
+        file_url_full: book.file_url ? `http://localhost:5000/uploads/files/${book.file_url}` : null,
       })),
     });
   } catch (error) {
@@ -118,85 +194,261 @@ app.get("/api/debug/books-images", async (req, res) => {
   }
 });
 
-// Fix book images route
-app.get("/api/fix-book-images", async (req, res) => {
+// Debug route to check article files in database
+app.get("/api/debug/articles-files", async (req, res) => {
   try {
-    const [books] = await db.execute(`
-      SELECT id, title, cover_image 
-      FROM books 
-      WHERE cover_image IS NOT NULL
+    const [articles] = await db.execute(`
+      SELECT id, title, image_url, file_url
+      FROM articles 
+      WHERE image_url IS NOT NULL OR file_url IS NOT NULL
+      ORDER BY id DESC
     `);
-
-    let fixedCount = 0;
-    const results = [];
-
-    for (const book of books) {
-      let newCoverImage = book.cover_image;
-
-      // If it's a full path, extract just the filename
-      if (book.cover_image.includes("/")) {
-        newCoverImage = book.cover_image.split("/").pop();
-      }
-
-      // If it doesn't start with image- but the file exists with image- prefix
-      if (!newCoverImage.startsWith("image-")) {
-        const possibleFilename = `image-${newCoverImage}`;
-        const filePath = path.join(
-          __dirname,
-          "uploads/images",
-          possibleFilename
-        );
-        if (fs.existsSync(filePath)) {
-          newCoverImage = possibleFilename;
-          console.log(`✅ Found matching file: ${possibleFilename}`);
-        }
-      }
-
-      if (newCoverImage !== book.cover_image) {
-        await db.execute("UPDATE books SET cover_image = ? WHERE id = ?", [
-          newCoverImage,
-          book.id,
-        ]);
-        results.push({
-          id: book.id,
-          title: book.title,
-          old: book.cover_image,
-          new: newCoverImage,
-        });
-        fixedCount++;
-      }
-    }
 
     res.json({
       success: true,
-      message: `Fixed ${fixedCount} book image paths`,
-      fixed: fixedCount,
-      details: results,
+      articles: articles.map((article) => ({
+        id: article.id,
+        title: article.title,
+        image_url: article.image_url,
+        file_url: article.file_url,
+        image_url_full: article.image_url ? `http://localhost:5000/uploads/articles/images/${article.image_url}` : null,
+        file_url_full: article.file_url ? `http://localhost:5000/uploads/articles/files/${article.file_url}` : null,
+      })),
     });
   } catch (error) {
-    console.error("Error fixing book images:", error);
+    console.error("Debug articles files error:", error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
 
 // Test image serving
-app.get("/api/test-image/:filename", (req, res) => {
-  const { filename } = req.params;
-  const imagePath = path.join(__dirname, "uploads/images", filename);
-
-  console.log("🧪 Testing image serving for:", filename);
-  console.log("📁 Full path:", imagePath);
-
-  if (!fs.existsSync(imagePath)) {
-    return res.status(404).json({
+app.get("/api/test-image/:type/:filename", (req, res) => {
+  const { type, filename } = req.params;
+  
+  let filePath;
+  if (type === 'article') {
+    filePath = path.join(__dirname, "uploads/articles/images", filename);
+  } else if (type === 'book') {
+    filePath = path.join(__dirname, "uploads/images", filename);
+  } else {
+    return res.status(400).json({
       success: false,
-      message: "Image file not found",
-      filename: filename,
-      path: imagePath,
+      message: "Invalid type. Use 'article' or 'book'"
     });
   }
 
-  res.sendFile(imagePath);
+  console.log("🧪 Testing image serving for:", { type, filename, filePath });
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({
+      success: false,
+      message: "Image file not found",
+      type,
+      filename,
+      path: filePath,
+    });
+  }
+
+  res.sendFile(filePath);
+});
+
+// Test file serving
+app.get("/api/test-file/:type/:filename", (req, res) => {
+  const { type, filename } = req.params;
+  
+  let filePath;
+  if (type === 'article') {
+    filePath = path.join(__dirname, "uploads/articles/files", filename);
+  } else if (type === 'book') {
+    filePath = path.join(__dirname, "uploads/files", filename);
+  } else {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid type. Use 'article' or 'book'"
+    });
+  }
+
+  console.log("🧪 Testing file serving for:", { type, filename, filePath });
+
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({
+      success: false,
+      message: "File not found",
+      type,
+      filename,
+      path: filePath,
+    });
+  }
+
+  res.sendFile(filePath);
+});
+
+// Debug endpoint to check file existence
+app.get("/api/debug/file-exists/:type/:filename", (req, res) => {
+  const { type, filename } = req.params;
+  
+  let filePath;
+  if (type === 'article-image') {
+    filePath = path.join(__dirname, 'uploads/articles/images', filename);
+  } else if (type === 'article-file') {
+    filePath = path.join(__dirname, 'uploads/articles/files', filename);
+  } else if (type === 'book-image') {
+    filePath = path.join(__dirname, 'uploads/images', filename);
+  } else if (type === 'book-file') {
+    filePath = path.join(__dirname, 'uploads/files', filename);
+  } else {
+    return res.status(400).json({ 
+      success: false,
+      error: 'Invalid type. Use: article-image, article-file, book-image, book-file' 
+    });
+  }
+  
+  const exists = fs.existsSync(filePath);
+  
+  const possiblePaths = [
+    `/uploads/articles/images/${filename}`,
+    `/uploads/articles/files/${filename}`,
+    `/uploads/images/${filename}`,
+    `/uploads/files/${filename}`,
+    `/uploads/${filename}`
+  ];
+  
+  res.json({
+    success: true,
+    filename,
+    type,
+    path: filePath,
+    exists,
+    accessible_urls: possiblePaths.map(p => `http://localhost:5000${p}`),
+    actual_url: exists ? `http://localhost:5000/uploads/${type === 'article-image' ? 'articles/images' : type === 'article-file' ? 'articles/files' : type === 'book-image' ? 'images' : 'files'}/${filename}` : null
+  });
+});
+
+// Test if a specific article file exists
+app.get("/api/test-article-file/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const [articles] = await db.execute(
+      "SELECT id, title, image_url, file_url FROM articles WHERE id = ?",
+      [id]
+    );
+    
+    if (articles.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Article not found"
+      });
+    }
+    
+    const article = articles[0];
+    
+    // Check if files exist
+    const checks = {};
+    
+    if (article.image_url) {
+      const imagePath = path.join(__dirname, 'uploads/articles/images', article.image_url);
+      checks.image = {
+        stored_path: article.image_url,
+        full_path: imagePath,
+        exists: fs.existsSync(imagePath),
+        url: `http://localhost:5000/uploads/articles/images/${article.image_url}`
+      };
+    }
+    
+    if (article.file_url) {
+      const filePath = path.join(__dirname, 'uploads/articles/files', article.file_url);
+      checks.file = {
+        stored_path: article.file_url,
+        full_path: filePath,
+        exists: fs.existsSync(filePath),
+        url: `http://localhost:5000/uploads/articles/files/${article.file_url}`
+      };
+    }
+    
+    res.json({
+      success: true,
+      article: {
+        id: article.id,
+        title: article.title,
+        image_url: article.image_url,
+        file_url: article.file_url
+      },
+      file_checks: checks
+    });
+    
+  } catch (error) {
+    console.error("Test article file error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Test article file access
+app.get("/api/test-article-file-access/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const [articles] = await db.execute(
+      "SELECT id, title, image_url, file_url FROM articles WHERE id = ?",
+      [id]
+    );
+    
+    if (articles.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Article not found"
+      });
+    }
+    
+    const article = articles[0];
+    
+    // Construct URLs for testing
+    const testUrls = {};
+    
+    if (article.image_url) {
+      testUrls.image = {
+        filename: article.image_url,
+        possible_urls: [
+          `http://localhost:5000/uploads/articles/images/${article.image_url}`,
+          `http://localhost:5000/uploads/images/${article.image_url}`,
+          `http://localhost:5000/uploads/${article.image_url}`
+        ]
+      };
+    }
+    
+    if (article.file_url) {
+      testUrls.file = {
+        filename: article.file_url,
+        possible_urls: [
+          `http://localhost:5000/uploads/articles/files/${article.file_url}`,
+          `http://localhost:5000/uploads/files/${article.file_url}`,
+          `http://localhost:5000/uploads/${article.file_url}`
+        ]
+      };
+    }
+    
+    res.json({
+      success: true,
+      article: {
+        id: article.id,
+        title: article.title,
+        image_url: article.image_url,
+        file_url: article.file_url
+      },
+      test_urls: testUrls,
+      message: "Try these URLs in your browser to see if files are accessible"
+    });
+    
+  } catch (error) {
+    console.error("Test article file access error:", error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
 });
 
 // ==================== ENVIRONMENT VARIABLES VALIDATION ====================
@@ -204,7 +456,7 @@ console.log("🔧 Checking environment variables...");
 
 const requiredEnvVars = [
   "JWT_SECRET",
-  "DB_HOST",
+  "DB_HOST", 
   "DB_USER",
   "DB_NAME",
   "CLOUDINARY_CLOUD_NAME",
@@ -235,256 +487,12 @@ if (!allEnvVarsPresent) {
   process.exit(1);
 }
 
-// Add this to server.js
-app.get("/api/debug/find-matching-files", async (req, res) => {
-  try {
-    const [books] = await db.execute(`
-      SELECT id, title, cover_image 
-      FROM books 
-      WHERE cover_image IS NOT NULL 
-      ORDER BY id DESC
-    `);
-
-    const uploadsPath = path.join(__dirname, "uploads/images");
-    const existingFiles = fs.existsSync(uploadsPath)
-      ? fs.readdirSync(uploadsPath)
-      : [];
-
-    const results = books.map((book) => {
-      const storedFilename = book.cover_image;
-      const possibleMatches = existingFiles.filter((file) =>
-        file.includes(
-          storedFilename
-            .replace(".jpg", "")
-            .replace(".png", "")
-            .replace(".jpeg", "")
-        )
-      );
-
-      return {
-        id: book.id,
-        title: book.title,
-        stored_filename: storedFilename,
-        possible_matches: possibleMatches,
-        file_exists: existingFiles.includes(storedFilename),
-      };
-    });
-
-    res.json({
-      success: true,
-      results: results,
-      existing_files_count: existingFiles.length,
-    });
-  } catch (error) {
-    console.error("Debug find matching files error:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Add this to server.js - Proper fix for existing data
-app.get("/api/fix-book-images-proper", async (req, res) => {
-  try {
-    const [books] = await db.execute(`
-      SELECT id, title, cover_image 
-      FROM books 
-      WHERE cover_image IS NOT NULL
-    `);
-
-    const uploadsPath = path.join(__dirname, "uploads/images");
-    const existingFiles = fs.existsSync(uploadsPath)
-      ? fs.readdirSync(uploadsPath)
-      : [];
-
-    let fixedCount = 0;
-    const results = [];
-
-    for (const book of books) {
-      let currentFilename = book.cover_image;
-      let newFilename = null;
-
-      // Try to find matching file in uploads directory
-      for (const existingFile of existingFiles) {
-        // Remove extensions for comparison
-        const currentBase = currentFilename.replace(/\.[^/.]+$/, "");
-        const existingBase = existingFile.replace(/\.[^/.]+$/, "");
-
-        // Check if this existing file matches our stored filename
-        if (
-          existingFile.includes(currentBase) ||
-          currentBase.includes(existingBase.replace("image-", ""))
-        ) {
-          newFilename = existingFile;
-          break;
-        }
-      }
-
-      // If no match found but file starts with numbers, try adding image- prefix
-      if (!newFilename && /^\d+-\d+\./.test(currentFilename)) {
-        const possibleFilename = `image-${currentFilename}`;
-        if (existingFiles.includes(possibleFilename)) {
-          newFilename = possibleFilename;
-        }
-      }
-
-      // Update if we found a match
-      if (newFilename && newFilename !== currentFilename) {
-        await db.execute("UPDATE books SET cover_image = ? WHERE id = ?", [
-          newFilename,
-          book.id,
-        ]);
-        results.push({
-          id: book.id,
-          title: book.title,
-          old: currentFilename,
-          new: newFilename,
-          status: "fixed",
-        });
-        fixedCount++;
-      } else if (!newFilename) {
-        results.push({
-          id: book.id,
-          title: book.title,
-          old: currentFilename,
-          new: "NO MATCHING FILE FOUND",
-          status: "failed",
-        });
-      }
-    }
-
-    res.json({
-      success: true,
-      message: `Processed ${books.length} books. Fixed ${fixedCount}.`,
-      fixed: fixedCount,
-      total: books.length,
-      details: results,
-    });
-  } catch (error) {
-    console.error("Error fixing book images:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// Add this quick fix route for the specific mismatches
-app.get("/api/quick-fix-images", async (req, res) => {
-  try {
-    // These are the specific fixes based on your data
-    const fixes = [
-      {
-        id: 15,
-        old: "1763118918719-404868007.jpg",
-        new: "image-1763087362438-675728037.jpg",
-      }, // general works
-      {
-        id: 22,
-        old: "1763118867521-353836191.jpg",
-        new: "image-1763087394362-439961738.jpg",
-      }, // Surrounded by idiots
-      {
-        id: 23,
-        old: "1763119038939-314759663.jpg",
-        new: "image-1763090003202-734256639.jpg",
-      }, // Surrounded by idiotsss
-    ];
-
-    const results = [];
-
-    for (const fix of fixes) {
-      const filePath = path.join(__dirname, "uploads/images", fix.new);
-      if (fs.existsSync(filePath)) {
-        await db.execute("UPDATE books SET cover_image = ? WHERE id = ?", [
-          fix.new,
-          fix.id,
-        ]);
-        results.push({
-          id: fix.id,
-          old: fix.old,
-          new: fix.new,
-          status: "fixed",
-        });
-        console.log(`✅ Fixed book ${fix.id}: ${fix.old} -> ${fix.new}`);
-      } else {
-        results.push({
-          id: fix.id,
-          old: fix.old,
-          new: fix.new,
-          status: "file not found",
-        });
-      }
-    }
-
-    res.json({
-      success: true,
-      message: `Applied ${
-        results.filter((r) => r.status === "fixed").length
-      } fixes`,
-      results: results,
-    });
-  } catch (error) {
-    console.error("Quick fix error:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-// Debug endpoint to check all books in database
-app.get("/api/debug/all-books", async (req, res) => {
-  try {
-    const [allBooks] = await db.execute(`
-      SELECT id, title, author, status, created_at 
-      FROM books 
-      ORDER BY id DESC
-    `);
-
-    const [availableBooks] = await db.execute(`
-      SELECT id, title, author, status, created_at 
-      FROM books 
-      WHERE status = 'available'
-      ORDER BY id DESC
-    `);
-
-    res.json({
-      success: true,
-      data: {
-        totalBooks: allBooks.length,
-        availableBooks: availableBooks.length,
-        allBooks: allBooks,
-        availableBooksList: availableBooks,
-      },
-    });
-  } catch (error) {
-    console.error("Debug books error:", error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-// Temporary test route
-app.get('/api/test-book-counts', async (req, res) => {
-  try {
-    // Count all books
-    const [allCount] = await db.execute('SELECT COUNT(*) as count FROM books');
-    
-    // Count available books only
-    const [availableCount] = await db.execute('SELECT COUNT(*) as count FROM books WHERE status = "available"');
-    
-    // Get lists
-    const [allBooks] = await db.execute('SELECT id, title, status FROM books ORDER BY id');
-    const [availableBooks] = await db.execute('SELECT id, title, status FROM books WHERE status = "available" ORDER BY id');
-
-    res.json({
-      totalBooks: allCount[0].count,
-      availableBooks: availableCount[0].count,
-      discrepancy: allCount[0].count - availableCount[0].count,
-      allBooks: allBooks,
-      availableBooks: availableBooks
-    });
-  } catch (error) {
-    console.error('Test book counts error:', error);
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
 // ==================== MIDDLEWARE ====================
 app.use(
   cors({
     origin: [
       "http://localhost:3000",
-      "http://localhost:5173",
+      "http://localhost:5173", 
       "http://localhost:8080",
     ],
     credentials: true,
@@ -539,8 +547,11 @@ app.use((err, req, res, next) => {
 // ==================== SERVER START ====================
 const startServer = async () => {
   try {
-    // Initialize database and Cloudinary
+    // Initialize database
     await initializeDatabase();
+    
+    // Cloudinary is already configured when imported
+    // Just call connectCloudinary to log confirmation
     connectCloudinary();
 
     const server = app.listen(PORT, "0.0.0.0", () => {
@@ -548,6 +559,12 @@ const startServer = async () => {
       console.log("🎉 SERVER STARTED ON PORT:", PORT);
       console.log("✅ Database: CONNECTED");
       console.log("☁️  Cloudinary: CONFIGURED");
+      console.log("📁 Static file serving: ENABLED");
+      console.log("   • Book images: /uploads/images/");
+      console.log("   • Book files: /uploads/files/");
+      console.log("   • Article images: /uploads/articles/images/");
+      console.log("   • Article files: /uploads/articles/files/");
+      console.log("   • Root uploads: /uploads/ (backward compatibility)");
       console.log("=".repeat(50));
       console.log("\n📚 Available Routes:");
       console.log("  • /api/auth - Authentication routes");
@@ -556,8 +573,13 @@ const startServer = async () => {
       console.log("  • /api/webinars - Webinar management routes");
       console.log("  • /api/admin - Admin management routes");
       console.log("  • /api/users - User management routes");
-      console.log("  • /api/debug/uploads - Debug uploads");
-      console.log("  • /api/debug/books-images - Debug book images");
+      console.log("\n🔧 Debug Routes:");
+      console.log("  • /api/debug/uploads - Check all upload directories");
+      console.log("  • /api/debug/books-images - Debug book images in DB");
+      console.log("  • /api/debug/articles-files - Debug article files in DB");
+      console.log("  • /api/debug/file-exists/:type/:filename - Check if file exists");
+      console.log("  • /api/test-article-file/:id - Test article file access");
+      console.log("  • /api/test-article-file-access/:id - Get test URLs for article");
       console.log("=".repeat(50));
     });
   } catch (error) {

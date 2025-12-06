@@ -1,38 +1,155 @@
-import { apiService } from "./apiService";
+// src/services/webinarService.js - FIXED VERSION
+import axios from "axios";
 
-class WebinarService {
-  async getWebinars(params = {}) {
-    return apiService.get("/webinars", params);
+const API_URL = "http://localhost:5000/api/webinars";
+
+// Define all service functions as individual functions
+const getWebinars = async () => {
+  try {
+    const response = await axios.get(API_URL);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching webinars:", error);
+    throw error;
   }
+};
 
-  async getWebinarById(id) {
-    return apiService.get(`/webinars/${id}`);
+const getWebinarById = async (id) => {
+  try {
+    const response = await axios.get(`${API_URL}/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching webinar:", error);
+    throw error;
   }
+};
 
-  async getCategories() {
-    return apiService.get("/webinars/categories");
+const createWebinar = async (formData) => {
+  try {
+    const response = await axios.post(API_URL, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error creating webinar:", error);
+    throw error;
   }
+};
 
-  async getFeaturedWebinars() {
-    return apiService.get("/webinars/featured");
+const updateWebinar = async (id, formData) => {
+  try {
+    const response = await axios.put(`${API_URL}/${id}`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error updating webinar:", error);
+    throw error;
   }
+};
 
-  async registerForWebinar(webinarId, userData) {
-    return apiService.post(`/webinars/${webinarId}/register`, userData);
+const deleteWebinar = async (id) => {
+  try {
+    const response = await axios.delete(`${API_URL}/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error("Error deleting webinar:", error);
+    throw error;
   }
+};
 
-  // Admin routes
-  async createWebinar(webinarData) {
-    return apiService.post("/webinars", webinarData);
+const registerForWebinar = async (webinarId, registrationData) => {
+  try {
+    const response = await axios.post(`${API_URL}/${webinarId}/register`, registrationData);
+    return response.data;
+  } catch (error) {
+    console.error("Error registering for webinar:", error);
+    throw error;
   }
+};
 
-  async updateWebinar(id, webinarData) {
-    return apiService.put(`/webinars/${id}`, webinarData);
+const getWebinarRegistrations = async (webinarId) => {
+  try {
+    const response = await axios.get(`${API_URL}/${webinarId}/registrations`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching registrations:", error);
+    throw error;
   }
+};
 
-  async deleteWebinar(id) {
-    return apiService.delete(`/webinars/${id}`);
+const getAdminWebinars = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/admin/all`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching admin webinars:", error);
+    throw error;
   }
-}
+};
 
-export const webinarService = new WebinarService();
+const getCategories = async () => {
+  try {
+    const response = await axios.get(`${API_URL}/categories`);
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching webinar categories:", error);
+    throw error;
+  }
+};
+
+const getFeaturedWebinars = async () => {
+  try {
+    const response = await axios.get(API_URL);
+    if (response.data.success) {
+      const webinars = response.data.data.webinars || [];
+      // Filter for featured webinars (you might need to adjust this logic)
+      return {
+        success: true,
+        data: {
+          webinars: webinars.filter(w => w.featured).slice(0, 6)
+        }
+      };
+    }
+    return response.data;
+  } catch (error) {
+    console.error("Error fetching featured webinars:", error);
+    throw error;
+  }
+};
+
+// Create the webinarService object that matches what your api.js expects
+const webinarService = {
+  // Main methods used by api.js
+  getWebinars,
+  getWebinarById,
+  createWebinar,
+  updateWebinar,
+  deleteWebinar,
+  registerForWebinar,
+  getWebinarRegistrations,
+  getAdminWebinars,
+  getCategories,
+  getFeaturedWebinars,
+  
+  // Additional methods that might be used elsewhere
+  searchWebinars: async (query) => {
+    try {
+      const response = await axios.get(`${API_URL}/search?q=${query}`);
+      return response.data;
+    } catch (error) {
+      console.error("Error searching webinars:", error);
+      throw error;
+    }
+  }
+};
+
+// Export as a named export - THIS IS WHAT YOUR API.JS EXPECTS
+export { webinarService };
+
+// Also export as default for convenience
+export default webinarService;

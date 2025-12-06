@@ -19,14 +19,11 @@ import {
 } from "react-icons/fi";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
-import ReadingModal from "../../components/Reading/ReadingModal";
 import { bookService } from "../../services/bookService";
 import { readingService } from "../../services/readingService";
-import { generateBookContent } from "../../services/bookContentSevice";
-import { getImageUrl, handleImageError } from "../../utils/helpers";
+import { getImageUrl, handleImageError } from "../../utils/fileHelpers";
 import { formatDate } from "../../utils/dateHelper";
 import { renderStars } from "../../utils/ratingHelper";
-import { handleDownload, handleViewDocument } from "../../utils/fileHelpers";
 import { clearCorruptedData } from "../../utils/storageHelpers";
 import { formatReadingTime } from "../../utils/dateHelper";
 
@@ -36,16 +33,134 @@ const BookDetail = () => {
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isReading, setIsReading] = useState(false);
-  const [currentChapter, setCurrentChapter] = useState(0);
-  const [currentPage, setCurrentPage] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
   const [relatedBooks, setRelatedBooks] = useState([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
-  const [readingTime, setReadingTime] = useState(0);
   const [readingStats, setReadingStats] = useState(null);
-  const [readingTimer, setReadingTimer] = useState(null);
+
+  // Helper to clean file URLs
+  const cleanFileUrl = (fileUrl) => {
+    if (!fileUrl) return null;
+    
+    let cleanUrl = fileUrl;
+    
+    // Remove any duplicate paths
+    if (cleanUrl.includes("uploads/files/uploads/files")) {
+      cleanUrl = cleanUrl.replace("uploads/files/uploads/files", "uploads/files");
+    }
+    
+    // Remove double slashes
+    cleanUrl = cleanUrl.replace(/\/\//g, '/');
+    
+    return cleanUrl;
+  };
+
+  // Get the correct file URL for access
+  const getFileUrl = (fileUrl) => {
+    if (!fileUrl) return null;
+    
+    const cleanUrl = cleanFileUrl(fileUrl);
+    
+    // If already a full URL, return as is
+    if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
+      return cleanUrl;
+    }
+    
+    // If already has uploads/files path, add server URL
+    if (cleanUrl.startsWith('uploads/files/')) {
+      return `http://localhost:5000/${cleanUrl}`;
+    }
+    
+    // If just a filename, add full path
+    return `http://localhost:5000/uploads/files/${cleanUrl}`;
+  };
+
+  // 1. READ ONLINE - Opens in browser for reading
+  const handleReadOnline = () => {
+    if (!book?.file_url) {
+      alert("No digital version available for this book");
+      return;
+    }
+    
+    const fileUrl = getFileUrl(book.file_url);
+    console.log("📖 Opening for online reading:", fileUrl);
+    
+    window.open(fileUrl, '_blank', 'noopener,noreferrer');
+    
+    // Update reading stats
+    if (book) {
+      readingService.updateReadingStats(book.id, {
+        lastRead: new Date().toISOString(),
+        totalReadingTime: (readingStats?.totalReadingTime || 0) + 1,
+        reads: (readingStats?.reads || 0) + 1,
+      });
+      setReadingStats(readingService.getReadingStats(book.id));
+    }
+  };
+
+  // 2. VIEW DOCUMENT - Opens in browser for viewing
+  const handleViewDocument = () => {
+    if (!book?.file_url) {
+      alert("No file available to view");
+      return;
+    }
+    
+    const fileUrl = getFileUrl(book.file_url);
+    console.log("👁️ Opening for viewing:", fileUrl);
+    
+    window.open(fileUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  // 3. DOWNLOAD - Downloads file to device
+  const handleDownload = async () => {
+    if (!book?.file_url) {
+      alert("File not available for download");
+      return;
+    }
+    
+    const fileUrl = getFileUrl(book.file_url);
+    const fileName = book.file_name || `${book.title}.${getFileExtension(book.file_url)}`;
+    
+    try {
+      console.log("📥 Downloading:", fileUrl);
+      
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Track download
+      if (book) {
+        readingService.updateReadingStats(book.id, {
+          lastDownload: new Date().toISOString(),
+          downloads: (readingStats?.downloads || 0) + 1,
+        });
+        setReadingStats(readingService.getReadingStats(book.id));
+      }
+      
+      setTimeout(() => {
+        alert(`"${fileName}" is downloading to your device.`);
+      }, 100);
+      
+      return true;
+    } catch (error) {
+      console.error("❌ Download error:", error);
+      alert("Download failed. Please try again.");
+      return false;
+    }
+  };
+
+  // Helper to get file extension
+  const getFileExtension = (filename) => {
+    if (!filename) return 'pdf';
+    const parts = filename.split('.');
+    return parts.length > 1 ? parts.pop().toLowerCase() : 'pdf';
+  };
 
   useEffect(() => {
     const loadBookData = async () => {
@@ -71,6 +186,14 @@ const BookDetail = () => {
           if (!bookData) {
             throw new Error("No book data received from server");
           }
+
+          // Debug: Check the file URL
+          console.log("📊 Book data received:", {
+            title: bookData.title,
+            original_file_url: bookData.file_url,
+            cleaned_file_url: cleanFileUrl(bookData.file_url),
+            final_url: getFileUrl(bookData.file_url)
+          });
 
           setBook(bookData);
           setIsFavorite(readingService.isFavorite(bookData.id));
@@ -132,93 +255,10 @@ const BookDetail = () => {
     }
   };
 
-  const { chapters, totalPages } = generateBookContent(book);
-
-  const handleReadOnline = () => {
-    setIsReading(true);
-    setCurrentChapter(0);
-    setCurrentPage(0);
-
-    // Start reading timer
-    const timer = setInterval(() => {
-      setReadingTime((prev) => prev + 1);
-      updateReadingStats();
-    }, 60000);
-
-    setReadingTimer(timer);
-
-    // Update last read timestamp
-    if (book) {
-      readingService.updateReadingStats(book.id, {
-        lastRead: new Date().toISOString(),
-      });
-      setReadingStats(readingService.getReadingStats(book.id));
-    }
-  };
-
-  const handleCloseReading = () => {
-    setIsReading(false);
-    if (readingTimer) {
-      clearInterval(readingTimer);
-      setReadingTimer(null);
-    }
-  };
-
-  const updateReadingStats = () => {
-    if (!book) return;
-
-    const stats = readingService.getReadingStats(book.id);
-    const wordsRead = stats.wordsRead + stats.readingSpeed / 2;
-    const progress = readingService.getReadingProgress(book.id);
-    const pagesRead = Object.values(progress).reduce(
-      (total, page) => total + page + 1,
-      0
-    );
-
-    const newStats = readingService.updateReadingStats(book.id, {
-      wordsRead,
-      pagesRead,
-      totalReadingTime: stats.totalReadingTime + 1,
-    });
-
-    setReadingStats(newStats);
-  };
-
-  const handleChapterChange = (chapterIndex) => {
-    setCurrentChapter(chapterIndex);
-    if (book) {
-      readingService.updateReadingProgress(book.id, chapterIndex, currentPage);
-    }
-  };
-
-  const handlePageChange = (pageIndex) => {
-    setCurrentPage(pageIndex);
-    if (book) {
-      readingService.updateReadingProgress(book.id, currentChapter, pageIndex);
-    }
-  };
-
   const toggleFavorite = () => {
     if (!book) return;
     const newFavoriteStatus = readingService.toggleFavorite(book.id);
     setIsFavorite(newFavoriteStatus);
-  };
-
-  const handleDownloadClick = async (format) => {
-    if (!book) return;
-
-    try {
-      if (format === "PDF" && book.file_url) {
-        await handleDownload(book.file_url, `${book.title}.pdf`);
-      } else {
-        alert(
-          `Download functionality for ${format} format will be implemented soon.`
-        );
-      }
-    } catch (err) {
-      console.error("Download failed:", err);
-      alert("Download failed. Please try again.");
-    }
   };
 
   const handleShare = () => {
@@ -238,8 +278,8 @@ const BookDetail = () => {
 
   const calculateOverallProgress = () => {
     if (!book) return 0;
-    const progress = readingService.getReadingProgress(book.id);
-    return readingService.calculateOverallProgress(chapters, progress);
+    const stats = readingService.getReadingStats(book.id);
+    return stats ? Math.min(stats.pagesRead || 0, 100) : 0;
   };
 
   // Safe book data accessors
@@ -260,9 +300,20 @@ const BookDetail = () => {
     publishedDate: book?.published_date || "N/A",
     downloads: book?.downloads || 0,
     rating: book?.rating || 0,
+    file_url: book?.file_url || null,
+    file_extension: getFileExtension(book?.file_url),
   });
 
   const bookData = getBookData();
+
+  // Format file size for display
+  const formatFileSize = (bytes) => {
+    if (!bytes || bytes === 0) return "N/A";
+    if (bytes < 1024) return bytes + " Bytes";
+    if (bytes < 1048576) return (bytes / 1024).toFixed(2) + " KB";
+    if (bytes < 1073741824) return (bytes / 1048576).toFixed(2) + " MB";
+    return (bytes / 1073741824).toFixed(2) + " GB";
+  };
 
   // Render book cover with fallback
   const renderBookCover = () => {
@@ -410,6 +461,11 @@ const BookDetail = () => {
                     ? `Premium - $${bookData.price}`
                     : "Free Access"}
                 </span>
+                {bookData.file_extension && (
+                  <span className="inline-block px-2 sm:px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-full text-xs sm:text-sm font-medium">
+                    {bookData.file_extension.toUpperCase()} File
+                  </span>
+                )}
               </div>
 
               <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-4">
@@ -437,6 +493,34 @@ const BookDetail = () => {
                 {bookData.description}
               </p>
 
+              {/* File Information */}
+              {bookData.file_url && (
+                <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-300">
+                      File Information
+                    </span>
+                    <span className="text-xs text-gray-600 dark:text-gray-400">
+                      {bookData.file_extension?.toUpperCase() || 'FILE'}
+                    </span>
+                  </div>
+                  <div className="text-sm space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Size:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {formatFileSize(bookData.fileSize)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Format:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {bookData.format}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Reading Progress */}
               {overallProgress > 0 && (
                 <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
@@ -456,9 +540,9 @@ const BookDetail = () => {
                   </div>
                   {readingStats && (
                     <div className="flex justify-between text-xs text-blue-700 dark:text-blue-300 mt-2">
-                      <span>{readingStats.pagesRead} pages read</span>
+                      <span>{readingStats.pagesRead || 0} pages read</span>
                       <span>
-                        {formatReadingTime(readingStats.totalReadingTime)} spent
+                        {formatReadingTime(readingStats.totalReadingTime || 0)} spent
                       </span>
                     </div>
                   )}
@@ -467,54 +551,64 @@ const BookDetail = () => {
 
               {/* Action Buttons */}
               <div className="flex flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
+                {/* READ ONLINE */}
                 <Button
                   variant="primary"
                   onClick={handleReadOnline}
                   className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
+                  disabled={!bookData.file_url}
                 >
                   <FiBookOpen className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                   {overallProgress > 0 ? "Continue Reading" : "Read Online"}
                 </Button>
 
+                {/* DOWNLOAD */}
                 {bookData.price > 0 ? (
                   <Button
                     variant="secondary"
-                    onClick={() => handleDownloadClick("PDF")}
+                    onClick={handleDownload}
                     className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
+                    disabled={!bookData.file_url || (!hasPurchased && bookData.price > 0)}
                   >
                     <FiDownload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
                     {hasPurchased
-                      ? "Download PDF"
+                      ? "Download File"
                       : `Purchase & Download - $${bookData.price}`}
                   </Button>
                 ) : (
                   <Button
                     variant="secondary"
-                    onClick={() => handleDownloadClick("PDF")}
+                    onClick={handleDownload}
                     className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
-                    disabled={!book.file_url}
+                    disabled={!bookData.file_url}
                   >
                     <FiDownload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                    {book.file_url
-                      ? "Download PDF (Free)"
-                      : "Download (File Not Available)"}
+                    Download File
                   </Button>
                 )}
 
-                {book.file_url && (
+                {/* VIEW DOCUMENT */}
+                {bookData.file_url && (
                   <Button
                     variant="outline"
-                    onClick={() => handleViewDocument(book.file_url)}
+                    onClick={handleViewDocument}
                     className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
                   >
                     <FiEye className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                    View PDF
+                    View Document
                   </Button>
                 )}
               </div>
 
+              {/* Action descriptions */}
+              <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1 mt-2">
+                <p>• <span className="font-medium">Read Online</span>: Opens in browser for immediate reading</p>
+                <p>• <span className="font-medium">View Document</span>: Opens in browser for viewing</p>
+                <p>• <span className="font-medium">Download</span>: Saves file to your device</p>
+              </div>
+
               {bookData.price > 0 && !hasPurchased && (
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 sm:p-4">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 sm:p-4 mt-4">
                   <div className="flex items-center">
                     <FiDollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
                     <span className="text-yellow-800 dark:text-yellow-300 font-medium text-sm sm:text-base">
@@ -608,7 +702,7 @@ const BookDetail = () => {
                     File Size:
                   </span>
                   <span className="font-medium text-gray-900 dark:text-white">
-                    {bookData.fileSize}
+                    {formatFileSize(bookData.fileSize)}
                   </span>
                 </div>
                 <div className="flex justify-between">
@@ -644,7 +738,7 @@ const BookDetail = () => {
                   </span>
                   <span className="font-medium text-gray-900 dark:text-white">
                     {readingStats
-                      ? formatReadingTime(readingStats.totalReadingTime)
+                      ? formatReadingTime(readingStats.totalReadingTime || 0)
                       : "0m"}
                   </span>
                 </div>
@@ -746,20 +840,6 @@ const BookDetail = () => {
             </div>
           </Card>
         )}
-
-        {/* Reading Modal */}
-        <ReadingModal
-          book={book}
-          chapters={chapters}
-          isOpen={isReading}
-          onClose={handleCloseReading}
-          currentChapter={currentChapter}
-          currentPage={currentPage}
-          onChapterChange={handleChapterChange}
-          onPageChange={handlePageChange}
-          readingTime={readingTime}
-          readingStats={readingStats}
-        />
       </div>
     </div>
   );

@@ -15,7 +15,12 @@ import Button from "../../components/UI/Button";
 import DocumentViewer from "../../utils/DocumentViewer";
 import { articleService } from "../../services/articleService";
 import { formatDate } from "../../utils/dateHelper";
-import { getImageUrl, handleImageError } from "../../utils/helpers";
+import { 
+  getImageUrl, 
+  handleImageError, 
+  formatFileSize,
+  getFileTypeName 
+} from "../../utils/fileHelpers";
 
 const LoadingSpinner = ({ message = "Loading..." }) => (
   <div className="flex flex-col items-center justify-center py-12">
@@ -49,6 +54,13 @@ const SingleArticlePage = () => {
 
       if (response.success) {
         setArticle(response.data.article || response.data);
+        console.log("📄 Article data loaded:", {
+          title: response.data.article?.title || response.data?.title,
+          hasFile: !!response.data.article?.file_url || !!response.data?.file_url,
+          file_url: response.data.article?.file_url || response.data?.file_url,
+          file_name: response.data.article?.file_name || response.data?.file_name,
+          file_size: response.data.article?.file_size || response.data?.file_size,
+        });
       } else {
         throw new Error(response.message || "Article not found");
       }
@@ -68,43 +80,57 @@ const SingleArticlePage = () => {
   const hasFileContent = article?.file_url;
 
   const renderContent = () => {
+    console.log("📝 Rendering content:", {
+      hasTextContent,
+      hasFileContent,
+      file_url: article?.file_url,
+      file_name: article?.file_name
+    });
+
     if (hasTextContent) {
       return (
         <div className="prose prose-lg max-w-none text-gray-800 dark:text-gray-300 leading-relaxed">
           <div className="whitespace-pre-line bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
             {article.content}
           </div>
+          
+          {/* Always show document viewer if file exists */}
+          {hasFileContent && (
+            <div className="mt-8">
+              <DocumentViewer
+                document={article}
+                loading={documentLoading}
+                title="Downloadable Document"
+                description="This article includes an attached document"
+              />
+            </div>
+          )}
         </div>
       );
     }
 
+    // If no text content but has file
     if (hasFileContent) {
       return (
         <div className="space-y-6">
           <DocumentViewer
             document={article}
             loading={documentLoading}
-            title={hasTextContent ? "Additional Document" : "Article Document"}
-            description={
-              hasTextContent
-                ? "This article also includes a downloadable document"
-                : "This article's content is available as a downloadable document"
-            }
+            title="Article Document"
+            description="This article's content is available as a downloadable document"
           />
-
-          {/* {!hasTextContent && (
-            <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-              <FiBook className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-2">
-                Document-Based Article
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-2xl mx-auto">
-                This article's content is available as a downloadable document.
-                Please use the view or download options above to access the full
-                content.
-              </p>
-            </div>
-          )} */}
+          
+          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+            <FiBook className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-gray-700 dark:text-gray-300 mb-2">
+              Document-Based Article
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6 max-w-2xl mx-auto">
+              This article's content is available as a downloadable document.
+              Please use the view or download options above to access the full
+              content.
+            </p>
+          </div>
         </div>
       );
     }
@@ -179,6 +205,12 @@ const SingleArticlePage = () => {
               )}
               {hasTextContent ? "Text Article" : "Document Article"}
             </div>
+            {hasFileContent && (
+              <div className="flex items-center px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
+                <FiBook className="mr-1" />
+                Has Document
+              </div>
+            )}
           </div>
 
           {/* Title */}
@@ -246,8 +278,31 @@ const SingleArticlePage = () => {
             </div>
           )}
 
+          {/* File info if exists */}
+          {hasFileContent && (
+            <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <div className="flex items-center">
+                <FiBook className="h-5 w-5 text-blue-600 dark:text-blue-400 mr-2" />
+                <span className="font-medium text-blue-800 dark:text-blue-300">
+                  This article includes a document:
+                </span>
+              </div>
+              <div className="mt-2 text-sm text-blue-700 dark:text-blue-400">
+                <div>File: {article.file_name || article.file_url}</div>
+                {article.file_size && (
+                  <div>Size: {formatFileSize(article.file_size)}</div>
+                )}
+                {article.file_type && (
+                  <div>Type: {getFileTypeName(article.file_type)}</div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Article Content */}
-          <div className="mt-8">{renderContent()}</div>
+          <div className="mt-8">
+            {renderContent()}
+          </div>
         </Card>
       </div>
     </div>

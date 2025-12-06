@@ -1,4 +1,4 @@
-// config/cloudinary.js - FIXED VERSION
+// config/cloudinary.js - FIXED EXPORTS
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from "dotenv";
 
@@ -8,7 +8,7 @@ dotenv.config();
 const validateCloudinaryConfig = () => {
   const required = [
     "CLOUDINARY_CLOUD_NAME",
-    "CLOUDINARY_API_KEY",
+    "CLOUDINARY_API_KEY", 
     "CLOUDINARY_API_SECRET",
   ];
 
@@ -55,7 +55,7 @@ try {
   throw error;
 }
 
-// Test Cloudinary connection
+// Test Cloudinary connection (optional)
 export const testCloudinaryConnection = async () => {
   try {
     const result = await cloudinary.api.ping();
@@ -67,5 +67,12 @@ export const testCloudinaryConnection = async () => {
   }
 };
 
+// Export - just configuration, no auto-testing
+export const connectCloudinary = () => {
+  console.log("✅ Cloudinary is configured and ready");
+  return cloudinary;
+};
+
+// FIX: Export cloudinary as BOTH named and default
 export { cloudinary };
-export const connectCloudinary = testCloudinaryConnection;
+export default cloudinary;

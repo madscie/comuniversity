@@ -15,7 +15,7 @@ import Card from "../../../components/UI/Card";
 import Button from "../../../components/UI/Button";
 import BookFormModal from "./BookFormModal";
 import { bookService } from "../../../services/bookService";
-import { getImageUrl } from "../../../utils/helpers";
+import { getImageUrl } from "../../../utils/fileHelpers";
 
 const ManageBooksPage = () => {
   const [books, setBooks] = useState([]);

@@ -7,7 +7,7 @@ import {
   FiBookOpen,
 } from "react-icons/fi";
 import { renderStars } from "../../utils/ratingHelper";
-import { getImageUrl, handleImageError } from "../../utils/helpers";
+import { getImageUrl, handleImageError } from "../../utils/fileHelpers";
 import { componentClasses } from "../../components/UI/TailwindColors";
 
 export const BookCard = ({

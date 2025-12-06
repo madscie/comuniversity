@@ -1,31 +1,15 @@
+// controllers/articleController.js - COMPLETE FIXED VERSION
 import db from "../config/database.js";
-import { cloudinary, testCloudinaryConnection } from "../config/cloudinary.js";
 
-// Helper function for building queries
-const buildArticlesQuery = (filters = {}) => {
-  let query = `
-    SELECT id, title, content, excerpt, author, category, image_url,
-           views, read_time, published_date, status, featured, tags,
-           dewey_decimal, amount, file_url, file_name, file_size,
-           file_type, created_at, updated_at
-    FROM articles 
-    WHERE status = 'published'
-  `;
-  const params = [];
+// Helper function to safely handle values
+const safeValue = (value) => {
+  if (value === undefined || value === "" || value === "null") return null;
+  return value;
+};
 
-  const { category, search } = filters;
-
-  if (category && category !== "all") {
-    query += ` AND category = ?`;
-    params.push(category);
-  }
-
-  if (search) {
-    query += ` AND (title LIKE ? OR author LIKE ? OR excerpt LIKE ?)`;
-    params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-  }
-
-  return { query, params };
+const safeNumber = (value) => {
+  if (value === undefined || value === "" || value === "null") return null;
+  return parseInt(value);
 };
 
 // Get all articles with filtering and pagination
@@ -142,7 +126,11 @@ export const getArticleById = async (req, res) => {
     const { id } = req.params;
 
     const [articles] = await db.execute(
-      `SELECT * FROM articles WHERE id = ? AND status = 'published'`,
+      `SELECT id, title, content, excerpt, author, category, image_url,
+             views, read_time, published_date, status, featured, tags,
+             dewey_decimal, amount, file_url, file_name, file_size,
+             file_type, created_at, updated_at
+       FROM articles WHERE id = ? AND status = 'published'`,
       [id]
     );
 
@@ -168,46 +156,7 @@ export const getArticleById = async (req, res) => {
   }
 };
 
-// Test Cloudinary on startup
-testCloudinaryConnection();
-
-// Improved upload function with better error handling
-const uploadToCloudinary = async (file, folder = "articles") => {
-  try {
-    if (!file || !file.path) {
-      throw new Error("Invalid file provided");
-    }
-
-    console.log(
-      `☁️ Uploading to Cloudinary: ${file.originalname} -> ${folder}`
-    );
-
-    const result = await cloudinary.uploader.upload(file.path, {
-      folder: folder,
-      resource_type: "auto",
-      timeout: 60000, // 60 second timeout
-    });
-
-    console.log(`✅ Cloudinary upload successful: ${result.secure_url}`);
-    return result.secure_url;
-  } catch (error) {
-    console.error("❌ Cloudinary upload failed:", error);
-    throw new Error(`Cloudinary upload failed: ${error.message}`);
-  }
-};
-
-// Helper function to safely handle values
-const safeValue = (value) => {
-  if (value === undefined || value === "") return null;
-  return value;
-};
-
-const safeNumber = (value) => {
-  if (value === undefined || value === "") return null;
-  return parseInt(value);
-};
-
-// Create article - MIRRORING BOOK CREATION
+// Create article function - FIXED FILE HANDLING
 export const createArticle = async (req, res) => {
   try {
     console.log("📥 CREATE ARTICLE REQUEST BODY:", req.body);
@@ -224,6 +173,7 @@ export const createArticle = async (req, res) => {
       featured,
       tags,
       dewey_decimal,
+      amount,
     } = req.body;
 
     // Validate required fields
@@ -237,20 +187,29 @@ export const createArticle = async (req, res) => {
     // Handle file uploads
     let imageUrl = null;
     let documentUrl = null;
+    let fileSize = null;
+    let fileName = null;
+    let fileType = null;
 
     if (req.files?.image?.[0]) {
       const imageFile = req.files.image[0];
+      // Store just the filename, not the full path
       imageUrl = imageFile.filename;
-      console.log("🖼️ Article image path:", imageUrl);
+      console.log("🖼️ Article image saved:", imageUrl);
     }
 
     if (req.files?.document?.[0]) {
       const documentFile = req.files.document[0];
+      // Store just the filename, not the full path
       documentUrl = documentFile.filename;
-      console.log("📄 Article document path:", documentUrl);
+      fileSize = documentFile.size;
+      fileName = documentFile.originalname;
+      fileType = documentFile.mimetype;
+      console.log("📄 Article document saved:", documentUrl);
+      console.log("📊 Article file details:", { fileSize, fileName, fileType });
     }
 
-    // Handle tags properly - FIXED: Check if tags is already an array
+    // Handle tags properly
     let tagsValue = null;
     if (tags) {
       if (Array.isArray(tags)) {
@@ -277,25 +236,28 @@ export const createArticle = async (req, res) => {
     const [result] = await db.execute(
       `INSERT INTO articles (
         title, content, excerpt, author, category, image_url, 
-        read_time, status, featured, tags, dewey_decimal,
+        read_time, status, featured, tags, dewey_decimal, amount,
         file_url, file_name, file_type, file_size, published_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         safeValue(title),
         safeValue(content) || "",
         safeValue(excerpt) || "",
         safeValue(author),
         safeValue(category),
+        // Store just the filename
         safeValue(imageUrl),
         parseInt(read_time) || 5,
         safeValue(status) || "draft",
         featured ? 1 : 0,
         tagsValue,
         safeValue(dewey_decimal),
+        parseFloat(amount) || 0.0,
+        // Store just the filename
         safeValue(documentUrl),
-        req.files?.document?.[0]?.originalname || null,
-        req.files?.document?.[0]?.mimetype || null,
-        req.files?.document?.[0]?.size || null,
+        fileName,
+        fileType,
+        fileSize,
         status === "published" ? new Date().toISOString().split("T")[0] : null,
       ]
     );
@@ -320,6 +282,160 @@ export const createArticle = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to create article",
+      error: error.message,
+    });
+  }
+};
+
+// Update article function - FIXED FILE HANDLING
+export const updateArticle = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log("📥 UPDATE ARTICLE REQUEST:", {
+      id,
+      body: req.body,
+      files: req.files,
+    });
+
+    // Check if article exists
+    const [existingArticle] = await db.execute(
+      "SELECT * FROM articles WHERE id = ?",
+      [id]
+    );
+
+    if (existingArticle.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Article not found",
+      });
+    }
+
+    const {
+      title,
+      author,
+      content,
+      excerpt,
+      category,
+      read_time,
+      status,
+      featured,
+      tags,
+      dewey_decimal,
+      amount,
+    } = req.body;
+
+    // Use existing values if not provided
+    const currentArticle = existingArticle[0];
+    const finalTitle = title || currentArticle.title;
+    const finalAuthor = author || currentArticle.author;
+    const finalCategory = category || currentArticle.category;
+
+    // Use existing file URLs unless new files are provided
+    let imageUrl = currentArticle.image_url;
+    let documentUrl = currentArticle.file_url;
+    let fileName = currentArticle.file_name;
+    let fileType = currentArticle.file_type;
+    let fileSize = currentArticle.file_size;
+
+    // Handle file uploads
+    if (req.files && req.files.image && req.files.image[0]) {
+      const imageFile = req.files.image[0];
+      // Store just the filename
+      imageUrl = imageFile.filename;
+      console.log("🖼️ New article image uploaded:", imageUrl);
+    }
+
+    if (req.files && req.files.document && req.files.document[0]) {
+      const documentFile = req.files.document[0];
+      // Store just the filename
+      documentUrl = documentFile.filename;
+      fileName = documentFile.originalname;
+      fileType = documentFile.mimetype;
+      fileSize = documentFile.size;
+      console.log("📄 New article document uploaded:", documentUrl);
+    }
+
+    // Handle tags properly
+    let tagsValue = currentArticle.tags;
+    if (tags !== undefined) {
+      if (Array.isArray(tags)) {
+        tagsValue = JSON.stringify(tags);
+      } else if (typeof tags === "string") {
+        if (tags.trim() === "") {
+          tagsValue = null;
+        } else {
+          const tagsArray = tags
+            .split(",")
+            .map((tag) => tag.trim())
+            .filter((tag) => tag !== "");
+          tagsValue = JSON.stringify(tagsArray);
+        }
+      }
+    }
+
+    console.log("💾 UPDATING ARTICLE WITH DATA:", {
+      finalTitle,
+      finalAuthor,
+      finalCategory,
+      imageUrl,
+      documentUrl,
+    });
+
+    await db.execute(
+      `UPDATE articles SET 
+        title = ?, content = ?, excerpt = ?, author = ?, category = ?, 
+        image_url = ?, read_time = ?, status = ?, featured = ?, tags = ?, 
+        dewey_decimal = ?, amount = ?, file_url = ?, file_name = ?, file_type = ?, 
+        file_size = ?, updated_at = CURRENT_TIMESTAMP,
+        published_date = ?
+      WHERE id = ?`,
+      [
+        safeValue(finalTitle),
+        safeValue(content),
+        safeValue(excerpt),
+        safeValue(finalAuthor),
+        safeValue(finalCategory),
+        // Store just the filename
+        safeValue(imageUrl),
+        parseInt(read_time) || 5,
+        safeValue(status) || "draft",
+        featured ? 1 : 0,
+        tagsValue,
+        safeValue(dewey_decimal),
+        parseFloat(amount) || 0.0,
+        // Store just the filename
+        safeValue(documentUrl),
+        safeValue(fileName),
+        safeValue(fileType),
+        safeValue(fileSize),
+        status === "published"
+          ? new Date().toISOString().split("T")[0]
+          : currentArticle.published_date,
+        id,
+      ]
+    );
+
+    const [updatedArticle] = await db.execute(
+      "SELECT * FROM articles WHERE id = ?",
+      [id]
+    );
+
+    console.log("✅ ARTICLE UPDATED SUCCESSFULLY, ID:", id);
+
+    res.json({
+      success: true,
+      message: "Article updated successfully",
+      data: {
+        article: updatedArticle[0],
+      },
+    });
+  } catch (error) {
+    console.error("❌ UPDATE ARTICLE ERROR:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to update article",
       error: error.message,
     });
   }
@@ -369,154 +485,6 @@ export const updateArticleStatus = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to update article status",
-      error: error.message,
-    });
-  }
-};
-
-// Update article - MIRRORING BOOK UPDATE
-export const updateArticle = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    console.log("📥 UPDATE ARTICLE REQUEST:", {
-      id,
-      body: req.body,
-      files: req.files,
-    });
-
-    // Check if article exists
-    const [existingArticle] = await db.execute(
-      "SELECT * FROM articles WHERE id = ?",
-      [id]
-    );
-
-    if (existingArticle.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Article not found",
-      });
-    }
-
-    const {
-      title,
-      author,
-      content,
-      excerpt,
-      category,
-      read_time,
-      status,
-      featured,
-      tags,
-      dewey_decimal,
-    } = req.body;
-
-    // Use existing values if not provided
-    const currentArticle = existingArticle[0];
-    const finalTitle = title || currentArticle.title;
-    const finalAuthor = author || currentArticle.author;
-    const finalCategory = category || currentArticle.category;
-
-    // Use existing file URLs unless new files are provided
-    let imageUrl = currentArticle.image_url;
-    let documentUrl = currentArticle.file_url;
-    let fileName = currentArticle.file_name;
-    let fileType = currentArticle.file_type;
-    let fileSize = currentArticle.file_size;
-
-    // Handle file uploads
-    if (req.files && req.files.image && req.files.image[0]) {
-      const imageFile = req.files.image[0];
-      imageUrl = imageFile.filename;
-      console.log("🖼️ New article image uploaded:", imageUrl);
-    }
-
-    if (req.files && req.files.document && req.files.document[0]) {
-      const documentFile = req.files.document[0];
-      documentUrl = documentFile.filename;
-      fileName = documentFile.originalname;
-      fileType = documentFile.mimetype;
-      fileSize = documentFile.size;
-      console.log("📄 New article document uploaded:", documentUrl);
-    }
-
-    // Handle tags properly - FIXED: Check if tags is already an array
-    let tagsValue = currentArticle.tags;
-    if (tags !== undefined) {
-      if (Array.isArray(tags)) {
-        tagsValue = JSON.stringify(tags);
-      } else if (typeof tags === "string") {
-        if (tags.trim() === "") {
-          tagsValue = null;
-        } else {
-          const tagsArray = tags
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter((tag) => tag !== "");
-          tagsValue = JSON.stringify(tagsArray);
-        }
-      }
-    }
-
-    console.log("💾 UPDATING ARTICLE WITH DATA:", {
-      finalTitle,
-      finalAuthor,
-      finalCategory,
-      imageUrl,
-      documentUrl,
-    });
-
-    await db.execute(
-      `UPDATE articles SET 
-        title = ?, content = ?, excerpt = ?, author = ?, category = ?, 
-        image_url = ?, read_time = ?, status = ?, featured = ?, tags = ?, 
-        dewey_decimal = ?, file_url = ?, file_name = ?, file_type = ?, 
-        file_size = ?, updated_at = CURRENT_TIMESTAMP,
-        published_date = ?
-      WHERE id = ?`,
-      [
-        safeValue(finalTitle),
-        safeValue(content),
-        safeValue(excerpt),
-        safeValue(finalAuthor),
-        safeValue(finalCategory),
-        safeValue(imageUrl),
-        parseInt(read_time) || 5,
-        safeValue(status) || "draft",
-        featured ? 1 : 0,
-        tagsValue,
-        safeValue(dewey_decimal),
-        safeValue(documentUrl),
-        safeValue(fileName),
-        safeValue(fileType),
-        safeValue(fileSize),
-        status === "published"
-          ? new Date().toISOString().split("T")[0]
-          : currentArticle.published_date,
-        id,
-      ]
-    );
-
-    const [updatedArticle] = await db.execute(
-      "SELECT * FROM articles WHERE id = ?",
-      [id]
-    );
-
-    console.log("✅ ARTICLE UPDATED SUCCESSFULLY, ID:", id);
-
-    res.json({
-      success: true,
-      message: "Article updated successfully",
-      data: {
-        article: updatedArticle[0],
-      },
-    });
-  } catch (error) {
-    console.error("❌ UPDATE ARTICLE ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to update article",
       error: error.message,
     });
   }
@@ -841,12 +809,14 @@ export const downloadArticle = async (req, res) => {
     }
 
     const article = articles[0];
+    
+    // Construct the full URL for download
+    const downloadUrl = `/uploads/articles/files/${article.file_url}`;
 
-    // Serve the file
     res.json({
       success: true,
       data: {
-        download_url: `/uploads/${article.file_url}`,
+        download_url: downloadUrl,
         file_name: article.file_name,
       },
     });

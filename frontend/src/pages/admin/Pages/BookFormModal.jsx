@@ -18,7 +18,7 @@ import {
   validateISBN,
   validateDeweyDecimal,
   getImageUrl,
-} from "../../../utils/helpers";
+} from "../../../utils/fileHelpers";
 
 const BookFormModal = ({ isOpen, onClose, book, onSave, isLoading }) => {
   const [formData, setFormData] = useState({

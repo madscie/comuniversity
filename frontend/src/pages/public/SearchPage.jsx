@@ -16,7 +16,7 @@ import Button from "../../components/UI/Button";
 import TextInput from "../../components/UI/TextInput";
 import { api } from "../../config/api";
 import { componentClasses } from "../../components/UI/TailwindColors";
-import { getImageUrl, handleImageError } from "../../utils/helpers";
+import { getImageUrl, handleImageError } from "../../utils/fileHelpers";
 
 // Enhanced Loading Spinner
 const LoadingSpinner = ({ message = "Searching..." }) => (
