@@ -1,8 +1,8 @@
-// controllers/webinarController.js
-import db from "../config/database.js";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from 'url';
+import { getCollection } from "../config/database.js";
+import { ObjectId } from "mongodb";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +25,7 @@ const parseWebinarTags = (webinar) => {
     }
   } catch (error) {
     console.warn(
-      `⚠️ Failed to parse tags for webinar ${webinar.id}:`,
+      `⚠️ Failed to parse tags for webinar ${webinar._id}:`,
       error.message
     );
     parsedTags = [];
@@ -44,42 +44,84 @@ export const getWebinars = async (req, res) => {
   try {
     console.log("🎓 Fetching scheduled webinars...");
 
-    const query = `
-      SELECT id, title, description, speaker, speaker_bio, date, duration,
-             max_attendees, current_attendees, join_link, recording_link,
-             status, image_url, price, is_premium, category, tags,
-             created_at, updated_at
-      FROM webinars
-      WHERE status = 'scheduled'
-      ORDER BY date ASC
-      LIMIT 50
-    `;
-    console.log("🔍 Query:", query);
+    const contentCollection = await getCollection("content");
 
-    const [webinars] = await db.execute(query);
+    // Query for webinars with status scheduled, sorted by date
+    const webinarsCursor = contentCollection.find({
+      type: "webinar",
+      "metadata.webinar.status": "scheduled"
+    }, {
+      projection: {
+        _id: 1,
+        title: 1,
+        description: 1,
+        author: 1, // speaker
+        "metadata.webinar.speakerBio": 1,
+        "metadata.webinar.date": 1,
+        "metadata.webinar.duration": 1,
+        "metadata.webinar.maxAttendees": 1,
+        "metadata.webinar.currentAttendees": 1,
+        "metadata.webinar.joinLink": 1,
+        "metadata.webinar.recordingLink": 1,
+        "metadata.webinar.status": 1,
+        "metadata.webinar.imageUrl": 1,
+        price: 1,
+        is_premium: 1,
+        category: 1,
+        tags: 1,
+        createdAt: 1,
+        updatedAt: 1
+      }
+    })
+    .sort({ "metadata.webinar.date": 1 })
+    .limit(50);
+
+    const webinars = await webinarsCursor.toArray();
     console.log(`✅ Found ${webinars.length} scheduled webinars`);
 
-    // Process image URLs to ensure correct paths
-    const webinarsWithParsedTags = webinars.map(webinar => {
+    // Process image URLs and parse tags
+    const processedWebinars = webinars.map(webinar => {
       const parsed = parseWebinarTags(webinar);
       
       // Fix image URL if exists
-      if (parsed.image_url) {
+      if (parsed.metadata?.webinar?.imageUrl) {
+        const imageUrl = parsed.metadata.webinar.imageUrl;
         // If it's just a filename, convert to full URL
-        if (!parsed.image_url.startsWith('http') && !parsed.image_url.startsWith('/uploads')) {
-          parsed.image_url = `/uploads/webinars/images/${parsed.image_url}`;
-        } else if (parsed.image_url.startsWith('uploads/webinars/images/')) {
-          parsed.image_url = `/${parsed.image_url}`;
+        if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/uploads')) {
+          parsed.metadata.webinar.imageUrl = `/uploads/webinars/images/${imageUrl}`;
+        } else if (imageUrl.startsWith('uploads/webinars/images/')) {
+          parsed.metadata.webinar.imageUrl = `/${imageUrl}`;
         }
       }
       
-      return parsed;
+      // Map to expected response format
+      return {
+        id: parsed._id,
+        title: parsed.title,
+        description: parsed.description,
+        speaker: parsed.author,
+        speaker_bio: parsed.metadata?.webinar?.speakerBio,
+        date: parsed.metadata?.webinar?.date,
+        duration: parsed.metadata?.webinar?.duration,
+        max_attendees: parsed.metadata?.webinar?.maxAttendees,
+        current_attendees: parsed.metadata?.webinar?.currentAttendees,
+        join_link: parsed.metadata?.webinar?.joinLink,
+        recording_link: parsed.metadata?.webinar?.recordingLink,
+        status: parsed.metadata?.webinar?.status,
+        image_url: parsed.metadata?.webinar?.imageUrl,
+        price: parsed.price,
+        is_premium: parsed.is_premium,
+        category: parsed.category,
+        tags: parsed.tags,
+        created_at: parsed.createdAt,
+        updated_at: parsed.updatedAt
+      };
     });
 
     res.json({
       success: true,
       data: {
-        webinars: webinarsWithParsedTags,
+        webinars: processedWebinars,
         total: webinars.length,
       },
     });
@@ -97,28 +139,58 @@ export const getWebinars = async (req, res) => {
 export const getWebinarById = async (req, res) => {
   try {
     const { id } = req.params;
-    const [webinars] = await db.execute(
-      "SELECT * FROM webinars WHERE id = ?",
-      [id]
-    );
 
-    if (webinars.length === 0) {
+    const contentCollection = await getCollection("content");
+
+    const webinar = await contentCollection.findOne({
+      _id: new ObjectId(id),
+      type: "webinar"
+    });
+
+    if (!webinar) {
       return res.status(404).json({
         success: false,
         message: "Webinar not found",
       });
     }
 
-    let webinar = parseWebinarTags(webinars[0]);
+    // Parse tags and process data
+    let parsedWebinar = parseWebinarTags(webinar);
     
     // Fix image URL
-    if (webinar.image_url && !webinar.image_url.startsWith('http') && !webinar.image_url.startsWith('/uploads')) {
-      webinar.image_url = `/uploads/webinars/images/${webinar.image_url}`;
+    if (parsedWebinar.metadata?.webinar?.imageUrl && 
+        !parsedWebinar.metadata.webinar.imageUrl.startsWith('http') && 
+        !parsedWebinar.metadata.webinar.imageUrl.startsWith('/uploads')) {
+      parsedWebinar.metadata.webinar.imageUrl = `/uploads/webinars/images/${parsedWebinar.metadata.webinar.imageUrl}`;
     }
+
+    // Map to expected response format
+    const responseWebinar = {
+      id: parsedWebinar._id,
+      title: parsedWebinar.title,
+      description: parsedWebinar.description,
+      speaker: parsedWebinar.author,
+      speaker_bio: parsedWebinar.metadata?.webinar?.speakerBio,
+      date: parsedWebinar.metadata?.webinar?.date,
+      duration: parsedWebinar.metadata?.webinar?.duration,
+      max_attendees: parsedWebinar.metadata?.webinar?.maxAttendees,
+      current_attendees: parsedWebinar.metadata?.webinar?.currentAttendees,
+      join_link: parsedWebinar.metadata?.webinar?.joinLink,
+      recording_link: parsedWebinar.metadata?.webinar?.recordingLink,
+      status: parsedWebinar.metadata?.webinar?.status,
+      image_url: parsedWebinar.metadata?.webinar?.imageUrl,
+      price: parsedWebinar.price,
+      is_premium: parsedWebinar.is_premium,
+      category: parsedWebinar.category,
+      tags: parsedWebinar.tags,
+      created_at: parsedWebinar.createdAt,
+      updated_at: parsedWebinar.updatedAt,
+      registrations: parsedWebinar.registrations || []
+    };
 
     res.json({
       success: true,
-      data: { webinar },
+      data: { webinar: responseWebinar },
     });
   } catch (error) {
     console.error("❌ Get webinar error:", error);
@@ -132,17 +204,18 @@ export const getWebinarById = async (req, res) => {
 // Get webinar categories
 export const getWebinarCategories = async (req, res) => {
   try {
-    const [categories] = await db.execute(`
-      SELECT DISTINCT category
-      FROM webinars
-      WHERE status = 'scheduled' AND category IS NOT NULL
-      ORDER BY category
-    `);
+    const contentCollection = await getCollection("content");
+
+    const categories = await contentCollection.distinct("category", {
+      type: "webinar",
+      "metadata.webinar.status": "scheduled",
+      category: { $ne: null }
+    });
 
     res.json({
       success: true,
       data: {
-        categories: categories.map((cat) => cat.category),
+        categories: categories,
       },
     });
   } catch (error) {
@@ -162,22 +235,25 @@ export const registerForWebinar = async (req, res) => {
 
     console.log(`📝 Registration attempt for webinar ${id}:`, { name, email, company });
 
-    // Check if webinar exists and has available spots
-    const [webinars] = await db.execute(
-      'SELECT id, title, max_attendees, current_attendees FROM webinars WHERE id = ?',
-      [id]
-    );
+    const contentCollection = await getCollection("content");
 
-    if (webinars.length === 0) {
+    // Check if webinar exists and has available spots
+    const webinar = await contentCollection.findOne({
+      _id: new ObjectId(id),
+      type: "webinar"
+    });
+
+    if (!webinar) {
       return res.status(404).json({
         success: false,
         message: "Webinar not found",
       });
     }
 
-    const webinar = webinars[0];
+    const maxAttendees = webinar.metadata?.webinar?.maxAttendees || 0;
+    const currentAttendees = webinar.metadata?.webinar?.currentAttendees || 0;
 
-    if (webinar.current_attendees >= webinar.max_attendees) {
+    if (currentAttendees >= maxAttendees) {
       return res.status(400).json({
         success: false,
         message: "Webinar is full",
@@ -185,43 +261,56 @@ export const registerForWebinar = async (req, res) => {
     }
 
     // Check if user is already registered
-    const [existingRegistrations] = await db.execute(
-      "SELECT id FROM webinar_registrations WHERE webinar_id = ? AND email = ?",
-      [id, email]
+    const isAlreadyRegistered = webinar.registrations?.some(
+      reg => reg.email === email
     );
 
-    if (existingRegistrations.length > 0) {
+    if (isAlreadyRegistered) {
       return res.status(400).json({
         success: false,
         message: "You are already registered for this webinar",
       });
     }
 
-    // Register user
-    await db.execute(
-      "INSERT INTO webinar_registrations (webinar_id, name, email, company) VALUES (?, ?, ?, ?)",
-      [id, name, email, company || null]
+    // Register user - using update with $push
+    const registration = {
+      userId: req.user?._id || null,
+      name: name,
+      email: email,
+      company: company || null,
+      registeredAt: new Date(),
+      attended: false,
+      attendanceTime: null
+    };
+
+    const result = await contentCollection.updateOne(
+      { _id: new ObjectId(id), type: "webinar" },
+      { 
+        $push: { registrations: registration },
+        $inc: { "metadata.webinar.currentAttendees": 1 },
+        $set: { updatedAt: new Date() }
+      }
     );
 
-    // Update attendee count
-    await db.execute(
-      "UPDATE webinars SET current_attendees = current_attendees + 1 WHERE id = ?",
-      [id]
-    );
+    if (result.modifiedCount === 0) {
+      throw new Error("Failed to register for webinar");
+    }
 
-    // Get updated webinar data
-    const [updatedWebinars] = await db.execute(
-      "SELECT current_attendees FROM webinars WHERE id = ?",
-      [id]
-    );
+    // Get updated attendee count
+    const updatedWebinar = await contentCollection.findOne({
+      _id: new ObjectId(id)
+    }, {
+      projection: { "metadata.webinar.currentAttendees": 1 }
+    });
 
-    console.log(`✅ Registration successful for ${name}. Total attendees: ${updatedWebinars[0].current_attendees}`);
+    console.log(`✅ Registration successful for ${name}. Total attendees: ${updatedWebinar.metadata?.webinar?.currentAttendees || 0}`);
 
     res.json({
       success: true,
       message: "Successfully registered for webinar",
       data: {
-        attendees: updatedWebinars[0].current_attendees
+        attendees: updatedWebinar.metadata?.webinar?.currentAttendees || 0,
+        registrationId: registration._id
       }
     });
   } catch (error) {
@@ -236,14 +325,17 @@ export const registerForWebinar = async (req, res) => {
 // Health check endpoint
 export const getWebinarHealth = async (req, res) => {
   try {
-    const [result] = await db.execute(
-      'SELECT COUNT(*) as count FROM webinars WHERE status = "scheduled"'
-    );
+    const contentCollection = await getCollection("content");
+
+    const count = await contentCollection.countDocuments({
+      type: "webinar",
+      "metadata.webinar.status": "scheduled"
+    });
 
     res.json({
       success: true,
-      message: `Webinars API is working! Found ${result[0].count} scheduled webinars.`,
-      count: result[0].count,
+      message: `Webinars API is working! Found ${count} scheduled webinars.`,
+      count: count,
     });
   } catch (error) {
     res.status(500).json({
@@ -256,30 +348,78 @@ export const getWebinarHealth = async (req, res) => {
 // Get all webinars for admin
 export const getAdminWebinars = async (req, res) => {
   try {
-    const [webinars] = await db.execute(`
-      SELECT id, title, description, speaker, speaker_bio, date, duration, 
-             max_attendees, current_attendees, join_link, recording_link,
-             status, image_url, price, is_premium, category, tags,
-             created_at, updated_at
-      FROM webinars 
-      ORDER BY date DESC
-    `);
+    const contentCollection = await getCollection("content");
 
-    const webinarsWithSafeTags = webinars.map(webinar => {
+    const webinarsCursor = contentCollection.find({
+      type: "webinar"
+    }, {
+      projection: {
+        _id: 1,
+        title: 1,
+        description: 1,
+        author: 1,
+        "metadata.webinar.speakerBio": 1,
+        "metadata.webinar.date": 1,
+        "metadata.webinar.duration": 1,
+        "metadata.webinar.maxAttendees": 1,
+        "metadata.webinar.currentAttendees": 1,
+        "metadata.webinar.joinLink": 1,
+        "metadata.webinar.recordingLink": 1,
+        "metadata.webinar.status": 1,
+        "metadata.webinar.imageUrl": 1,
+        price: 1,
+        is_premium: 1,
+        category: 1,
+        tags: 1,
+        createdAt: 1,
+        updatedAt: 1,
+        registrations: 1
+      }
+    })
+    .sort({ "metadata.webinar.date": -1 });
+
+    const webinars = await webinarsCursor.toArray();
+
+    // Process webinars
+    const processedWebinars = webinars.map(webinar => {
       const parsed = parseWebinarTags(webinar);
       
       // Fix image URL
-      if (parsed.image_url && !parsed.image_url.startsWith('http') && !parsed.image_url.startsWith('/uploads')) {
-        parsed.image_url = `/uploads/webinars/images/${parsed.image_url}`;
+      if (parsed.metadata?.webinar?.imageUrl && 
+          !parsed.metadata.webinar.imageUrl.startsWith('http') && 
+          !parsed.metadata.webinar.imageUrl.startsWith('/uploads')) {
+        parsed.metadata.webinar.imageUrl = `/uploads/webinars/images/${parsed.metadata.webinar.imageUrl}`;
       }
       
-      return parsed;
+      // Map to expected response format
+      return {
+        id: parsed._id,
+        title: parsed.title,
+        description: parsed.description,
+        speaker: parsed.author,
+        speaker_bio: parsed.metadata?.webinar?.speakerBio,
+        date: parsed.metadata?.webinar?.date,
+        duration: parsed.metadata?.webinar?.duration,
+        max_attendees: parsed.metadata?.webinar?.maxAttendees,
+        current_attendees: parsed.metadata?.webinar?.currentAttendees,
+        join_link: parsed.metadata?.webinar?.joinLink,
+        recording_link: parsed.metadata?.webinar?.recordingLink,
+        status: parsed.metadata?.webinar?.status,
+        image_url: parsed.metadata?.webinar?.imageUrl,
+        price: parsed.price,
+        is_premium: parsed.is_premium,
+        category: parsed.category,
+        tags: parsed.tags,
+        created_at: parsed.createdAt,
+        updated_at: parsed.updatedAt,
+        registration_count: parsed.registrations?.length || 0
+      };
     });
 
     res.json({
       success: true,
       data: {
-        webinars: webinarsWithSafeTags,
+        webinars: processedWebinars,
       },
     });
   } catch (error) {
@@ -296,14 +436,38 @@ export const getWebinarRegistrations = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [registrations] = await db.execute(
-      `SELECT wr.*, w.title as webinar_title 
-       FROM webinar_registrations wr 
-       JOIN webinars w ON wr.webinar_id = w.id 
-       WHERE wr.webinar_id = ? 
-       ORDER BY wr.created_at DESC`,
-      [id]
-    );
+    const contentCollection = await getCollection("content");
+
+    const webinar = await contentCollection.findOne({
+      _id: new ObjectId(id),
+      type: "webinar"
+    }, {
+      projection: {
+        title: 1,
+        registrations: 1
+      }
+    });
+
+    if (!webinar) {
+      return res.status(404).json({
+        success: false,
+        message: "Webinar not found",
+      });
+    }
+
+    // Map registrations to expected format
+    const registrations = (webinar.registrations || []).map(reg => ({
+      id: reg._id,
+      webinar_id: id,
+      webinar_title: webinar.title,
+      name: reg.name,
+      email: reg.email,
+      company: reg.company,
+      registered_at: reg.registeredAt,
+      attended: reg.attended,
+      attendance_time: reg.attendanceTime,
+      user_id: reg.userId
+    }));
 
     res.json({
       success: true,
@@ -359,16 +523,16 @@ export const createWebinar = async (req, res) => {
       });
     }
 
-    let tagsValue = null;
+    // Handle tags
+    let tagsArray = [];
     if (tags) {
       if (Array.isArray(tags)) {
-        tagsValue = JSON.stringify(tags);
+        tagsArray = tags;
       } else if (typeof tags === "string") {
-        const tagsArray = tags
+        tagsArray = tags
           .split(",")
           .map((tag) => tag.trim())
           .filter((tag) => tag !== "");
-        tagsValue = JSON.stringify(tagsArray);
       }
     }
 
@@ -396,41 +560,80 @@ export const createWebinar = async (req, res) => {
       }
     }
 
-    const [result] = await db.execute(
-      `INSERT INTO webinars (
-        title, description, speaker, speaker_bio, date, duration,
-        max_attendees, join_link, recording_link, price, is_premium,
-        category, tags, status, image_url, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-      [
-        title,
-        description,
-        speaker,
-        speaker_bio || null,
-        new Date(date),
-        parseInt(duration),
-        parseInt(max_attendees),
-        join_link || null,
-        recording_link || null,
-        price ? parseFloat(price) : 0.0,
-        is_premium ? 1 : 0,
-        category || "Education",
-        tagsValue,
-        status || "scheduled",
-        imageUrl,
-      ]
-    );
+    const contentCollection = await getCollection("content");
 
-    const [webinars] = await db.execute("SELECT * FROM webinars WHERE id = ?", [
-      result.insertId,
-    ]);
+    // Create webinar document
+    const webinarDocument = {
+      contentId: `WEB-${Date.now().toString().slice(-8)}`,
+      type: "webinar",
+      title: title,
+      author: speaker, // speaker stored as author
+      description: description,
+      category: category || "Education",
+      tags: tagsArray,
+      price: price ? parseFloat(price) : 0.0,
+      is_premium: Boolean(is_premium),
+      
+      metadata: {
+        webinar: {
+          speakerBio: speaker_bio || null,
+          date: new Date(date),
+          duration: parseInt(duration),
+          maxAttendees: parseInt(max_attendees),
+          currentAttendees: 0,
+          joinLink: join_link || null,
+          recordingLink: recording_link || null,
+          status: status || "scheduled",
+          imageUrl: imageUrl
+        }
+      },
+      
+      statistics: {
+        views: 0,
+        registrations: 0
+      },
+      
+      registrations: [], // Start with empty registrations
+      
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
 
-    let createdWebinar = parseWebinarTags(webinars[0]);
+    const result = await contentCollection.insertOne(webinarDocument);
+    
+    // Get the created webinar
+    const createdWebinar = await contentCollection.findOne({ _id: result.insertedId });
+
+    // Parse and format response
+    let parsedWebinar = parseWebinarTags(createdWebinar);
     
     // Add full image URL to response
-    if (createdWebinar.image_url) {
-      createdWebinar.image_url = `/uploads/webinars/images/${createdWebinar.image_url}`;
+    if (parsedWebinar.metadata?.webinar?.imageUrl) {
+      parsedWebinar.metadata.webinar.imageUrl = `/uploads/webinars/images/${parsedWebinar.metadata.webinar.imageUrl}`;
     }
+
+    // Map to expected response format
+    const responseWebinar = {
+      id: parsedWebinar._id,
+      title: parsedWebinar.title,
+      description: parsedWebinar.description,
+      speaker: parsedWebinar.author,
+      speaker_bio: parsedWebinar.metadata?.webinar?.speakerBio,
+      date: parsedWebinar.metadata?.webinar?.date,
+      duration: parsedWebinar.metadata?.webinar?.duration,
+      max_attendees: parsedWebinar.metadata?.webinar?.maxAttendees,
+      current_attendees: parsedWebinar.metadata?.webinar?.currentAttendees,
+      join_link: parsedWebinar.metadata?.webinar?.joinLink,
+      recording_link: parsedWebinar.metadata?.webinar?.recordingLink,
+      status: parsedWebinar.metadata?.webinar?.status,
+      image_url: parsedWebinar.metadata?.webinar?.imageUrl,
+      price: parsedWebinar.price,
+      is_premium: parsedWebinar.is_premium,
+      category: parsedWebinar.category,
+      tags: parsedWebinar.tags,
+      created_at: parsedWebinar.createdAt,
+      updated_at: parsedWebinar.updatedAt
+    };
 
     console.log(`✅ New webinar created: ${title} by ${speaker}`);
 
@@ -438,7 +641,7 @@ export const createWebinar = async (req, res) => {
       success: true,
       message: "Webinar created successfully",
       data: {
-        webinar: createdWebinar,
+        webinar: responseWebinar,
       },
     });
   } catch (error) {
@@ -459,29 +662,30 @@ export const updateWebinar = async (req, res) => {
     console.log(`📥 Admin: Updating webinar ${id} with data:`, updateData);
     console.log("📁 Files:", req.files);
 
-    const [existingWebinars] = await db.execute(
-      "SELECT id, image_url FROM webinars WHERE id = ?",
-      [id]
-    );
+    const contentCollection = await getCollection("content");
 
-    if (existingWebinars.length === 0) {
+    // Check if webinar exists
+    const existingWebinar = await contentCollection.findOne({
+      _id: new ObjectId(id),
+      type: "webinar"
+    });
+
+    if (!existingWebinar) {
       return res.status(404).json({
         success: false,
         message: "Webinar not found",
       });
     }
 
-    const existingWebinar = existingWebinars[0];
-
     // Handle image upload
-    let imageUrl = existingWebinar.image_url; // Keep existing image by default
+    let imageUrl = existingWebinar.metadata?.webinar?.imageUrl;
     
     if (req.files && req.files.image && req.files.image[0]) {
       const imageFile = req.files.image[0];
       
       // Delete old image if exists
-      if (existingWebinar.image_url) {
-        const oldImagePath = path.join(__dirname, '../uploads/webinars/images', existingWebinar.image_url);
+      if (existingWebinar.metadata?.webinar?.imageUrl) {
+        const oldImagePath = path.join(__dirname, '../uploads/webinars/images', existingWebinar.metadata.webinar.imageUrl);
         if (fs.existsSync(oldImagePath)) {
           fs.unlinkSync(oldImagePath);
         }
@@ -506,77 +710,98 @@ export const updateWebinar = async (req, res) => {
       console.log("🖼️ Webinar image updated:", imageUrl);
     }
 
-    const allowedFields = [
-      "title",
-      "description",
-      "speaker",
-      "speaker_bio",
-      "date",
-      "duration",
-      "max_attendees",
-      "join_link",
-      "recording_link",
-      "price",
-      "is_premium",
-      "category",
-      "tags",
-      "status",
-    ];
+    // Prepare update operations
+    const updateOperations = { $set: { updatedAt: new Date() } };
 
-    const updates = [];
-    const values = [];
-
-    // Always update image_url (even if unchanged)
-    updates.push("image_url = ?");
-    values.push(imageUrl);
-
-    Object.keys(updateData).forEach((key) => {
-      if (allowedFields.includes(key)) {
-        updates.push(`${key} = ?`);
-
-        if (key === "duration" || key === "max_attendees") {
-          values.push(parseInt(updateData[key]));
-        } else if (key === "price") {
-          values.push(parseFloat(updateData[key]) || 0.0);
-        } else if (key === "is_premium") {
-          values.push(updateData[key] === "true" ? 1 : 0);
-        } else if (key === "date") {
-          values.push(new Date(updateData[key]));
-        } else if (key === "tags" && updateData[key]) {
-          let tagsValue = null;
-          if (Array.isArray(updateData[key])) {
-            tagsValue = JSON.stringify(updateData[key]);
-          } else if (typeof updateData[key] === "string") {
-            const tagsArray = updateData[key]
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter((tag) => tag !== "");
-            tagsValue = JSON.stringify(tagsArray);
-          }
-          values.push(tagsValue);
-        } else {
-          values.push(updateData[key]);
-        }
+    // Update basic fields
+    if (updateData.title !== undefined) updateOperations.$set.title = updateData.title;
+    if (updateData.description !== undefined) updateOperations.$set.description = updateData.description;
+    if (updateData.speaker !== undefined) updateOperations.$set.author = updateData.speaker;
+    if (updateData.category !== undefined) updateOperations.$set.category = updateData.category;
+    if (updateData.price !== undefined) updateOperations.$set.price = parseFloat(updateData.price) || 0.0;
+    if (updateData.is_premium !== undefined) updateOperations.$set.is_premium = Boolean(updateData.is_premium);
+    
+    // Update tags
+    if (updateData.tags !== undefined) {
+      let tagsArray = [];
+      if (Array.isArray(updateData.tags)) {
+        tagsArray = updateData.tags;
+      } else if (typeof updateData.tags === "string") {
+        tagsArray = updateData.tags
+          .split(",")
+          .map((tag) => tag.trim())
+          .filter((tag) => tag !== "");
       }
-    });
+      updateOperations.$set.tags = tagsArray;
+    }
 
-    updates.push("updated_at = CURRENT_TIMESTAMP");
-    values.push(id);
+    // Update webinar metadata
+    const webinarMetadata = {};
+    
+    if (updateData.speaker_bio !== undefined) webinarMetadata.speakerBio = updateData.speaker_bio;
+    if (updateData.date !== undefined) webinarMetadata.date = new Date(updateData.date);
+    if (updateData.duration !== undefined) webinarMetadata.duration = parseInt(updateData.duration);
+    if (updateData.max_attendees !== undefined) webinarMetadata.maxAttendees = parseInt(updateData.max_attendees);
+    if (updateData.join_link !== undefined) webinarMetadata.joinLink = updateData.join_link;
+    if (updateData.recording_link !== undefined) webinarMetadata.recordingLink = updateData.recording_link;
+    if (updateData.status !== undefined) webinarMetadata.status = updateData.status;
+    
+    // Always update image URL
+    webinarMetadata.imageUrl = imageUrl;
 
-    const query = `UPDATE webinars SET ${updates.join(", ")} WHERE id = ?`;
+    if (Object.keys(webinarMetadata).length > 0) {
+      updateOperations.$set["metadata.webinar"] = {
+        ...existingWebinar.metadata?.webinar,
+        ...webinarMetadata
+      };
+    }
 
-    await db.execute(query, values);
+    // Perform update
+    const result = await contentCollection.updateOne(
+      { _id: new ObjectId(id) },
+      updateOperations
+    );
 
-    const [webinars] = await db.execute("SELECT * FROM webinars WHERE id = ?", [
-      id,
-    ]);
+    if (result.modifiedCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No changes made to webinar",
+      });
+    }
 
-    let updatedWebinar = parseWebinarTags(webinars[0]);
+    // Get updated webinar
+    const updatedWebinar = await contentCollection.findOne({ _id: new ObjectId(id) });
+
+    // Parse and format response
+    let parsedWebinar = parseWebinarTags(updatedWebinar);
     
     // Add full image URL to response
-    if (updatedWebinar.image_url) {
-      updatedWebinar.image_url = `/uploads/webinars/images/${updatedWebinar.image_url}`;
+    if (parsedWebinar.metadata?.webinar?.imageUrl) {
+      parsedWebinar.metadata.webinar.imageUrl = `/uploads/webinars/images/${parsedWebinar.metadata.webinar.imageUrl}`;
     }
+
+    // Map to expected response format
+    const responseWebinar = {
+      id: parsedWebinar._id,
+      title: parsedWebinar.title,
+      description: parsedWebinar.description,
+      speaker: parsedWebinar.author,
+      speaker_bio: parsedWebinar.metadata?.webinar?.speakerBio,
+      date: parsedWebinar.metadata?.webinar?.date,
+      duration: parsedWebinar.metadata?.webinar?.duration,
+      max_attendees: parsedWebinar.metadata?.webinar?.maxAttendees,
+      current_attendees: parsedWebinar.metadata?.webinar?.currentAttendees,
+      join_link: parsedWebinar.metadata?.webinar?.joinLink,
+      recording_link: parsedWebinar.metadata?.webinar?.recordingLink,
+      status: parsedWebinar.metadata?.webinar?.status,
+      image_url: parsedWebinar.metadata?.webinar?.imageUrl,
+      price: parsedWebinar.price,
+      is_premium: parsedWebinar.is_premium,
+      category: parsedWebinar.category,
+      tags: parsedWebinar.tags,
+      created_at: parsedWebinar.createdAt,
+      updated_at: parsedWebinar.updatedAt
+    };
 
     console.log(`✅ Admin: Webinar updated: ID ${id}`);
 
@@ -584,7 +809,7 @@ export const updateWebinar = async (req, res) => {
       success: true,
       message: "Webinar updated successfully",
       data: {
-        webinar: updatedWebinar,
+        webinar: responseWebinar,
       },
     });
   } catch (error) {
@@ -601,37 +826,40 @@ export const deleteWebinar = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [existingWebinars] = await db.execute(
-      "SELECT id, title, image_url FROM webinars WHERE id = ?",
-      [id]
-    );
+    const contentCollection = await getCollection("content");
 
-    if (existingWebinars.length === 0) {
+    // Check if webinar exists
+    const existingWebinar = await contentCollection.findOne({
+      _id: new ObjectId(id),
+      type: "webinar"
+    });
+
+    if (!existingWebinar) {
       return res.status(404).json({
         success: false,
         message: "Webinar not found",
       });
     }
 
-    const webinar = existingWebinars[0];
-
     // Delete associated image if exists
-    if (webinar.image_url) {
-      const imagePath = path.join(__dirname, '../uploads/webinars/images', webinar.image_url);
+    if (existingWebinar.metadata?.webinar?.imageUrl) {
+      const imagePath = path.join(__dirname, '../uploads/webinars/images', existingWebinar.metadata.webinar.imageUrl);
       if (fs.existsSync(imagePath)) {
         fs.unlinkSync(imagePath);
       }
     }
 
-    // Delete registrations first
-    await db.execute("DELETE FROM webinar_registrations WHERE webinar_id = ?", [
-      id,
-    ]);
+    // Delete webinar from MongoDB
+    const result = await contentCollection.deleteOne({ _id: new ObjectId(id) });
 
-    // Delete webinar
-    await db.execute("DELETE FROM webinars WHERE id = ?", [id]);
+    if (result.deletedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Webinar not found",
+      });
+    }
 
-    console.log(`🗑️ Webinar deleted: ${webinar.title} (ID: ${id})`);
+    console.log(`🗑️ Webinar deleted: ${existingWebinar.title} (ID: ${id})`);
 
     res.json({
       success: true,
@@ -642,6 +870,127 @@ export const deleteWebinar = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Error deleting webinar: " + error.message,
+    });
+  }
+};
+
+// Get upcoming webinars (within next 7 days)
+export const getUpcomingWebinars = async (req, res) => {
+  try {
+    const contentCollection = await getCollection("content");
+
+    const today = new Date();
+    const nextWeek = new Date();
+    nextWeek.setDate(today.getDate() + 7);
+
+    const webinarsCursor = contentCollection.find({
+      type: "webinar",
+      "metadata.webinar.status": "scheduled",
+      "metadata.webinar.date": {
+        $gte: today,
+        $lte: nextWeek
+      }
+    }, {
+      projection: {
+        _id: 1,
+        title: 1,
+        description: 1,
+        author: 1,
+        "metadata.webinar.date": 1,
+        "metadata.webinar.duration": 1,
+        "metadata.webinar.imageUrl": 1,
+        "metadata.webinar.maxAttendees": 1,
+        "metadata.webinar.currentAttendees": 1,
+        category: 1,
+        tags: 1
+      }
+    })
+    .sort({ "metadata.webinar.date": 1 })
+    .limit(10);
+
+    const webinars = await webinarsCursor.toArray();
+
+    // Process webinars
+    const processedWebinars = webinars.map(webinar => {
+      // Fix image URL
+      if (webinar.metadata?.webinar?.imageUrl && 
+          !webinar.metadata.webinar.imageUrl.startsWith('http') && 
+          !webinar.metadata.webinar.imageUrl.startsWith('/uploads')) {
+        webinar.metadata.webinar.imageUrl = `/uploads/webinars/images/${webinar.metadata.webinar.imageUrl}`;
+      }
+      
+      return {
+        id: webinar._id,
+        title: webinar.title,
+        description: webinar.description,
+        speaker: webinar.author,
+        date: webinar.metadata?.webinar?.date,
+        duration: webinar.metadata?.webinar?.duration,
+        image_url: webinar.metadata?.webinar?.imageUrl,
+        max_attendees: webinar.metadata?.webinar?.maxAttendees,
+        current_attendees: webinar.metadata?.webinar?.currentAttendees,
+        category: webinar.category,
+        tags: webinar.tags,
+        available_spots: (webinar.metadata?.webinar?.maxAttendees || 0) - (webinar.metadata?.webinar?.currentAttendees || 0)
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        webinars: processedWebinars,
+        total: webinars.length,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Get upcoming webinars error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching upcoming webinars",
+    });
+  }
+};
+
+// Mark attendance for webinar
+export const markAttendance = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email } = req.body;
+
+    const contentCollection = await getCollection("content");
+
+    // Find the registration and mark as attended
+    const result = await contentCollection.updateOne(
+      {
+        _id: new ObjectId(id),
+        type: "webinar",
+        "registrations.email": email
+      },
+      {
+        $set: {
+          "registrations.$.attended": true,
+          "registrations.$.attendanceTime": new Date(),
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Registration not found",
+      });
+    }
+
+    res.json({
+      success: true,
+      message: "Attendance marked successfully",
+    });
+  } catch (error) {
+    console.error("❌ Mark attendance error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error marking attendance",
     });
   }
 };

@@ -1,146 +1,287 @@
-import db from "../config/database.js";
+// utils/initializeDatabase.js - MongoDB Version
+import { getDatabase } from '../config/database.js';
+import bcrypt from 'bcryptjs';
 
-const initializeDatabase = async () => {
+export default async function initializeDatabase() {
   try {
     console.log("🔧 Starting database initialization...");
 
-    // Test connection first
-    const connection = await db.getConnection();
-    console.log("✅ Database connected successfully");
-    connection.release();
+    const db = await getDatabase();
+    console.log("✅ MongoDB connected successfully");
 
-    console.log("🔄 Creating tables if they dont exist...");
+    console.log("🔄 Checking collections...");
 
-    // Books table (updated to match your schema)
-    // In your initializeDatabase.js, update the books table creation:
-    await db.execute(`
-  CREATE TABLE IF NOT EXISTS books (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(500) NOT NULL,
-    author VARCHAR(255) NOT NULL,
-    description TEXT,
-    isbn VARCHAR(50) DEFAULT NULL,
-    category VARCHAR(255) DEFAULT NULL,
-    dewey_number VARCHAR(50) DEFAULT NULL,
-    price DECIMAL(10,2) DEFAULT '0.00',
-    format ENUM('physical','digital','both') DEFAULT 'physical',
-    cover_image VARCHAR(500) DEFAULT NULL,
-    file_url VARCHAR(500) DEFAULT NULL,
-    file_size VARCHAR(50) DEFAULT NULL,
-    pages INT DEFAULT NULL,
-    publisher VARCHAR(255) DEFAULT NULL,
-    published_date DATE DEFAULT NULL,
-    language VARCHAR(50) DEFAULT 'English',
-    tags JSON DEFAULT NULL,
-    rating DECIMAL(3,2) DEFAULT '0.00',
-    total_ratings INT DEFAULT '0',
-    downloads INT DEFAULT '0',
-    status ENUM('available','unavailable') DEFAULT 'available',
-    total_copies INT DEFAULT '1',
-    available_copies INT DEFAULT '1',
-    featured TINYINT(1) DEFAULT '0',
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    UNIQUE KEY isbn_unique (isbn)
-  )
-`);
+    // List of required collections (tables in MySQL)
+    const collections = [
+      'books',
+      'users',
+      'articles', 
+      'webinars',
+      'webinar_registrations',
+      'affiliates',
+      'categories',
+      'orders',
+      'reviews',
+      'transactions'
+    ];
 
-    // Users table
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        name VARCHAR(255) NOT NULL,
-        email VARCHAR(255) NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        role ENUM('user','premium','admin') DEFAULT 'user',
-        affiliate_status ENUM('not_applied','pending','approved','rejected') DEFAULT 'not_applied',
-        affiliate_code VARCHAR(50) DEFAULT NULL,
-        total_referrals INT DEFAULT '0',
-        total_earnings DECIMAL(10,2) DEFAULT '0.00',
-        pending_earnings DECIMAL(10,2) DEFAULT '0.00',
-        join_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        last_login TIMESTAMP NULL DEFAULT NULL,
-        bio TEXT,
-        profile_image VARCHAR(500) DEFAULT NULL,
-        is_active TINYINT(1) DEFAULT '1',
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY email (email),
-        UNIQUE KEY affiliate_code (affiliate_code)
-      )
-    `);
+    // Check which collections exist
+    const existingCollections = await db.listCollections().toArray();
+    const existingCollectionNames = existingCollections.map(c => c.name);
+    
+    console.log("📁 Existing collections:", existingCollectionNames);
 
-    // Articles table
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS articles (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        title VARCHAR(500) NOT NULL,
-        content TEXT,
-        excerpt TEXT,
-        author VARCHAR(255) NOT NULL,
-        category VARCHAR(255),
-        image_url VARCHAR(500),
-        file_url VARCHAR(500),
-        file_name VARCHAR(255),
-        file_type VARCHAR(100),
-        file_size INT,
-        dewey_decimal VARCHAR(50),
-        amount DECIMAL(10,2) DEFAULT 0.00,
-        views INT DEFAULT 0,
-        read_time INT DEFAULT 5,
-        published_date DATE,
-        status ENUM('draft', 'published', 'archived') DEFAULT 'draft',
-        featured BOOLEAN DEFAULT FALSE,
-        tags JSON,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
+    // Create collections if they don't exist
+    for (const collectionName of collections) {
+      if (!existingCollectionNames.includes(collectionName)) {
+        await db.createCollection(collectionName);
+        console.log(`✅ Created collection: ${collectionName}`);
+      } else {
+        console.log(`📁 Collection exists: ${collectionName}`);
+      }
+    }
 
-    // Webinars table
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS webinars (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        title VARCHAR(500) NOT NULL,
-        description TEXT,
-        speaker VARCHAR(255) NOT NULL,
-        speaker_bio TEXT,
-        date DATETIME NOT NULL,
-        duration INT NOT NULL,
-        max_attendees INT NOT NULL,
-        current_attendees INT DEFAULT 0,
-        join_link VARCHAR(500),
-        recording_link VARCHAR(500),
-        status ENUM('scheduled', 'completed', 'cancelled', 'live') DEFAULT 'scheduled',
-        image_url VARCHAR(500),
-        price DECIMAL(10,2) DEFAULT 0.00,
-        is_premium BOOLEAN DEFAULT FALSE,
-        category VARCHAR(50) DEFAULT 'Education',
-        tags JSON,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-      )
-    `);
+    // Create indexes (similar to MySQL indexes)
+    console.log("🔍 Creating indexes...");
 
-    // Webinar registrations table
-    await db.execute(`
-      CREATE TABLE IF NOT EXISTS webinar_registrations (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        webinar_id INT NOT NULL,
-        name VARCHAR(100) NOT NULL,
-        email VARCHAR(100) NOT NULL,
-        company VARCHAR(100) DEFAULT NULL,
-        registered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_registration (webinar_id, email),
-        FOREIGN KEY (webinar_id) REFERENCES webinars(id) ON DELETE CASCADE
-      )
-    `);
+    // Books collection indexes
+    try {
+      await db.collection('books').createIndex({ title: 1 });
+      await db.collection('books').createIndex({ isbn: 1 }, { unique: true, sparse: true });
+      await db.collection('books').createIndex({ category: 1 });
+      await db.collection('books').createIndex({ status: 1 });
+      await db.collection('books').createIndex({ featured: 1 });
+      console.log("✅ Created books indexes");
+    } catch (error) {
+      console.log("📝 Books indexes already exist or error:", error.message);
+    }
 
-    console.log("✅ Database tables ready");
+    // Users collection indexes
+    try {
+      await db.collection('users').createIndex({ email: 1 }, { unique: true });
+      await db.collection('users').createIndex({ role: 1 });
+      await db.collection('users').createIndex({ affiliate_status: 1 });
+      await db.collection('users').createIndex({ affiliate_code: 1 }, { unique: true, sparse: true });
+      console.log("✅ Created users indexes");
+    } catch (error) {
+      console.log("📝 Users indexes already exist or error:", error.message);
+    }
+
+    // Articles collection indexes
+    try {
+      await db.collection('articles').createIndex({ title: 1 });
+      await db.collection('articles').createIndex({ category: 1 });
+      await db.collection('articles').createIndex({ status: 1 });
+      await db.collection('articles').createIndex({ featured: 1 });
+      console.log("✅ Created articles indexes");
+    } catch (error) {
+      console.log("📝 Articles indexes already exist or error:", error.message);
+    }
+
+    // Webinars collection indexes
+    try {
+      await db.collection('webinars').createIndex({ date: 1 });
+      await db.collection('webinars').createIndex({ status: 1 });
+      await db.collection('webinars').createIndex({ category: 1 });
+      console.log("✅ Created webinars indexes");
+    } catch (error) {
+      console.log("📝 Webinars indexes already exist or error:", error.message);
+    }
+
+    // Webinar registrations indexes
+    try {
+      await db.collection('webinar_registrations').createIndex({ webinar_id: 1, email: 1 }, { unique: true });
+      await db.collection('webinar_registrations').createIndex({ webinar_id: 1 });
+      console.log("✅ Created webinar_registrations indexes");
+    } catch (error) {
+      console.log("📝 Webinar registrations indexes already exist or error:", error.message);
+    }
+
+    console.log("✅ Database initialization completed");
+
+    // Seed initial admin user if not exists
+    await seedInitialData(db);
+
   } catch (error) {
     console.error("❌ Database initialization error:", error);
     throw error;
   }
-};
+}
 
-export default initializeDatabase;
+async function seedInitialData(db) {
+  try {
+    console.log("🌱 Checking for initial data...");
+
+    // Check if admin user exists
+    const adminExists = await db.collection('users').findOne({ 
+      email: 'admin@communiversity.com' 
+    });
+
+    if (!adminExists) {
+      console.log("👤 Creating admin user...");
+      
+      const hashedPassword = await bcrypt.hash('admin123', 12);
+      
+      const adminUser = {
+        name: 'Admin User',
+        email: 'admin@communiversity.com',
+        password: hashedPassword,
+        role: 'admin',
+        affiliate_status: 'approved',
+        affiliate_code: 'ADMIN001',
+        total_referrals: 0,
+        total_earnings: 0,
+        pending_earnings: 0,
+        join_date: new Date(),
+        last_login: null,
+        bio: 'System Administrator',
+        profile_image: null,
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+
+      await db.collection('users').insertOne(adminUser);
+      console.log("✅ Created admin user");
+    } else {
+      console.log("👤 Admin user already exists");
+    }
+
+    // Check if we have at least one test book
+    const booksCount = await db.collection('books').countDocuments();
+    
+    if (booksCount === 0) {
+      console.log("📚 Creating sample book...");
+      
+      const sampleBook = {
+        title: 'Getting Started with MongoDB',
+        author: 'John Doe',
+        description: 'A comprehensive guide to MongoDB for beginners',
+        isbn: '978-1234567890',
+        category: 'Technology',
+        dewey_number: '005.75',
+        price: 29.99,
+        format: 'digital',
+        cover_image: 'sample-cover.jpg',
+        file_url: 'sample-book.pdf',
+        file_size: '2.5MB',
+        pages: 300,
+        publisher: 'Tech Publications',
+        published_date: new Date('2024-01-15'),
+        language: 'English',
+        tags: ['MongoDB', 'Database', 'Programming'],
+        rating: 4.5,
+        total_ratings: 120,
+        downloads: 500,
+        status: 'available',
+        total_copies: 1,
+        available_copies: 1,
+        featured: true,
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+
+      await db.collection('books').insertOne(sampleBook);
+      console.log("✅ Created sample book");
+    }
+
+    // Check if we have at least one test article
+    const articlesCount = await db.collection('articles').countDocuments();
+    
+    if (articlesCount === 0) {
+      console.log("📰 Creating sample article...");
+      
+      const sampleArticle = {
+        title: 'Introduction to Node.js and Express',
+        content: 'This is a comprehensive guide to getting started with Node.js and Express framework...',
+        excerpt: 'Learn how to build web applications with Node.js and Express',
+        author: 'Jane Smith',
+        category: 'Web Development',
+        image_url: 'nodejs-article.jpg',
+        file_url: 'nodejs-guide.pdf',
+        file_name: 'nodejs-guide.pdf',
+        file_type: 'application/pdf',
+        file_size: 1024000,
+        dewey_decimal: '005.276',
+        amount: 0,
+        views: 150,
+        read_time: 8,
+        published_date: new Date('2024-02-01'),
+        status: 'published',
+        featured: true,
+        tags: ['Node.js', 'Express', 'JavaScript', 'Backend'],
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+
+      await db.collection('articles').insertOne(sampleArticle);
+      console.log("✅ Created sample article");
+    }
+
+    // Check if we have at least one test webinar
+    const webinarsCount = await db.collection('webinars').countDocuments();
+    
+    if (webinarsCount === 0) {
+      console.log("🎤 Creating sample webinar...");
+      
+      // Create a future date for the webinar
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 7); // 7 days from now
+      futureDate.setHours(14, 0, 0, 0); // 2:00 PM
+
+      const sampleWebinar = {
+        title: 'Introduction to Cloud Computing',
+        description: 'Learn the fundamentals of cloud computing and how to get started',
+        speaker: 'Dr. Michael Chen',
+        speaker_bio: 'Cloud Architect with 10+ years of experience',
+        date: futureDate,
+        duration: 90, // 90 minutes
+        max_attendees: 100,
+        current_attendees: 0,
+        join_link: 'https://meet.google.com/abc-defg-hij',
+        recording_link: null,
+        status: 'scheduled',
+        image_url: 'cloud-webinar.jpg',
+        price: 0,
+        is_premium: false,
+        category: 'Technology',
+        tags: ['Cloud Computing', 'AWS', 'Azure', 'GCP'],
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+
+      await db.collection('webinars').insertOne(sampleWebinar);
+      console.log("✅ Created sample webinar");
+    }
+
+    // Create default categories
+    const defaultCategories = [
+      { name: 'Technology', type: 'book', description: 'Technology and programming books', created_at: new Date() },
+      { name: 'Business', type: 'book', description: 'Business and entrepreneurship', created_at: new Date() },
+      { name: 'Science', type: 'book', description: 'Scientific books and research', created_at: new Date() },
+      { name: 'Education', type: 'book', description: 'Educational materials', created_at: new Date() },
+      { name: 'Web Development', type: 'article', description: 'Web development articles', created_at: new Date() },
+      { name: 'Data Science', type: 'article', description: 'Data science and analytics', created_at: new Date() },
+      { name: 'Cloud Computing', type: 'webinar', description: 'Cloud technology webinars', created_at: new Date() },
+      { name: 'Digital Marketing', type: 'webinar', description: 'Marketing and sales webinars', created_at: new Date() }
+    ];
+
+    for (const category of defaultCategories) {
+      const exists = await db.collection('categories').findOne({ 
+        name: category.name,
+        type: category.type 
+      });
+
+      if (!exists) {
+        await db.collection('categories').insertOne(category);
+        console.log(`✅ Created category: ${category.name} (${category.type})`);
+      }
+    }
+
+    console.log("🌱 Initial data seeding completed");
+
+  } catch (error) {
+    console.error("❌ Error seeding initial data:", error);
+    // Don't throw error, just log it
+  }
+}

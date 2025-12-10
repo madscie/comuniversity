@@ -1,26 +1,37 @@
 import express from "express";
-import db from "../config/database.js";
+import { ObjectId } from "mongodb";
 
 const router = express.Router();
 
 // Dashboard stats
 router.get('/dashboard', async (req, res) => {
   try {
-    const [booksCount] = await db.execute('SELECT COUNT(*) as total FROM books');
-    const [usersCount] = await db.execute('SELECT COUNT(*) as total FROM users');
-    const [articlesCount] = await db.execute('SELECT COUNT(*) as total FROM articles');
-    const [webinarsCount] = await db.execute('SELECT COUNT(*) as total FROM webinars');
-    const [affiliatesCount] = await db.execute('SELECT COUNT(*) as total FROM affiliates WHERE status = "approved"');
+    const db = req.app.locals.db; // Assuming you set up db connection in app.js
+    
+    // MongoDB aggregation to get counts
+    const [
+      booksCount,
+      usersCount,
+      articlesCount,
+      webinarsCount,
+      affiliatesCount
+    ] = await Promise.all([
+      db.collection('books').countDocuments(),
+      db.collection('users').countDocuments(),
+      db.collection('articles').countDocuments(),
+      db.collection('webinars').countDocuments(),
+      db.collection('affiliates').countDocuments({ status: 'approved' })
+    ]);
 
     res.json({
       success: true,
       data: {
         stats: {
-          totalBooks: booksCount[0].total,
-          totalUsers: usersCount[0].total,
-          totalArticles: articlesCount[0].total,
-          totalWebinars: webinarsCount[0].total,
-          activeAffiliates: affiliatesCount[0].total,
+          totalBooks: booksCount,
+          totalUsers: usersCount,
+          totalArticles: articlesCount,
+          totalWebinars: webinarsCount,
+          activeAffiliates: affiliatesCount,
           monthlyRevenue: 0,
           pendingReviews: 0
         },
@@ -39,21 +50,36 @@ router.get('/dashboard', async (req, res) => {
 // Users management
 router.get('/users', async (req, res) => {
   try {
-    const [users] = await db.execute(`
-      SELECT 
-        id, name, email, role, is_active, 
-        affiliate_status, total_referrals, total_earnings,
-        join_date, last_login, bio, profile_image,
-        created_at, updated_at
-      FROM users 
-      ORDER BY created_at DESC
-    `);
+    const db = req.app.locals.db;
+    
+    const users = await db.collection('users')
+      .find({})
+      .project({
+        _id: 1,
+        id: 1,
+        name: 1,
+        email: 1,
+        role: 1,
+        is_active: 1,
+        affiliate_status: 1,
+        total_referrals: 1,
+        total_earnings: 1,
+        join_date: 1,
+        last_login: 1,
+        bio: 1,
+        profile_image: 1,
+        created_at: 1,
+        updated_at: 1
+      })
+      .sort({ created_at: -1 })
+      .toArray();
 
     res.json({
       success: true,
       data: {
         users: users.map(user => ({
           ...user,
+          id: user._id, // Keep id field for frontend compatibility
           is_active: Boolean(user.is_active)
         }))
       }
@@ -71,53 +97,64 @@ router.put('/users/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { role, is_active, affiliate_status } = req.body;
+    const db = req.app.locals.db;
 
-    const [existingUsers] = await db.execute(
-      'SELECT id FROM users WHERE id = ?',
-      [id]
-    );
+    // Check if user exists
+    const existingUser = await db.collection('users').findOne({ 
+      _id: new ObjectId(id) 
+    });
 
-    if (existingUsers.length === 0) {
+    if (!existingUser) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
       });
     }
 
-    const updates = [];
-    const values = [];
-
+    // Build update object
+    const updateFields = {};
+    
     if (role !== undefined) {
-      updates.push('role = ?');
-      values.push(role);
+      updateFields.role = role;
     }
 
     if (is_active !== undefined) {
-      updates.push('is_active = ?');
-      values.push(Boolean(is_active));
+      updateFields.is_active = Boolean(is_active);
     }
 
     if (affiliate_status !== undefined) {
-      updates.push('affiliate_status = ?');
-      values.push(affiliate_status);
+      updateFields.affiliate_status = affiliate_status;
     }
 
-    if (updates.length === 0) {
+    if (Object.keys(updateFields).length === 0) {
       return res.status(400).json({
         success: false,
         message: 'No valid fields to update'
       });
     }
 
-    values.push(id);
+    // Add updated timestamp
+    updateFields.updated_at = new Date();
 
-    const query = `UPDATE users SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
-    
-    await db.execute(query, values);
+    // Update user
+    const result = await db.collection('users').updateOne(
+      { _id: new ObjectId(id) },
+      { $set: updateFields }
+    );
 
-    const [users] = await db.execute(
-      'SELECT id, name, email, role, is_active, affiliate_status FROM users WHERE id = ?',
-      [id]
+    // Get updated user
+    const updatedUser = await db.collection('users').findOne(
+      { _id: new ObjectId(id) },
+      {
+        projection: {
+          _id: 1,
+          name: 1,
+          email: 1,
+          role: 1,
+          is_active: 1,
+          affiliate_status: 1
+        }
+      }
     );
 
     console.log(`✅ User updated: ID ${id}`);
@@ -126,7 +163,10 @@ router.put('/users/:id', async (req, res) => {
       success: true,
       message: 'User updated successfully',
       data: {
-        user: users[0]
+        user: {
+          ...updatedUser,
+          id: updatedUser._id // Map _id to id for frontend compatibility
+        }
       }
     });
   } catch (error) {

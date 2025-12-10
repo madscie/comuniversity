@@ -1,14 +1,14 @@
-// server.js - COMPLETE FIXED VERSION
+// server.js - MongoDB COMPLETE FIXED VERSION
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv/config";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import { ObjectId } from "mongodb";
 
 // Import configs
-import connectDB from "./config/database.js";
-import db from "./config/database.js";
+import { connectMongoose, testConnection } from "./config/database.js";
 
 // Import routes
 import authRoutes from "./routes/auth.js";
@@ -28,6 +28,29 @@ const PORT = process.env.PORT || 5000;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ==================== DATABASE CONNECTION ====================
+// Connect to MongoDB
+let db;
+try {
+  console.log('🔌 Connecting to MongoDB Atlas...');
+  
+  // Connect using Mongoose
+  const mongooseConnection = await connectMongoose();
+  db = mongooseConnection.db;
+  
+  // Test the connection
+  const isConnected = await testConnection();
+  if (!isConnected) {
+    throw new Error('MongoDB connection test failed');
+  }
+  
+  app.locals.db = db;
+  console.log("✅ MongoDB Atlas connected successfully");
+} catch (error) {
+  console.error("❌ MongoDB connection error:", error);
+  process.exit(1);
+}
+
 // ==================== STATIC FILE SERVING ====================
 console.log("📁 Setting up static file serving from:", path.join(__dirname, "uploads"));
 
@@ -35,8 +58,8 @@ console.log("📁 Setting up static file serving from:", path.join(__dirname, "u
 const createUploadsDirectories = () => {
   const directories = [
     path.join(__dirname, "uploads"),
-    path.join(__dirname, "uploads/images"),
-    path.join(__dirname, "uploads/files"),
+    path.join(__dirname, "uploads/books/images"),
+    path.join(__dirname, "uploads/books/files"),
     path.join(__dirname, "uploads/articles/images"),
     path.join(__dirname, "uploads/articles/files")
   ];
@@ -51,12 +74,12 @@ const createUploadsDirectories = () => {
 
 createUploadsDirectories();
 
-// ===== CORRECT STATIC FILE SERVING PATHS =====
+// ===== FIXED STATIC FILE SERVING PATHS =====
 
-// 1. Serve BOOK images from /uploads/images
+// 1. Serve BOOK images from /uploads/books/images
 app.use(
-  "/uploads/images",
-  express.static(path.join(__dirname, "uploads/images"), {
+  "/uploads/books/images",
+  express.static(path.join(__dirname, "uploads/books/images"), {
     setHeaders: (res, filePath) => {
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -65,10 +88,10 @@ app.use(
   })
 );
 
-// 2. Serve BOOK files from /uploads/files
+// 2. Serve BOOK files from /uploads/books/files
 app.use(
-  "/uploads/files",
-  express.static(path.join(__dirname, "uploads/files"), {
+  "/uploads/books/files",
+  express.static(path.join(__dirname, "uploads/books/files"), {
     setHeaders: (res, filePath) => {
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
@@ -101,7 +124,7 @@ app.use(
   })
 );
 
-// 5. ALSO serve OLD article images from root /uploads (for backward compatibility)
+// 5. Serve from root /uploads for backward compatibility (with fix for double paths)
 app.use(
   "/uploads",
   express.static(path.join(__dirname, "uploads"), {
@@ -113,6 +136,44 @@ app.use(
   })
 );
 
+// ==================== FIX FOR DOUBLE PATH ISSUE ====================
+// Add middleware to handle incorrect URLs with double paths
+app.use((req, res, next) => {
+  // Check for double path patterns in the URL
+  if (req.path.includes('//')) {
+    console.log(`⚠️ Detected double path in URL: ${req.path}`);
+    
+    // Fix common double path patterns
+    let correctedPath = req.path;
+    
+    // Pattern 1: /uploads/files//uploads/books/files/filename
+    if (correctedPath.includes('/uploads/files//uploads/books/files/')) {
+      correctedPath = correctedPath.replace('/uploads/files//uploads/books/files/', '/uploads/books/files/');
+      console.log(`🔄 Pattern 1 fixed: ${req.path} -> ${correctedPath}`);
+    }
+    // Pattern 2: /uploads/files/uploads/books/files/filename
+    else if (correctedPath.includes('/uploads/files/uploads/books/files/')) {
+      correctedPath = correctedPath.replace('/uploads/files/uploads/books/files/', '/uploads/books/files/');
+      console.log(`🔄 Pattern 2 fixed: ${req.path} -> ${correctedPath}`);
+    }
+    // Pattern 3: /uploads/books/files//uploads/books/files/filename
+    else if (correctedPath.includes('/uploads/books/files//uploads/books/files/')) {
+      correctedPath = correctedPath.replace('/uploads/books/files//uploads/books/files/', '/uploads/books/files/');
+      console.log(`🔄 Pattern 3 fixed: ${req.path} -> ${correctedPath}`);
+    }
+    // Pattern 4: Any other double slash
+    else {
+      correctedPath = correctedPath.replace(/\/\//g, '/');
+      console.log(`🔄 General double slash fixed: ${req.path} -> ${correctedPath}`);
+    }
+    
+    // Redirect to corrected path
+    return res.redirect(correctedPath);
+  }
+  
+  next();
+});
+
 // ==================== DEBUG ROUTES ====================
 
 // Debug route to check uploaded files (all directories)
@@ -121,8 +182,8 @@ app.get("/api/debug/uploads", (req, res) => {
     console.log("📁 Checking all uploads directories:");
     
     const directories = {
-      book_images: path.join(__dirname, "uploads/images"),
-      book_files: path.join(__dirname, "uploads/files"),
+      book_images: path.join(__dirname, "uploads/books/images"),
+      book_files: path.join(__dirname, "uploads/books/files"),
       article_images: path.join(__dirname, "uploads/articles/images"),
       article_files: path.join(__dirname, "uploads/articles/files")
     };
@@ -167,26 +228,62 @@ app.get("/api/debug/uploads", (req, res) => {
   }
 });
 
+// Debug route to check collections
+app.get("/api/debug/collections", async (req, res) => {
+  try {
+    const collections = await db.listCollections().toArray();
+    
+    const collectionsInfo = await Promise.all(
+      collections.map(async (collection) => {
+        const count = await db.collection(collection.name).countDocuments();
+        return {
+          name: collection.name,
+          count: count
+        };
+      })
+    );
+    
+    res.json({
+      success: true,
+      database: db.databaseName,
+      collections: collectionsInfo
+    });
+  } catch (error) {
+    console.error("Debug collections error:", error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Debug route to check book images in database
 app.get("/api/debug/books-images", async (req, res) => {
   try {
-    const [books] = await db.execute(`
-      SELECT id, title, cover_image, file_url
-      FROM books 
-      WHERE cover_image IS NOT NULL OR file_url IS NOT NULL
-      ORDER BY id DESC
-    `);
+    const books = await db.collection('books')
+      .find({})
+      .project({
+        _id: 1,
+        title: 1,
+        coverImage: 1,
+        "copies.file.url": 1
+      })
+      .sort({ _id: -1 })
+      .toArray();
+
+    // Extract file URLs from copies array
+    const booksWithFiles = books.map((book) => {
+      const fileData = book.copies?.find(c => c.file?.url)?.file;
+      return {
+        id: book._id,
+        title: book.title,
+        cover_image: book.coverImage,
+        file_url: fileData?.url,
+        image_url: book.coverImage ? `http://localhost:5000/uploads/books/images/${book.coverImage}` : null,
+        file_url_full: fileData?.url ? `http://localhost:5000/uploads/books/files/${fileData.url}` : null,
+      };
+    });
 
     res.json({
       success: true,
-      books: books.map((book) => ({
-        id: book.id,
-        title: book.title,
-        cover_image: book.cover_image,
-        file_url: book.file_url,
-        image_url: book.cover_image ? `http://localhost:5000/uploads/images/${book.cover_image}` : null,
-        file_url_full: book.file_url ? `http://localhost:5000/uploads/files/${book.file_url}` : null,
-      })),
+      books: booksWithFiles,
     });
   } catch (error) {
     console.error("Debug books images error:", error);
@@ -197,17 +294,26 @@ app.get("/api/debug/books-images", async (req, res) => {
 // Debug route to check article files in database
 app.get("/api/debug/articles-files", async (req, res) => {
   try {
-    const [articles] = await db.execute(`
-      SELECT id, title, image_url, file_url
-      FROM articles 
-      WHERE image_url IS NOT NULL OR file_url IS NOT NULL
-      ORDER BY id DESC
-    `);
+    const articles = await db.collection('articles')
+      .find({
+        $or: [
+          { image_url: { $ne: null } },
+          { file_url: { $ne: null } }
+        ]
+      })
+      .project({
+        _id: 1,
+        title: 1,
+        image_url: 1,
+        file_url: 1
+      })
+      .sort({ _id: -1 })
+      .toArray();
 
     res.json({
       success: true,
       articles: articles.map((article) => ({
-        id: article.id,
+        id: article._id,
         title: article.title,
         image_url: article.image_url,
         file_url: article.file_url,
@@ -229,7 +335,7 @@ app.get("/api/test-image/:type/:filename", (req, res) => {
   if (type === 'article') {
     filePath = path.join(__dirname, "uploads/articles/images", filename);
   } else if (type === 'book') {
-    filePath = path.join(__dirname, "uploads/images", filename);
+    filePath = path.join(__dirname, "uploads/books/images", filename);
   } else {
     return res.status(400).json({
       success: false,
@@ -260,7 +366,7 @@ app.get("/api/test-file/:type/:filename", (req, res) => {
   if (type === 'article') {
     filePath = path.join(__dirname, "uploads/articles/files", filename);
   } else if (type === 'book') {
-    filePath = path.join(__dirname, "uploads/files", filename);
+    filePath = path.join(__dirname, "uploads/books/files", filename);
   } else {
     return res.status(400).json({
       success: false,
@@ -287,15 +393,21 @@ app.get("/api/test-file/:type/:filename", (req, res) => {
 app.get("/api/debug/file-exists/:type/:filename", (req, res) => {
   const { type, filename } = req.params;
   
+  // Clean filename - extract just the actual filename if full path is provided
+  let cleanFilename = filename;
+  if (cleanFilename.includes('/')) {
+    cleanFilename = cleanFilename.split('/').pop();
+  }
+  
   let filePath;
   if (type === 'article-image') {
-    filePath = path.join(__dirname, 'uploads/articles/images', filename);
+    filePath = path.join(__dirname, 'uploads/articles/images', cleanFilename);
   } else if (type === 'article-file') {
-    filePath = path.join(__dirname, 'uploads/articles/files', filename);
+    filePath = path.join(__dirname, 'uploads/articles/files', cleanFilename);
   } else if (type === 'book-image') {
-    filePath = path.join(__dirname, 'uploads/images', filename);
+    filePath = path.join(__dirname, 'uploads/books/images', cleanFilename);
   } else if (type === 'book-file') {
-    filePath = path.join(__dirname, 'uploads/files', filename);
+    filePath = path.join(__dirname, 'uploads/books/files', cleanFilename);
   } else {
     return res.status(400).json({ 
       success: false,
@@ -306,21 +418,56 @@ app.get("/api/debug/file-exists/:type/:filename", (req, res) => {
   const exists = fs.existsSync(filePath);
   
   const possiblePaths = [
-    `/uploads/articles/images/${filename}`,
-    `/uploads/articles/files/${filename}`,
-    `/uploads/images/${filename}`,
-    `/uploads/files/${filename}`,
-    `/uploads/${filename}`
+    `/uploads/articles/images/${cleanFilename}`,
+    `/uploads/articles/files/${cleanFilename}`,
+    `/uploads/books/images/${cleanFilename}`,
+    `/uploads/books/files/${cleanFilename}`,
+    `/uploads/${cleanFilename}`
   ];
   
   res.json({
     success: true,
-    filename,
-    type,
+    original_filename: filename,
+    cleaned_filename: cleanFilename,
     path: filePath,
     exists,
     accessible_urls: possiblePaths.map(p => `http://localhost:5000${p}`),
-    actual_url: exists ? `http://localhost:5000/uploads/${type === 'article-image' ? 'articles/images' : type === 'article-file' ? 'articles/files' : type === 'book-image' ? 'images' : 'files'}/${filename}` : null
+    actual_url: exists ? `http://localhost:5000/uploads/${type === 'article-image' ? 'articles/images' : type === 'article-file' ? 'articles/files' : type === 'book-image' ? 'books/images' : 'books/files'}/${cleanFilename}` : null
+  });
+});
+
+// Debug route to see what URL is being constructed for files
+app.get("/api/debug/file-url/:filename", (req, res) => {
+  const { filename } = req.params;
+  
+  // Clean the filename
+  let cleanFilename = filename.replace(/^\//, '');
+  
+  if (cleanFilename.includes('uploads/')) {
+    cleanFilename = cleanFilename.split('/').pop();
+  }
+  
+  const bookFileUrl = `/uploads/books/files/${cleanFilename}`;
+  const bookImageUrl = `/uploads/books/images/${cleanFilename}`;
+  const articleFileUrl = `/uploads/articles/files/${cleanFilename}`;
+  const articleImageUrl = `/uploads/articles/images/${cleanFilename}`;
+  
+  res.json({
+    original_filename: filename,
+    cleaned_filename: cleanFilename,
+    generated_urls: {
+      book_file: bookFileUrl,
+      book_image: bookImageUrl,
+      article_file: articleFileUrl,
+      article_image: articleImageUrl
+    },
+    full_urls: {
+      book_file: `http://localhost:5000${bookFileUrl}`,
+      book_image: `http://localhost:5000${bookImageUrl}`,
+      article_file: `http://localhost:5000${articleFileUrl}`,
+      article_image: `http://localhost:5000${articleImageUrl}`
+    },
+    notes: "If your API returns a full path (like '/uploads/books/files/filename'), use it as-is. Don't prepend anything to it."
   });
 });
 
@@ -329,19 +476,24 @@ app.get("/api/test-article-file/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
-    const [articles] = await db.execute(
-      "SELECT id, title, image_url, file_url FROM articles WHERE id = ?",
-      [id]
+    const article = await db.collection('articles').findOne(
+      { _id: new ObjectId(id) },
+      {
+        projection: {
+          _id: 1,
+          title: 1,
+          image_url: 1,
+          file_url: 1
+        }
+      }
     );
     
-    if (articles.length === 0) {
+    if (!article) {
       return res.status(404).json({
         success: false,
         message: "Article not found"
       });
     }
-    
-    const article = articles[0];
     
     // Check if files exist
     const checks = {};
@@ -369,7 +521,7 @@ app.get("/api/test-article-file/:id", async (req, res) => {
     res.json({
       success: true,
       article: {
-        id: article.id,
+        id: article._id,
         title: article.title,
         image_url: article.image_url,
         file_url: article.file_url
@@ -391,19 +543,24 @@ app.get("/api/test-article-file-access/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
-    const [articles] = await db.execute(
-      "SELECT id, title, image_url, file_url FROM articles WHERE id = ?",
-      [id]
+    const article = await db.collection('articles').findOne(
+      { _id: new ObjectId(id) },
+      {
+        projection: {
+          _id: 1,
+          title: 1,
+          image_url: 1,
+          file_url: 1
+        }
+      }
     );
     
-    if (articles.length === 0) {
+    if (!article) {
       return res.status(404).json({
         success: false,
         message: "Article not found"
       });
     }
-    
-    const article = articles[0];
     
     // Construct URLs for testing
     const testUrls = {};
@@ -413,7 +570,7 @@ app.get("/api/test-article-file-access/:id", async (req, res) => {
         filename: article.image_url,
         possible_urls: [
           `http://localhost:5000/uploads/articles/images/${article.image_url}`,
-          `http://localhost:5000/uploads/images/${article.image_url}`,
+          `http://localhost:5000/uploads/books/images/${article.image_url}`,
           `http://localhost:5000/uploads/${article.image_url}`
         ]
       };
@@ -424,7 +581,7 @@ app.get("/api/test-article-file-access/:id", async (req, res) => {
         filename: article.file_url,
         possible_urls: [
           `http://localhost:5000/uploads/articles/files/${article.file_url}`,
-          `http://localhost:5000/uploads/files/${article.file_url}`,
+          `http://localhost:5000/uploads/books/files/${article.file_url}`,
           `http://localhost:5000/uploads/${article.file_url}`
         ]
       };
@@ -433,7 +590,7 @@ app.get("/api/test-article-file-access/:id", async (req, res) => {
     res.json({
       success: true,
       article: {
-        id: article.id,
+        id: article._id,
         title: article.title,
         image_url: article.image_url,
         file_url: article.file_url
@@ -456,9 +613,7 @@ console.log("🔧 Checking environment variables...");
 
 const requiredEnvVars = [
   "JWT_SECRET",
-  "DB_HOST", 
-  "DB_USER",
-  "DB_NAME",
+  "MONGODB_URI",
   "CLOUDINARY_CLOUD_NAME",
   "CLOUDINARY_API_KEY",
   "CLOUDINARY_API_SECRET",
@@ -472,7 +627,7 @@ for (const envVar of requiredEnvVars) {
   } else {
     console.log(
       `✅ ${envVar}: ${
-        envVar.includes("SECRET") || envVar.includes("KEY")
+        envVar.includes("SECRET") || envVar.includes("KEY") || envVar.includes("URI")
           ? "***" + process.env[envVar].slice(-4)
           : process.env[envVar]
       }`
@@ -514,6 +669,7 @@ app.get("/", (req, res) => {
     success: true,
     message: "Communiversity API is running!",
     timestamp: new Date().toISOString(),
+    database: "MongoDB Atlas"
   });
 });
 
@@ -531,7 +687,32 @@ app.get("/api/health", (req, res) => {
     success: true,
     message: "Server is healthy",
     timestamp: new Date().toISOString(),
+    database: "Connected to MongoDB Atlas"
   });
+});
+
+// Direct file access test endpoint
+app.get("/api/test-direct-file/:filename", (req, res) => {
+  const { filename } = req.params;
+  
+  // Clean the filename
+  let cleanFilename = filename;
+  if (cleanFilename.includes('/')) {
+    cleanFilename = cleanFilename.split('/').pop();
+  }
+  
+  const filePath = path.join(__dirname, 'uploads/books/files', cleanFilename);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({
+      success: false,
+      message: "File not found",
+      filename: cleanFilename,
+      path: filePath
+    });
+  }
+  
+  res.sendFile(filePath);
 });
 
 // ==================== ERROR HANDLING ====================
@@ -544,27 +725,37 @@ app.use((err, req, res, next) => {
   });
 });
 
+// 404 handler for all other routes
+app.use((req, res) => {
+  console.log(`❌ 404 Not Found: ${req.method} ${req.path}`);
+  res.status(404).json({
+    success: false,
+    message: "Route not found"
+  });
+});
+
 // ==================== SERVER START ====================
 const startServer = async () => {
   try {
-    // Initialize database
+    // Initialize database (seed data if needed)
     await initializeDatabase();
     
     // Cloudinary is already configured when imported
-    // Just call connectCloudinary to log confirmation
     connectCloudinary();
 
     const server = app.listen(PORT, "0.0.0.0", () => {
       console.log("\n" + "=".repeat(50));
       console.log("🎉 SERVER STARTED ON PORT:", PORT);
-      console.log("✅ Database: CONNECTED");
+      console.log("✅ Database: MongoDB Atlas CONNECTED");
+      console.log("📁 Database Name:", db.databaseName);
       console.log("☁️  Cloudinary: CONFIGURED");
       console.log("📁 Static file serving: ENABLED");
-      console.log("   • Book images: /uploads/images/");
-      console.log("   • Book files: /uploads/files/");
+      console.log("   • Book images: /uploads/books/images/");
+      console.log("   • Book files: /uploads/books/files/");
       console.log("   • Article images: /uploads/articles/images/");
       console.log("   • Article files: /uploads/articles/files/");
       console.log("   • Root uploads: /uploads/ (backward compatibility)");
+      console.log("🔄 Double path fix: ACTIVE (auto-redirects incorrect URLs)");
       console.log("=".repeat(50));
       console.log("\n📚 Available Routes:");
       console.log("  • /api/auth - Authentication routes");
@@ -575,12 +766,15 @@ const startServer = async () => {
       console.log("  • /api/users - User management routes");
       console.log("\n🔧 Debug Routes:");
       console.log("  • /api/debug/uploads - Check all upload directories");
+      console.log("  • /api/debug/collections - List all collections");
       console.log("  • /api/debug/books-images - Debug book images in DB");
       console.log("  • /api/debug/articles-files - Debug article files in DB");
       console.log("  • /api/debug/file-exists/:type/:filename - Check if file exists");
+      console.log("  • /api/debug/file-url/:filename - Debug file URL construction");
       console.log("  • /api/test-article-file/:id - Test article file access");
       console.log("  • /api/test-article-file-access/:id - Get test URLs for article");
-      console.log("=".repeat(50));
+      console.log("  • /api/test-direct-file/:filename - Direct file access test");
+      
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
@@ -588,6 +782,9 @@ const startServer = async () => {
   }
 };
 
-startServer();
+// Don't start server automatically if this file is imported
+if (process.env.NODE_ENV !== 'test') {
+  startServer();
+}
 
 export default app;

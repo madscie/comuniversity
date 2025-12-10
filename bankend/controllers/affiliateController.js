@@ -1,830 +1,605 @@
-// controllers/articleController.js - COMPLETE FIXED VERSION
-import db from "../config/database.js";
+import crypto from 'crypto';
+import { getCollection } from '../config/database.js';
+import { ObjectId } from 'mongodb';
 
-// Helper function to safely handle values
-const safeValue = (value) => {
-  if (value === undefined || value === "" || value === "null") return null;
-  return value;
-};
-
-const safeNumber = (value) => {
-  if (value === undefined || value === "" || value === "null") return null;
-  return parseInt(value);
-};
-
-// Get all articles with filtering and pagination
-export const getArticles = async (req, res) => {
+// Apply for affiliate program
+export const applyForAffiliate = async (req, res) => {
   try {
-    const {
-      page = 1,
-      limit = 50,
-      category,
-      search,
-      includeAll = false,
-      status = "published",
-    } = req.query;
+    const userId = req.user._id;
+    const { motivation, promotionChannels, estimatedReferrals, website, socialMedia } = req.body;
 
-    // Convert to numbers
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
+    const usersCollection = await getCollection('users');
 
-    console.log("=== ARTICLES API DEBUG ===");
-    console.log("Page:", pageNum, "Limit:", limitNum, "Offset:", offset);
-    console.log("Include All:", includeAll, "Status:", status);
+    // Check if already applied
+    const user = await usersCollection.findOne({ _id: userId });
 
-    let query = `
-      SELECT id, title, content, excerpt, author, category, image_url,
-             views, read_time, published_date, status, featured, tags,
-             dewey_decimal, amount, file_url, file_name, file_size,
-             file_type, created_at, updated_at
-      FROM articles 
-      WHERE 1=1
-    `;
-
-    let params = [];
-
-    // Only filter by status if not including all articles
-    if (!includeAll) {
-      query += ` AND status = ?`;
-      params.push(status);
-    }
-
-    // Add filters
-    if (category && category !== "all") {
-      query += ` AND category = ?`;
-      params.push(category);
-    }
-
-    if (search) {
-      query += ` AND (title LIKE ? OR author LIKE ? OR excerpt LIKE ?)`;
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-    }
-
-    // Add pagination
-    query += ` ORDER BY created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
-
-    console.log("Final Query:", query);
-    console.log("Params:", params);
-
-    const [articles] = await db.execute(query, params);
-
-    // Get total count (similar logic without LIMIT/OFFSET)
-    let countQuery = `SELECT COUNT(*) as total FROM articles WHERE 1=1`;
-    let countParams = [];
-
-    if (!includeAll) {
-      countQuery += ` AND status = ?`;
-      countParams.push(status);
-    }
-
-    if (category && category !== "all") {
-      countQuery += ` AND category = ?`;
-      countParams.push(category);
-    }
-
-    if (search) {
-      countQuery += ` AND (title LIKE ? OR author LIKE ? OR excerpt LIKE ?)`;
-      countParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
-    }
-
-    const [countResult] = await db.execute(countQuery, countParams);
-    const total = countResult[0].total;
-
-    console.log(
-      `📊 Returning ${articles.length} articles out of ${total} total`
-    );
-
-    res.json({
-      success: true,
-      data: {
-        articles,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          pages: Math.ceil(total / limitNum),
-        },
-        filters: {
-          includeAll,
-          status,
-        },
-      },
-    });
-  } catch (error) {
-    console.error("❌ Get articles error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching articles: " + error.message,
-    });
-  }
-};
-
-// Get single article by ID
-export const getArticleById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const [articles] = await db.execute(
-      `SELECT id, title, content, excerpt, author, category, image_url,
-             views, read_time, published_date, status, featured, tags,
-             dewey_decimal, amount, file_url, file_name, file_size,
-             file_type, created_at, updated_at
-       FROM articles WHERE id = ? AND status = 'published'`,
-      [id]
-    );
-
-    if (articles.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Article not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      data: {
-        article: articles[0],
-      },
-    });
-  } catch (error) {
-    console.error("❌ Get article error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching article",
-    });
-  }
-};
-
-// Create article function - FIXED FILE HANDLING
-export const createArticle = async (req, res) => {
-  try {
-    console.log("📥 CREATE ARTICLE REQUEST BODY:", req.body);
-    console.log("📁 FILES RECEIVED:", req.files);
-
-    const {
-      title,
-      author,
-      content,
-      excerpt,
-      category,
-      read_time,
-      status,
-      featured,
-      tags,
-      dewey_decimal,
-      amount,
-    } = req.body;
-
-    // Validate required fields
-    if (!title || !author || !category) {
+    if (user.affiliate && user.affiliate.status !== 'inactive') {
       return res.status(400).json({
-        success: false,
-        message: "Title, author, and category are required",
+        status: 'error',
+        message: 'You have already applied for affiliate program'
       });
     }
 
-    // Handle file uploads
-    let imageUrl = null;
-    let documentUrl = null;
-    let fileSize = null;
-    let fileName = null;
-    let fileType = null;
+    // Create or update affiliate application in user document
+    const affiliateApplication = {
+      motivation: motivation || '',
+      promotionChannels: Array.isArray(promotionChannels) ? promotionChannels : [],
+      estimatedReferrals: parseInt(estimatedReferrals) || 0,
+      website: website || null,
+      socialMedia: socialMedia || {},
+      status: 'pending',
+      appliedAt: new Date(),
+      reviewedAt: null,
+      reviewedBy: null,
+      reviewNotes: null
+    };
 
-    if (req.files?.image?.[0]) {
-      const imageFile = req.files.image[0];
-      // Store just the filename, not the full path
-      imageUrl = imageFile.filename;
-      console.log("🖼️ Article image saved:", imageUrl);
-    }
-
-    if (req.files?.document?.[0]) {
-      const documentFile = req.files.document[0];
-      // Store just the filename, not the full path
-      documentUrl = documentFile.filename;
-      fileSize = documentFile.size;
-      fileName = documentFile.originalname;
-      fileType = documentFile.mimetype;
-      console.log("📄 Article document saved:", documentUrl);
-      console.log("📊 Article file details:", { fileSize, fileName, fileType });
-    }
-
-    // Handle tags properly
-    let tagsValue = null;
-    if (tags) {
-      if (Array.isArray(tags)) {
-        tagsValue = JSON.stringify(tags);
-      } else if (typeof tags === "string") {
-        // Handle comma-separated string
-        const tagsArray = tags
-          .split(",")
-          .map((tag) => tag.trim())
-          .filter((tag) => tag !== "");
-        tagsValue = JSON.stringify(tagsArray);
+    // Update user with affiliate application
+    await usersCollection.updateOne(
+      { _id: userId },
+      { 
+        $set: { 
+          affiliate: affiliateApplication,
+          updatedAt: new Date()
+        } 
       }
-    }
-
-    console.log("💾 CREATING ARTICLE WITH DATA:", {
-      title,
-      author,
-      category,
-      imageUrl,
-      documentUrl,
-      tagsValue,
-    });
-
-    const [result] = await db.execute(
-      `INSERT INTO articles (
-        title, content, excerpt, author, category, image_url, 
-        read_time, status, featured, tags, dewey_decimal, amount,
-        file_url, file_name, file_type, file_size, published_date
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        safeValue(title),
-        safeValue(content) || "",
-        safeValue(excerpt) || "",
-        safeValue(author),
-        safeValue(category),
-        // Store just the filename
-        safeValue(imageUrl),
-        parseInt(read_time) || 5,
-        safeValue(status) || "draft",
-        featured ? 1 : 0,
-        tagsValue,
-        safeValue(dewey_decimal),
-        parseFloat(amount) || 0.0,
-        // Store just the filename
-        safeValue(documentUrl),
-        fileName,
-        fileType,
-        fileSize,
-        status === "published" ? new Date().toISOString().split("T")[0] : null,
-      ]
     );
 
-    const [newArticle] = await db.execute(
-      "SELECT * FROM articles WHERE id = ?",
-      [result.insertId]
-    );
+    // Log affiliate application
+    console.log(`📝 Affiliate application submitted by user: ${user.email}`);
 
-    console.log("✅ ARTICLE CREATED SUCCESSFULLY, ID:", result.insertId);
-
-    res.status(201).json({
-      success: true,
-      message: "Article created successfully",
+    res.json({
+      status: 'success',
+      message: 'Affiliate application submitted successfully',
       data: {
-        article: newArticle[0],
-      },
+        appliedAt: affiliateApplication.appliedAt,
+        status: 'pending'
+      }
     });
   } catch (error) {
-    console.error("❌ CREATE ARTICLE ERROR:", error);
-
+    console.error('Affiliate application error:', error);
     res.status(500).json({
-      success: false,
-      message: "Failed to create article",
-      error: error.message,
+      status: 'error',
+      message: 'Internal server error'
     });
   }
 };
 
-// Update article function - FIXED FILE HANDLING
-export const updateArticle = async (req, res) => {
+// Get affiliate stats
+export const getAffiliateStats = async (req, res) => {
   try {
-    const { id } = req.params;
+    const userId = req.user._id;
 
-    console.log("📥 UPDATE ARTICLE REQUEST:", {
-      id,
-      body: req.body,
-      files: req.files,
-    });
+    const usersCollection = await getCollection('users');
 
-    // Check if article exists
-    const [existingArticle] = await db.execute(
-      "SELECT * FROM articles WHERE id = ?",
-      [id]
-    );
-
-    if (existingArticle.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Article not found",
-      });
-    }
-
-    const {
-      title,
-      author,
-      content,
-      excerpt,
-      category,
-      read_time,
-      status,
-      featured,
-      tags,
-      dewey_decimal,
-      amount,
-    } = req.body;
-
-    // Use existing values if not provided
-    const currentArticle = existingArticle[0];
-    const finalTitle = title || currentArticle.title;
-    const finalAuthor = author || currentArticle.author;
-    const finalCategory = category || currentArticle.category;
-
-    // Use existing file URLs unless new files are provided
-    let imageUrl = currentArticle.image_url;
-    let documentUrl = currentArticle.file_url;
-    let fileName = currentArticle.file_name;
-    let fileType = currentArticle.file_type;
-    let fileSize = currentArticle.file_size;
-
-    // Handle file uploads
-    if (req.files && req.files.image && req.files.image[0]) {
-      const imageFile = req.files.image[0];
-      // Store just the filename
-      imageUrl = imageFile.filename;
-      console.log("🖼️ New article image uploaded:", imageUrl);
-    }
-
-    if (req.files && req.files.document && req.files.document[0]) {
-      const documentFile = req.files.document[0];
-      // Store just the filename
-      documentUrl = documentFile.filename;
-      fileName = documentFile.originalname;
-      fileType = documentFile.mimetype;
-      fileSize = documentFile.size;
-      console.log("📄 New article document uploaded:", documentUrl);
-    }
-
-    // Handle tags properly
-    let tagsValue = currentArticle.tags;
-    if (tags !== undefined) {
-      if (Array.isArray(tags)) {
-        tagsValue = JSON.stringify(tags);
-      } else if (typeof tags === "string") {
-        if (tags.trim() === "") {
-          tagsValue = null;
-        } else {
-          const tagsArray = tags
-            .split(",")
-            .map((tag) => tag.trim())
-            .filter((tag) => tag !== "");
-          tagsValue = JSON.stringify(tagsArray);
+    // Get user with affiliate data
+    const user = await usersCollection.findOne(
+      { _id: userId },
+      {
+        projection: {
+          name: 1,
+          email: 1,
+          affiliate: 1,
+          statistics: 1,
+          _id: 0
         }
       }
-    }
-
-    console.log("💾 UPDATING ARTICLE WITH DATA:", {
-      finalTitle,
-      finalAuthor,
-      finalCategory,
-      imageUrl,
-      documentUrl,
-    });
-
-    await db.execute(
-      `UPDATE articles SET 
-        title = ?, content = ?, excerpt = ?, author = ?, category = ?, 
-        image_url = ?, read_time = ?, status = ?, featured = ?, tags = ?, 
-        dewey_decimal = ?, amount = ?, file_url = ?, file_name = ?, file_type = ?, 
-        file_size = ?, updated_at = CURRENT_TIMESTAMP,
-        published_date = ?
-      WHERE id = ?`,
-      [
-        safeValue(finalTitle),
-        safeValue(content),
-        safeValue(excerpt),
-        safeValue(finalAuthor),
-        safeValue(finalCategory),
-        // Store just the filename
-        safeValue(imageUrl),
-        parseInt(read_time) || 5,
-        safeValue(status) || "draft",
-        featured ? 1 : 0,
-        tagsValue,
-        safeValue(dewey_decimal),
-        parseFloat(amount) || 0.0,
-        // Store just the filename
-        safeValue(documentUrl),
-        safeValue(fileName),
-        safeValue(fileType),
-        safeValue(fileSize),
-        status === "published"
-          ? new Date().toISOString().split("T")[0]
-          : currentArticle.published_date,
-        id,
-      ]
     );
 
-    const [updatedArticle] = await db.execute(
-      "SELECT * FROM articles WHERE id = ?",
-      [id]
-    );
-
-    console.log("✅ ARTICLE UPDATED SUCCESSFULLY, ID:", id);
-
-    res.json({
-      success: true,
-      message: "Article updated successfully",
-      data: {
-        article: updatedArticle[0],
-      },
-    });
-  } catch (error) {
-    console.error("❌ UPDATE ARTICLE ERROR:", error);
-
-    res.status(500).json({
-      success: false,
-      message: "Failed to update article",
-      error: error.message,
-    });
-  }
-};
-
-// Update article status
-export const updateArticleStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
-
-    console.log("🔄 Updating article status:", { id, status });
-
-    // Check if article exists
-    const [existingArticle] = await db.execute(
-      "SELECT * FROM articles WHERE id = ?",
-      [id]
-    );
-
-    if (existingArticle.length === 0) {
+    if (!user || !user.affiliate) {
       return res.status(404).json({
-        success: false,
-        message: "Article not found",
+        status: 'error',
+        message: 'Affiliate not found'
       });
     }
 
-    await db.execute(
-      `UPDATE articles SET 
-        status = ?, updated_at = CURRENT_TIMESTAMP,
-        published_date = ?
-      WHERE id = ?`,
-      [
-        status,
-        status === "published" ? new Date().toISOString().split("T")[0] : null,
-        id,
-      ]
-    );
-
-    console.log("✅ ARTICLE STATUS UPDATED SUCCESSFULLY, ID:", id);
-
-    res.json({
-      success: true,
-      message: "Article status updated successfully",
-    });
-  } catch (error) {
-    console.error("❌ UPDATE ARTICLE STATUS ERROR:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to update article status",
-      error: error.message,
-    });
-  }
-};
-
-// Delete article
-export const deleteArticle = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // Check if article exists
-    const [existingArticles] = await db.execute(
-      "SELECT id, title FROM articles WHERE id = ?",
-      [id]
-    );
-
-    if (existingArticles.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Article not found",
-      });
-    }
-
-    const articleTitle = existingArticles[0].title;
-
-    // Delete the article
-    await db.execute("DELETE FROM articles WHERE id = ?", [id]);
-
-    console.log(`🗑️ Article deleted: ${articleTitle} (ID: ${id})`);
-
-    res.json({
-      success: true,
-      message: "Article deleted successfully",
-    });
-  } catch (error) {
-    console.error("❌ Delete article error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error deleting article: " + error.message,
-    });
-  }
-};
-
-// Get featured articles
-export const getFeaturedArticles = async (req, res) => {
-  try {
-    const { limit = 6 } = req.query;
-
-    const [articles] = await db.execute(
-      `SELECT id, title, excerpt, author, category, image_url, views, read_time
-       FROM articles 
-       WHERE featured = TRUE AND status = 'published'
-       ORDER BY created_at DESC 
-       LIMIT ?`,
-      [parseInt(limit)]
-    );
-
-    res.json({
-      success: true,
-      data: {
-        articles,
-      },
-    });
-  } catch (error) {
-    console.error("❌ Get featured articles error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching featured articles",
-    });
-  }
-};
-
-// Get articles by category
-export const getArticlesByCategory = async (req, res) => {
-  try {
-    const { category } = req.params;
-    const { page = 1, limit = 12 } = req.query;
-    const offset = (page - 1) * limit;
-
-    const [articles] = await db.execute(
-      `SELECT id, title, excerpt, author, category, image_url, views, read_time
-       FROM articles 
-       WHERE category = ? AND status = 'published'
-       ORDER BY created_at DESC 
-       LIMIT ? OFFSET ?`,
-      [category, parseInt(limit), offset]
-    );
-
-    const [countResult] = await db.execute(
-      `SELECT COUNT(*) as total FROM articles WHERE category = ? AND status = 'published'`,
-      [category]
-    );
-
-    res.json({
-      success: true,
-      data: {
-        articles,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: countResult[0].total,
-          pages: Math.ceil(countResult[0].total / limit),
-        },
-      },
-    });
-  } catch (error) {
-    console.error("❌ Get articles by category error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching articles by category",
-    });
-  }
-};
-
-// Search articles
-export const searchArticles = async (req, res) => {
-  try {
-    const { q: query, page = 1, limit = 12 } = req.query;
-    const offset = (page - 1) * limit;
-
-    if (!query) {
-      return res.status(400).json({
-        success: false,
-        message: "Search query is required",
-      });
-    }
-
-    const [articles] = await db.execute(
-      `SELECT id, title, excerpt, author, category, image_url, views, read_time
-       FROM articles 
-       WHERE (title LIKE ? OR author LIKE ? OR excerpt LIKE ?) 
-       AND status = 'published'
-       ORDER BY 
-         CASE 
-           WHEN title LIKE ? THEN 1
-           WHEN author LIKE ? THEN 2
-           ELSE 3
-         END,
-         created_at DESC
-       LIMIT ? OFFSET ?`,
-      [
-        `%${query}%`,
-        `%${query}%`,
-        `%${query}%`,
-        `%${query}%`,
-        `%${query}%`,
-        parseInt(limit),
-        offset,
-      ]
-    );
-
-    const [countResult] = await db.execute(
-      `SELECT COUNT(*) as total FROM articles 
-       WHERE (title LIKE ? OR author LIKE ? OR excerpt LIKE ?) 
-       AND status = 'published'`,
-      [`%${query}%`, `%${query}%`, `%${query}%`]
-    );
-
-    res.json({
-      success: true,
-      data: {
-        articles,
-        query,
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: countResult[0].total,
-          pages: Math.ceil(countResult[0].total / limit),
-        },
-      },
-    });
-  } catch (error) {
-    console.error("❌ Search articles error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error searching articles",
-    });
-  }
-};
-
-// Get categories
-export const getArticleCategories = async (req, res) => {
-  try {
-    const [categories] = await db.execute(
-      `SELECT category, COUNT(*) as article_count 
-       FROM articles 
-       WHERE status = 'published'
-       GROUP BY category 
-       ORDER BY article_count DESC`
-    );
-
-    res.json({
-      success: true,
-      data: categories,
-    });
-  } catch (error) {
-    console.error("❌ Get categories error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching categories",
-    });
-  }
-};
-
-// Get all articles for admin (including drafts)
-export const getAdminArticles = async (req, res) => {
-  try {
-    const {
-      page = 1,
-      limit = 50,
-      category,
-      search,
-      status = "all",
-    } = req.query;
-
-    // Convert to numbers
-    const pageNum = parseInt(page);
-    const limitNum = parseInt(limit);
-    const offset = (pageNum - 1) * limitNum;
-
-    console.log("=== ADMIN ARTICLES API DEBUG ===");
-    console.log("Page:", pageNum, "Limit:", limitNum, "Offset:", offset);
-    console.log("Status:", status);
-
-    let query = `
-      SELECT id, title, content, excerpt, author, category, image_url,
-             views, read_time, published_date, status, featured, tags,
-             dewey_decimal, amount, file_url, file_name, file_size,
-             file_type, created_at, updated_at
-      FROM articles 
-      WHERE 1=1
-    `;
-
-    let params = [];
-
-    // Filter by status if not "all"
-    if (status !== "all") {
-      query += ` AND status = ?`;
-      params.push(status);
-    }
-
-    // Add filters
-    if (category && category !== "all") {
-      query += ` AND category = ?`;
-      params.push(category);
-    }
-
-    if (search) {
-      query += ` AND (title LIKE ? OR author LIKE ? OR excerpt LIKE ?)`;
-      params.push(`%${search}%`, `%${search}%`, `%${search}%`);
-    }
-
-    // Add pagination
-    query += ` ORDER BY created_at DESC LIMIT ${limitNum} OFFSET ${offset}`;
-
-    console.log("Final Admin Query:", query);
-    console.log("Admin Params:", params);
-
-    const [articles] = await db.execute(query, params);
-
-    // Get total count
-    let countQuery = `SELECT COUNT(*) as total FROM articles WHERE 1=1`;
-    let countParams = [];
-
-    if (status !== "all") {
-      countQuery += ` AND status = ?`;
-      countParams.push(status);
-    }
-
-    if (category && category !== "all") {
-      countQuery += ` AND category = ?`;
-      countParams.push(category);
-    }
-
-    if (search) {
-      countQuery += ` AND (title LIKE ? OR author LIKE ? OR excerpt LIKE ?)`;
-      countParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
-    }
-
-    const [countResult] = await db.execute(countQuery, countParams);
-    const total = countResult[0].total;
-
-    console.log(
-      `📊 Admin: Returning ${articles.length} articles out of ${total} total`
-    );
-
-    res.json({
-      success: true,
-      data: {
-        articles,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          pages: Math.ceil(total / limitNum),
-        },
-      },
-    });
-  } catch (error) {
-    console.error("❌ Admin: Get articles error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching articles: " + error.message,
-    });
-  }
-};
-
-// Download article document
-export const downloadArticle = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const [articles] = await db.execute(
-      "SELECT file_url, file_name FROM articles WHERE id = ? AND status = 'published'",
-      [id]
-    );
-
-    if (articles.length === 0 || !articles[0].file_url) {
-      return res.status(404).json({
-        success: false,
-        message: "Article or document not found",
-      });
-    }
-
-    const article = articles[0];
+    // Calculate referral stats from referrals array
+    const referrals = user.affiliate.referrals || [];
+    const totalReferrals = referrals.length;
+    const approvedReferrals = referrals.filter(ref => ref.status === 'approved').length;
+    const pendingReferrals = referrals.filter(ref => ref.status === 'pending').length;
+    const totalEarnings = referrals.reduce((sum, ref) => sum + (ref.earnings || 0), 0);
     
-    // Construct the full URL for download
-    const downloadUrl = `/uploads/articles/files/${article.file_url}`;
+    // Calculate conversion rate
+    const conversionRate = totalReferrals > 0 
+      ? Math.round((approvedReferrals / totalReferrals) * 100)
+      : 0;
+
+    // Calculate monthly stats
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const monthlyReferrals = referrals.filter(ref => {
+      const refDate = new Date(ref.joinedDate);
+      return refDate.getMonth() === currentMonth && refDate.getFullYear() === currentYear;
+    });
+    const monthlyEarnings = monthlyReferrals.reduce((sum, ref) => sum + (ref.earnings || 0), 0);
 
     res.json({
-      success: true,
+      status: 'success',
       data: {
-        download_url: downloadUrl,
-        file_name: article.file_name,
-      },
+        affiliate: {
+          ...user.affiliate,
+          name: user.name,
+          email: user.email,
+          totalReferrals,
+          approvedReferrals,
+          pendingReferrals,
+          totalEarnings,
+          conversionRate,
+          monthlyReferrals: monthlyReferrals.length,
+          monthlyEarnings,
+          referralUrl: user.affiliate.code ? `https://communiversity.com/ref/${user.affiliate.code}` : null
+        }
+      }
     });
   } catch (error) {
-    console.error("❌ Download article document error:", error);
+    console.error('Get affiliate stats error:', error);
     res.status(500).json({
-      success: false,
-      message: "Error downloading document",
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Get affiliate referrals
+export const getAffiliateReferrals = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { page = 1, limit = 20, status } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const usersCollection = await getCollection('users');
+
+    // Get user with affiliate referrals
+    const user = await usersCollection.findOne(
+      { _id: userId },
+      {
+        projection: {
+          affiliate: 1,
+          _id: 0
+        }
+      }
+    );
+
+    if (!user || !user.affiliate) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Affiliate not found'
+      });
+    }
+
+    // Filter referrals by status if provided
+    let referrals = user.affiliate.referrals || [];
+    
+    if (status && status !== 'all') {
+      referrals = referrals.filter(ref => ref.status === status);
+    }
+
+    // Sort by joined date (newest first)
+    referrals.sort((a, b) => new Date(b.joinedDate) - new Date(a.joinedDate));
+
+    // Apply pagination
+    const paginatedReferrals = referrals.slice(skip, skip + parseInt(limit));
+
+    res.json({
+      status: 'success',
+      data: { 
+        referrals: paginatedReferrals,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total: referrals.length,
+          pages: Math.ceil(referrals.length / limit)
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Get affiliate referrals error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Generate affiliate code
+export const generateAffiliateCode = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const usersCollection = await getCollection('users');
+
+    // Check if user is approved affiliate
+    const user = await usersCollection.findOne({ _id: userId });
+
+    if (!user.affiliate || user.affiliate.status !== 'approved') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'You are not an approved affiliate'
+      });
+    }
+
+    // Generate unique affiliate code if not exists
+    let affiliateCode = user.affiliate.code;
+    
+    if (!affiliateCode) {
+      affiliateCode = `COMM${crypto.randomBytes(4).toString('hex').toUpperCase()}`;
+      
+      // Update user with affiliate code
+      await usersCollection.updateOne(
+        { _id: userId },
+        { 
+          $set: { 
+            "affiliate.code": affiliateCode,
+            updatedAt: new Date()
+          } 
+        }
+      );
+    }
+
+    res.json({
+      status: 'success',
+      data: {
+        affiliateCode,
+        referralUrl: `https://communiversity.com/ref/${affiliateCode}`,
+        shareableLinks: {
+          website: `<a href="https://communiversity.com/ref/${affiliateCode}">Join Communiversity</a>`,
+          socialMedia: `Check out Communiversity! Use my referral link: https://communiversity.com/ref/${affiliateCode}`,
+          email: `Join Communiversity using my referral link: https://communiversity.com/ref/${affiliateCode}`
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Generate affiliate code error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Track referral (called when new user signs up with affiliate code)
+export const trackReferral = async (req, res) => {
+  try {
+    const { affiliateCode, referredUserId, referredUserName, referredUserEmail } = req.body;
+
+    const usersCollection = await getCollection('users');
+
+    // Find affiliate by code
+    const affiliateUser = await usersCollection.findOne({
+      "affiliate.code": affiliateCode,
+      "affiliate.status": "approved"
+    });
+
+    if (!affiliateUser) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Invalid affiliate code'
+      });
+    }
+
+    // Create referral record in affiliate's document
+    const referral = {
+      userId: new ObjectId(referredUserId),
+      name: referredUserName,
+      email: referredUserEmail,
+      joinedDate: new Date(),
+      status: 'pending', // pending, approved, rejected
+      earnings: 0,
+      commissionRate: affiliateUser.affiliate.commissionRate || 10, // percentage
+      notes: ''
+    };
+
+    // Add referral to affiliate's referrals array
+    await usersCollection.updateOne(
+      { _id: affiliateUser._id },
+      { 
+        $push: { 
+          "affiliate.referrals": referral 
+        },
+        $inc: {
+          "affiliate.totalReferrals": 1
+        },
+        $set: { updatedAt: new Date() }
+      }
+    );
+
+    // Update referred user with affiliate info
+    await usersCollection.updateOne(
+      { _id: new ObjectId(referredUserId) },
+      { 
+        $set: { 
+          "affiliate.referredBy": affiliateUser._id,
+          "affiliate.referredByCode": affiliateCode,
+          "affiliate.referredByName": affiliateUser.name,
+          updatedAt: new Date()
+        } 
+      }
+    );
+
+    console.log(`👥 New referral tracked: ${referredUserName} referred by ${affiliateUser.name}`);
+
+    res.json({
+      status: 'success',
+      message: 'Referral tracked successfully',
+      data: {
+        affiliateName: affiliateUser.name,
+        referredUser: referredUserName,
+        referralDate: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('Track referral error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Approve/reject referral (admin function)
+export const updateReferralStatus = async (req, res) => {
+  try {
+    const { affiliateId, referralId, status, earnings, notes } = req.body;
+    
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'Admin access required'
+      });
+    }
+
+    const usersCollection = await getCollection('users');
+
+    // Find the referral in affiliate's referrals array and update it
+    const result = await usersCollection.updateOne(
+      { 
+        _id: new ObjectId(affiliateId),
+        "affiliate.referrals.userId": new ObjectId(referralId)
+      },
+      { 
+        $set: { 
+          "affiliate.referrals.$.status": status,
+          "affiliate.referrals.$.earnings": earnings || 0,
+          "affiliate.referrals.$.approvedAt": status === 'approved' ? new Date() : null,
+          "affiliate.referrals.$.approvedBy": req.user._id,
+          "affiliate.referrals.$.notes": notes || '',
+          updatedAt: new Date()
+        } 
+      }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Referral not found'
+      });
+    }
+
+    // Update affiliate's total earnings if referral is approved
+    if (status === 'approved' && earnings) {
+      await usersCollection.updateOne(
+        { _id: new ObjectId(affiliateId) },
+        { 
+          $inc: { 
+            "affiliate.totalEarnings": earnings
+          },
+          $set: { updatedAt: new Date() }
+        }
+      );
+    }
+
+    res.json({
+      status: 'success',
+      message: `Referral ${status} successfully`,
+      data: {
+        referralId,
+        status,
+        earnings: earnings || 0,
+        updatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.error('Update referral status error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Get affiliate leaderboard
+export const getAffiliateLeaderboard = async (req, res) => {
+  try {
+    const { period = 'month', limit = 10 } = req.query;
+    const usersCollection = await getCollection('users');
+
+    // Get all approved affiliates
+    const affiliates = await usersCollection.find({
+      "affiliate.status": "approved"
+    }, {
+      projection: {
+        name: 1,
+        email: 1,
+        "affiliate.code": 1,
+        "affiliate.totalReferrals": 1,
+        "affiliate.totalEarnings": 1,
+        "affiliate.referrals": 1
+      }
+    }).toArray();
+
+    // Calculate stats based on period
+    const leaderboard = affiliates.map(affiliate => {
+      const referrals = affiliate.affiliate?.referrals || [];
+      
+      // Filter by period
+      let periodReferrals = referrals;
+      if (period === 'month') {
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        periodReferrals = referrals.filter(ref => {
+          const refDate = new Date(ref.joinedDate || ref.approvedAt);
+          return refDate.getMonth() === currentMonth && refDate.getFullYear() === currentYear;
+        });
+      } else if (period === 'week') {
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+        periodReferrals = referrals.filter(ref => {
+          const refDate = new Date(ref.joinedDate || ref.approvedAt);
+          return refDate >= oneWeekAgo;
+        });
+      }
+
+      const periodEarnings = periodReferrals.reduce((sum, ref) => sum + (ref.earnings || 0), 0);
+      const periodReferralsCount = periodReferrals.length;
+      const conversionRate = referrals.length > 0 
+        ? Math.round((referrals.filter(r => r.status === 'approved').length / referrals.length) * 100)
+        : 0;
+
+      return {
+        name: affiliate.name,
+        email: affiliate.email,
+        affiliateCode: affiliate.affiliate?.code,
+        totalReferrals: referrals.length,
+        totalEarnings: affiliate.affiliate?.totalEarnings || 0,
+        periodReferrals: periodReferralsCount,
+        periodEarnings: periodEarnings,
+        conversionRate: conversionRate,
+        averageEarningsPerReferral: referrals.length > 0 
+          ? (affiliate.affiliate?.totalEarnings || 0) / referrals.length
+          : 0
+      };
+    });
+
+    // Sort by period earnings (descending)
+    leaderboard.sort((a, b) => b.periodEarnings - a.periodEarnings);
+
+    // Apply limit
+    const topAffiliates = leaderboard.slice(0, parseInt(limit));
+
+    res.json({
+      status: 'success',
+      data: {
+        leaderboard: topAffiliates,
+        period: period,
+        totalAffiliates: affiliates.length
+      }
+    });
+  } catch (error) {
+    console.error('Get affiliate leaderboard error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
+    });
+  }
+};
+
+// Withdraw affiliate earnings
+export const withdrawEarnings = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { amount, paymentMethod, accountDetails } = req.body;
+
+    const usersCollection = await getCollection('users');
+
+    // Get user with affiliate data
+    const user = await usersCollection.findOne({ _id: userId });
+
+    if (!user.affiliate || user.affiliate.status !== 'approved') {
+      return res.status(403).json({
+        status: 'error',
+        message: 'You are not an approved affiliate'
+      });
+    }
+
+    const availableBalance = user.affiliate.totalEarnings || 0;
+    const pendingWithdrawals = user.affiliate.pendingWithdrawals || 0;
+    const withdrawableBalance = availableBalance - pendingWithdrawals;
+
+    if (amount > withdrawableBalance) {
+      return res.status(400).json({
+        status: 'error',
+        message: `Insufficient balance. Available: $${withdrawableBalance}`
+      });
+    }
+
+    if (amount < 10) { // Minimum withdrawal amount
+      return res.status(400).json({
+        status: 'error',
+        message: 'Minimum withdrawal amount is $10'
+      });
+    }
+
+    // Create withdrawal request
+    const withdrawal = {
+      withdrawalId: `WD-${Date.now().toString().slice(-8)}`,
+      amount: parseFloat(amount),
+      paymentMethod: paymentMethod,
+      accountDetails: accountDetails,
+      status: 'pending',
+      requestedAt: new Date(),
+      processedAt: null,
+      processedBy: null,
+      transactionId: null,
+      notes: ''
+    };
+
+    // Add withdrawal to affiliate's withdrawals array
+    await usersCollection.updateOne(
+      { _id: userId },
+      { 
+        $push: { 
+          "affiliate.withdrawals": withdrawal 
+        },
+        $inc: {
+          "affiliate.pendingWithdrawals": parseFloat(amount)
+        },
+        $set: { updatedAt: new Date() }
+      }
+    );
+
+    // Add to transactions collection for better tracking
+    const transactionsCollection = await getCollection('transactions');
+    const transaction = {
+      transactionId: `AFF-WD-${Date.now().toString().slice(-8)}`,
+      type: 'affiliate_withdrawal',
+      status: 'pending',
+      user: {
+        userId: userId,
+        name: user.name,
+        email: user.email
+      },
+      amount: parseFloat(amount),
+      currency: 'usd',
+      payment: {
+        method: paymentMethod,
+        accountDetails: accountDetails,
+        status: 'pending'
+      },
+      notes: 'Affiliate earnings withdrawal',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    await transactionsCollection.insertOne(transaction);
+
+    res.json({
+      status: 'success',
+      message: 'Withdrawal request submitted successfully',
+      data: {
+        withdrawalId: withdrawal.withdrawalId,
+        amount: amount,
+        status: 'pending',
+        requestedAt: withdrawal.requestedAt,
+        estimatedProcessing: '3-5 business days'
+      }
+    });
+  } catch (error) {
+    console.error('Withdraw earnings error:', error);
+    res.status(500).json({
+      status: 'error',
+      message: 'Internal server error'
     });
   }
 };
