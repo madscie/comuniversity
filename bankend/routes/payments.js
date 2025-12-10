@@ -1,16 +1,15 @@
-const express = require('express');
+import express from 'express';
+import { 
+  createStripePayment, 
+  createPayPalPayment 
+} from '../controllers/paymentController.js';
+
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
 
-// All payment routes require authentication
-router.use(authMiddleware);
+// Stripe payment
+router.post('/stripe', createStripePayment);
 
-// GET /api/payments
-router.get('/', (req, res) => {
-  res.json({ 
-    success: true,
-    message: 'Payments route - to be implemented' 
-  });
-});
+// PayPal payment
+router.post('/paypal', createPayPalPayment);
 
-module.exports = router;
+export default router;
