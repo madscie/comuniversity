@@ -49,7 +49,7 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'REMOVED_SECRET');
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY); 
 
 // Initialize PayPal SDK
 let paypalEnvironment;
