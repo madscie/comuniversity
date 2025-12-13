@@ -1,731 +1,630 @@
-import stripePackage from 'stripe';
-import { getCollection } from '../config/database.js';
-import { ObjectId } from 'mongodb';
+// backend/controllers/paymentController.js
+import stripe from 'stripe';
+import paypal from '@paypal/checkout-server-sdk';
 
-const stripe = stripePackage(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe
+const stripeClient = stripe(process.env.STRIPE_SECRET_KEY);
 
-// Create payment intent for book purchase
-export const createPaymentIntent = async (req, res) => {
+// Initialize PayPal
+let paypalClient;
+if (process.env.PAYPAL_CLIENT_ID && process.env.PAYPAL_CLIENT_SECRET) {
+  let paypalEnvironment;
+  if (process.env.NODE_ENV === 'production' && process.env.PAYPAL_MODE === 'live') {
+    paypalEnvironment = new paypal.core.LiveEnvironment(
+      process.env.PAYPAL_CLIENT_ID,
+      process.env.PAYPAL_CLIENT_SECRET
+    );
+  } else {
+    paypalEnvironment = new paypal.core.SandboxEnvironment(
+      process.env.PAYPAL_CLIENT_ID,
+      process.env.PAYPAL_CLIENT_SECRET
+    );
+  }
+  paypalClient = new paypal.core.PayPalHttpClient(paypalEnvironment);
+}
+
+// Helper function to add items to user library (MongoDB version)
+const addToUserLibrary = async (db, email, itemId, type, paymentMethod, transactionId, amount) => {
   try {
-    const { bookId } = req.body;
-    const userId = req.user._id; // MongoDB _id
-
-    const booksCollection = await getCollection('books');
-    const transactionsCollection = await getCollection('transactions');
-    const paymentsCollection = await getCollection('payments');
-
-    // Get book details
-    const book = await booksCollection.findOne({
-      _id: new ObjectId(bookId),
-      "availability.status": "available"
-    });
-
-    if (!book) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Book not found or not available'
-      });
-    }
-
-    const bookPrice = book.price || 0;
+    const usersCollection = db.collection('users');
     
-    // Check if book is free
-    if (bookPrice === 0) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'This book is free. No payment required.'
-      });
-    }
-
-    // Check if user already has access to this book
-    const existingAccess = await transactionsCollection.findOne({
-      "user.userId": userId,
-      "book.bookId": new ObjectId(bookId),
-      type: "purchase",
-      status: "completed",
-      $or: [
-        { "dates.expiresAt": null },
-        { "dates.expiresAt": { $gt: new Date() } }
-      ]
-    });
-
-    if (existingAccess) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'You already have access to this book'
-      });
-    }
-
-    // Create Stripe customer if doesn't exist
-    let stripeCustomerId = req.user.stripeCustomerId;
+    // Find or create user
+    let user = await usersCollection.findOne({ email });
     
-    if (!stripeCustomerId) {
-      const customer = await stripe.customers.create({
-        email: req.user.email,
-        name: req.user.name,
-        metadata: {
-          userId: userId.toString(),
-          userEmail: req.user.email
-        }
-      });
+    if (!user) {
+      user = {
+        email: email,
+        name: email.split('@')[0],
+        password: 'guest_' + Math.random().toString(36).substr(2, 9),
+        purchasedArticles: [],
+        purchasedBooks: [],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
       
-      stripeCustomerId = customer.id;
-      
-      // Update user with Stripe customer ID
-      const usersCollection = await getCollection('users');
-      await usersCollection.updateOne(
-        { _id: userId },
-        { $set: { stripeCustomerId: customer.id } }
+      const result = await usersCollection.insertOne(user);
+      user._id = result.insertedId;
+      console.log(`👤 Created new user for: ${email}`);
+    }
+
+    // Add item based on type
+    if (type === 'article') {
+      // Check if already purchased
+      const alreadyOwned = user.purchasedArticles?.some(
+        purchase => purchase.articleId === itemId
       );
+      
+      if (!alreadyOwned) {
+        const purchaseRecord = {
+          articleId: itemId,
+          purchaseDate: new Date(),
+          paymentMethod: paymentMethod,
+          transactionId: transactionId,
+          amount: amount || 0
+        };
+        
+        await usersCollection.updateOne(
+          { email: email },
+          { 
+            $push: { purchasedArticles: purchaseRecord },
+            $set: { updatedAt: new Date() }
+          }
+        );
+        console.log(`✅ Added article ${itemId} to ${email}`);
+        return true;
+      } else {
+        console.log(`ℹ️ Article ${itemId} already owned by ${email}`);
+      }
+    } else if (type === 'book') {
+      // Check if already purchased
+      const alreadyOwned = user.purchasedBooks?.some(
+        purchase => purchase.bookId === itemId
+      );
+      
+      if (!alreadyOwned) {
+        const purchaseRecord = {
+          bookId: itemId,
+          purchaseDate: new Date(),
+          paymentMethod: paymentMethod,
+          transactionId: transactionId,
+          amount: amount || 0
+        };
+        
+        await usersCollection.updateOne(
+          { email: email },
+          { 
+            $push: { purchasedBooks: purchaseRecord },
+            $set: { updatedAt: new Date() }
+          }
+        );
+        console.log(`✅ Added book ${itemId} to ${email}`);
+        return true;
+      } else {
+        console.log(`ℹ️ Book ${itemId} already owned by ${email}`);
+      }
     }
-
-    // Create payment intent with Stripe
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(bookPrice * 100), // Convert to cents
-      currency: 'usd',
-      customer: stripeCustomerId,
-      metadata: {
-        userId: userId.toString(),
-        bookId: bookId,
-        bookTitle: book.title,
-        bookAuthors: JSON.stringify(book.authors),
-        bookISBN: book.isbn || '',
-        bookCategory: book.category || ''
-      },
-      description: `Purchase: ${book.title}`,
-      shipping: {
-        name: req.user.name,
-        address: {
-          line1: req.user.shippingAddress?.line1 || '',
-          line2: req.user.shippingAddress?.line2 || '',
-          city: req.user.shippingAddress?.city || '',
-          state: req.user.shippingAddress?.state || '',
-          postal_code: req.user.shippingAddress?.postalCode || '',
-          country: req.user.shippingAddress?.country || 'US'
-        }
-      }
-    });
-
-    // Create payment record in MongoDB
-    const paymentRecord = {
-      paymentId: `PAY-${Date.now().toString().slice(-8)}`,
-      userId: userId,
-      userEmail: req.user.email,
-      userName: req.user.name,
-      bookId: new ObjectId(bookId),
-      bookTitle: book.title,
-      bookAuthors: book.authors,
-      bookISBN: book.isbn,
-      amount: bookPrice,
-      currency: 'usd',
-      stripePaymentIntentId: paymentIntent.id,
-      stripeCustomerId: stripeCustomerId,
-      status: 'pending',
-      paymentMethod: 'stripe',
-      metadata: {
-        bookCategory: book.category,
-        bookFormat: book.format,
-        deweyDecimal: book.deweyDecimal
-      },
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes expiry
-    };
-
-    await paymentsCollection.insertOne(paymentRecord);
-
-    // Create pending transaction record
-    const transactionRecord = {
-      transactionId: `TXN-${Date.now().toString().slice(-8)}`,
-      type: 'purchase',
-      status: 'pending',
-      user: {
-        userId: userId,
-        name: req.user.name,
-        email: req.user.email,
-        stripeCustomerId: stripeCustomerId
-      },
-      book: {
-        bookId: new ObjectId(bookId),
-        title: book.title,
-        authors: book.authors,
-        isbn: book.isbn,
-        deweyDecimal: book.deweyDecimal,
-        price: bookPrice,
-        category: book.category
-      },
-      payment: {
-        paymentId: paymentRecord.paymentId,
-        stripePaymentIntentId: paymentIntent.id,
-        amount: bookPrice,
-        currency: 'usd',
-        status: 'pending'
-      },
-      dates: {
-        initiatedAt: new Date(),
-        expiresAt: new Date(Date.now() + 30 * 60 * 1000) // 30 minutes
-      },
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    await transactionsCollection.insertOne(transactionRecord);
-
-    res.json({
-      status: 'success',
-      data: {
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id,
-        paymentId: paymentRecord.paymentId,
-        transactionId: transactionRecord.transactionId,
-        amount: bookPrice,
-        currency: 'usd',
-        bookTitle: book.title,
-        expiresAt: paymentRecord.expiresAt
-      }
-    });
+    
+    return false;
   } catch (error) {
-    console.error('Create payment intent error:', error);
+    console.error('❌ Error adding to user library:', error);
+    throw error;
+  }
+};
+
+// Stripe payment - Creates checkout session for redirect
+export const createStripePayment = async (req, res) => {
+  try {
+    console.log('💳 STRIPE PAYMENT REQUEST:', req.body);
     
-    // Handle specific Stripe errors
-    let errorMessage = 'Internal server error';
-    let statusCode = 500;
-    
-    if (error.type === 'StripeCardError') {
-      errorMessage = error.message;
-      statusCode = 400;
-    } else if (error.type === 'StripeInvalidRequestError') {
-      errorMessage = 'Invalid payment request';
-      statusCode = 400;
+    // FIXED: Accept both snake_case and camelCase for compatibility
+    const { 
+      amount, 
+      articleId, 
+      email, 
+      success_url, 
+      successUrl, 
+      cancel_url, 
+      cancelUrl, 
+      type = 'article' 
+    } = req.body;
+
+    // Use the provided URL or fallback to a default
+    const successUrlToUse = success_url || successUrl;
+    const cancelUrlToUse = cancel_url || cancelUrl;
+
+    // Validate required fields
+    if (!amount || !email) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required fields',
+        required: ['amount', 'email']
+      });
     }
+
+    // Determine product name based on type
+    let productName = 'Purchase';
+    let itemId = articleId || 'general';
     
-    res.status(statusCode).json({
-      status: 'error',
-      message: errorMessage
+    if (type === 'article') {
+      productName = `Article: ${articleId || 'Premium Content'}`;
+    } else if (type === 'book') {
+      productName = `Book: ${articleId || 'Digital Book'}`;
+    }
+
+    console.log(`Creating Stripe checkout for ${email}, amount: $${amount}`);
+    console.log('Success URL to use:', successUrlToUse);
+    console.log('Cancel URL to use:', cancelUrlToUse);
+
+    // FIXED: Use the provided success URL exactly as sent from frontend
+    // Frontend sends: http://localhost:5173/payment-success?session_id={CHECKOUT_SESSION_ID}&article_id=...&email=...
+    // We just pass this directly to Stripe - it will replace {CHECKOUT_SESSION_ID}
+    let finalSuccessUrl;
+    if (successUrlToUse) {
+      // Use the exact URL provided by frontend
+      finalSuccessUrl = successUrlToUse;
+    } else {
+      // Fallback if no URL provided
+      const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173';
+      finalSuccessUrl = `${frontendBase}/payment-success?session_id={CHECKOUT_SESSION_ID}&item_id=${itemId}&email=${encodeURIComponent(email)}&type=${type}&payment_method=stripe`;
+    }
+
+    // FIXED: Use the provided cancel URL or create a fallback
+    let finalCancelUrl;
+    if (cancelUrlToUse) {
+      finalCancelUrl = cancelUrlToUse;
+    } else {
+      const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173';
+      finalCancelUrl = `${frontendBase}/payment-cancelled?item_id=${itemId}&type=${type}`;
+    }
+
+    console.log('Final Success URL:', finalSuccessUrl);
+    console.log('Final Cancel URL:', finalCancelUrl);
+
+    const session = await stripeClient.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: { 
+            name: productName,
+            description: `${type.charAt(0).toUpperCase() + type.slice(1)} Purchase`,
+          },
+          unit_amount: Math.round(amount * 100), // Convert to cents
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      // FIXED: Use the URLs exactly as provided/constructed
+      success_url: finalSuccessUrl,
+      cancel_url: finalCancelUrl,
+      customer_email: email,
+      metadata: {
+        itemId: itemId,
+        email: email,
+        type: type
+      },
+      // Optional: Add these for better user experience
+      billing_address_collection: 'required',
+      shipping_address_collection: {
+        allowed_countries: ['US', 'ZM'], // Adjust for your needs
+      },
+    });
+
+    console.log('✅ Stripe session created:', session.id);
+    console.log('🔗 Session URL:', session.url);
+    console.log('✅ Success URL in session:', session.success_url);
+    console.log('❌ Cancel URL in session:', session.cancel_url);
+
+    // Save to database for tracking
+    const db = req.app.locals.db;
+    if (db) {
+      await db.collection('stripe_sessions').insertOne({
+        sessionId: session.id,
+        articleId: itemId,
+        email: email,
+        amount: amount,
+        status: 'pending',
+        success_url: finalSuccessUrl,
+        cancel_url: finalCancelUrl,
+        createdAt: new Date(),
+        type: type
+      });
+    }
+
+    res.json({ 
+      success: true,
+      url: session.url,
+      sessionId: session.id,
+      success_url: session.success_url,
+      cancel_url: session.cancel_url
+    });
+
+  } catch (error) {
+    console.error('❌ STRIPE ERROR:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Payment processing failed',
+      message: error.message,
+      details: error.type || 'Unknown error'
     });
   }
 };
 
-// Verify and complete payment
+// PayPal payment
+export const createPayPalPayment = async (req, res) => {
+  try {
+    console.log('💳 PAYPAL PAYMENT REQUEST:', req.body);
+    
+    const { amount, articleId, email, success_url, successUrl, cancel_url, cancelUrl, type = 'article' } = req.body;
+
+    // Use the provided URL or fallback to a default
+    const successUrlToUse = success_url || successUrl;
+    const cancelUrlToUse = cancel_url || cancelUrl;
+
+    // Check if PayPal client is available
+    if (!paypalClient) {
+      return res.status(500).json({ 
+        success: false,
+        error: 'PayPal service unavailable',
+        message: 'PayPal client not configured. Check PAYPAL_CLIENT_ID and PAYPAL_CLIENT_SECRET in .env'
+      });
+    }
+
+    // Validate required fields
+    if (!amount || !email) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Missing required fields',
+        required: ['amount', 'email']
+      });
+    }
+
+    // Determine product name
+    let productName = 'Purchase';
+    let itemId = articleId || 'general';
+    
+    if (type === 'article') {
+      productName = `Article: ${articleId || 'Premium Content'}`;
+    } else if (type === 'book') {
+      productName = `Book: ${articleId || 'Digital Book'}`;
+    }
+
+    console.log(`Creating PayPal order for ${email}, amount: $${amount}`);
+
+    // Create PayPal order using the SDK
+    const request = new paypal.orders.OrdersCreateRequest();
+    request.prefer("return=representation");
+    
+    // FIXED: Use the provided success URL
+    let returnUrl;
+    if (successUrlToUse) {
+      // Replace {ORDER_ID} placeholder with the actual order ID
+      returnUrl = successUrlToUse.replace('{ORDER_ID}', '{ORDER_ID}');
+    } else {
+      const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173';
+      returnUrl = `${frontendBase}/payment-success?item_id=${itemId}&email=${encodeURIComponent(email)}&type=${type}&payment_method=paypal&order_id={ORDER_ID}`;
+    }
+    
+    // FIXED: Use the provided cancel URL
+    let finalCancelUrl;
+    if (cancelUrlToUse) {
+      finalCancelUrl = cancelUrlToUse;
+    } else {
+      const frontendBase = process.env.FRONTEND_URL || 'http://localhost:5173';
+      finalCancelUrl = `${frontendBase}/payment-cancelled?item_id=${itemId}&type=${type}`;
+    }
+    
+    console.log('PayPal return URL:', returnUrl);
+    console.log('PayPal cancel URL:', finalCancelUrl);
+
+    request.requestBody({
+      intent: 'CAPTURE',
+      purchase_units: [{
+        amount: { 
+          currency_code: 'USD', 
+          value: amount.toString()
+        },
+        description: productName,
+        custom_id: `${type}_${itemId}`, // Store article ID here
+        invoice_id: `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+      }],
+      application_context: {
+        return_url: returnUrl,
+        cancel_url: finalCancelUrl,
+        shipping_preference: 'NO_SHIPPING',
+        user_action: 'PAY_NOW',
+        brand_name: 'Communiversity',
+        landing_page: 'BILLING'
+      },
+    });
+
+    console.log('Executing PayPal request...');
+    const response = await paypalClient.execute(request);
+    console.log('✅ PayPal order created:', response.result.id);
+
+    // Find approval URL
+    const approvalLink = response.result.links.find(link => link.rel === 'approve');
+    if (!approvalLink) {
+      throw new Error('No approval link found in PayPal response');
+    }
+
+    console.log('PayPal approval URL:', approvalLink.href);
+
+    // Save to database
+    const db = req.app.locals.db;
+    if (db) {
+      await db.collection('paypal_orders').insertOne({
+        orderId: response.result.id,
+        articleId: itemId,
+        email: email,
+        amount: amount,
+        status: 'pending',
+        return_url: returnUrl,
+        cancel_url: finalCancelUrl,
+        createdAt: new Date(),
+        type: type
+      });
+    }
+
+    res.json({ 
+      success: true,
+      url: approvalLink.href,
+      orderId: response.result.id,
+      return_url: returnUrl
+    });
+
+  } catch (error) {
+    console.error('❌ PAYPAL ERROR:', error);
+    console.error('Error details:', error.response?.result || error.message);
+    
+    res.status(500).json({ 
+      success: false,
+      error: 'PayPal payment failed',
+      message: error.message,
+      details: error.response?.result || 'No additional details'
+    });
+  }
+};
+
+// PayPal webhook handler for automatic payment capture
+export const paypalWebhook = async (req, res) => {
+  try {
+    console.log('🔔 PAYPAL WEBHOOK RECEIVED:', req.body);
+    
+    const event = req.body;
+    
+    // Handle order approval/completion
+    if (event.event_type === 'CHECKOUT.ORDER.APPROVED' || 
+        event.event_type === 'CHECKOUT.ORDER.COMPLETED') {
+      
+      const orderId = event.resource.id;
+      const payerEmail = event.resource.payer?.email_address;
+      const amount = event.resource.purchase_units[0]?.amount?.value;
+      const customId = event.resource.purchase_units[0]?.custom_id;
+      
+      console.log(`PayPal order ${orderId} - Payer: ${payerEmail}, Amount: $${amount}`);
+      
+      // Extract article ID from custom_id (format: "type_id")
+      let itemId = null;
+      let itemType = 'article';
+      
+      if (customId) {
+        const parts = customId.split('_');
+        if (parts.length >= 2) {
+          itemType = parts[0];
+          itemId = parts[1];
+        }
+      }
+      
+      // Auto-capture the payment if APPROVED
+      if (event.event_type === 'CHECKOUT.ORDER.APPROVED') {
+        try {
+          const captureRequest = new paypal.orders.OrdersCaptureRequest(orderId);
+          const captureResponse = await paypalClient.execute(captureRequest);
+          console.log(`✅ Payment captured for order ${orderId}`);
+        } catch (captureError) {
+          console.error('Capture error:', captureError);
+        }
+      }
+      
+      // Add to user's purchases
+      if (payerEmail && itemId && itemId !== 'general') {
+        const db = req.app.locals.db;
+        if (db) {
+          await addToUserLibrary(db, payerEmail, itemId, itemType, 'paypal', orderId, amount);
+        } else {
+          console.error('❌ Database not available in webhook handler');
+        }
+      }
+    }
+    
+    res.status(200).json({ received: true });
+  } catch (error) {
+    console.error('❌ PayPal webhook error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+};
+
+// Confirm payment and add item to user's library
+export const confirmPayment = async (req, res) => {
+  try {
+    console.log('🔍 CONFIRM PAYMENT REQUEST:', req.body);
+    
+    const { email, articleId, paymentMethod, sessionId, orderId, type = 'article' } = req.body;
+
+    let paymentVerified = false;
+    let transactionId = '';
+    let amount = 0;
+
+    // Verify Stripe payment if sessionId provided
+    if (sessionId && paymentMethod === 'stripe') {
+      console.log(`Verifying Stripe session: ${sessionId}`);
+      const session = await stripeClient.checkout.sessions.retrieve(sessionId);
+      
+      if (session.payment_status !== 'paid') {
+        return res.status(400).json({ 
+          success: false,
+          error: 'Payment not completed',
+          details: `Payment status: ${session.payment_status}`
+        });
+      }
+      
+      paymentVerified = true;
+      transactionId = session.id;
+      amount = session.amount_total / 100;
+      console.log(`✅ Stripe payment verified: ${sessionId}`);
+    }
+
+    // Verify PayPal payment if orderId provided
+    if (orderId && paymentMethod === 'paypal') {
+      console.log(`Verifying PayPal order: ${orderId}`);
+      
+      try {
+        const getRequest = new paypal.orders.OrdersGetRequest(orderId);
+        const orderResponse = await paypalClient.execute(getRequest);
+        console.log('PayPal order status:', orderResponse.result.status);
+        
+        if (orderResponse.result.status === 'APPROVED') {
+          const captureRequest = new paypal.orders.OrdersCaptureRequest(orderId);
+          const captureResponse = await paypalClient.execute(captureRequest);
+          
+          if (captureResponse.result.status === 'COMPLETED') {
+            paymentVerified = true;
+            transactionId = orderId;
+            amount = parseFloat(captureResponse.result.purchase_units[0]?.amount?.value || 0);
+            console.log(`✅ PayPal payment captured: ${orderId}`);
+          }
+        } else if (orderResponse.result.status === 'COMPLETED') {
+          paymentVerified = true;
+          transactionId = orderId;
+          amount = parseFloat(orderResponse.result.purchase_units[0]?.amount?.value || 0);
+          console.log(`✅ PayPal payment already completed: ${orderId}`);
+        }
+      } catch (paypalError) {
+        console.error('PayPal verification error:', paypalError);
+        return res.status(400).json({
+          success: false,
+          error: 'PayPal payment verification failed',
+          message: paypalError.message
+        });
+      }
+    }
+
+    if (!paymentVerified) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Payment verification failed' 
+      });
+    }
+
+    // Add to user's library
+    const db = req.app.locals.db;
+    if (!db) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database not available'
+      });
+    }
+
+    const added = await addToUserLibrary(db, email, articleId, type, paymentMethod, transactionId, amount);
+
+    res.json({ 
+      success: true, 
+      message: 'Payment confirmed and item added to your library',
+      itemId: articleId,
+      type: type,
+      transactionId: transactionId
+    });
+  } catch (error) {
+    console.error('❌ Payment confirmation error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to confirm payment',
+      message: error.message
+    });
+  }
+};
+
+// Simple payment verification (for frontend redirects)
 export const verifyPayment = async (req, res) => {
   try {
-    const { paymentIntentId, transactionId } = req.body;
-    const userId = req.user._id;
-
-    const paymentsCollection = await getCollection('payments');
-    const transactionsCollection = await getCollection('transactions');
-    const booksCollection = await getCollection('books');
-
-    // Verify payment with Stripe
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
-    if (paymentIntent.status !== 'succeeded') {
-      return res.status(400).json({
-        status: 'error',
-        message: `Payment not completed. Status: ${paymentIntent.status}`
-      });
-    }
-
-    // Find payment record
-    const payment = await paymentsCollection.findOne({
-      stripePaymentIntentId: paymentIntentId,
-      userId: userId,
-      status: 'pending'
-    });
-
-    if (!payment) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Payment record not found or already processed'
-      });
-    }
-
-    // Check if payment has expired
-    if (payment.expiresAt && payment.expiresAt < new Date()) {
-      await paymentsCollection.updateOne(
-        { _id: payment._id },
-        { $set: { status: 'expired', updatedAt: new Date() } }
-      );
+    console.log('🔎 VERIFY PAYMENT REQUEST:', req.body);
+    
+    const { sessionId, orderId, paymentMethod } = req.body;
+    
+    if (paymentMethod === 'stripe' && sessionId) {
+      const session = await stripeClient.checkout.sessions.retrieve(sessionId);
       
-      return res.status(400).json({
-        status: 'error',
-        message: 'Payment session has expired'
+      res.json({
+        success: session.payment_status === 'paid',
+        status: session.payment_status,
+        email: session.customer_email,
+        amount: session.amount_total / 100,
+        itemId: session.metadata?.itemId
+      });
+      
+    } else if (paymentMethod === 'paypal' && orderId) {
+      const getRequest = new paypal.orders.OrdersGetRequest(orderId);
+      const orderResponse = await paypalClient.execute(getRequest);
+      
+      const isCompleted = orderResponse.result.status === 'COMPLETED';
+      const isApproved = orderResponse.result.status === 'APPROVED';
+      
+      res.json({
+        success: isCompleted || isApproved,
+        status: orderResponse.result.status,
+        email: orderResponse.result.payer?.email_address,
+        amount: orderResponse.result.purchase_units[0]?.amount?.value,
+        itemId: orderResponse.result.purchase_units[0]?.custom_id?.split('_')[1]
+      });
+      
+    } else {
+      res.status(400).json({
+        success: false,
+        error: 'Missing payment information'
       });
     }
-
-    // Update payment status
-    await paymentsCollection.updateOne(
-      { _id: payment._id },
-      { 
-        $set: { 
-          status: 'completed',
-          completedAt: new Date(),
-          stripePaymentMethod: paymentIntent.payment_method,
-          stripePaymentMethodType: paymentIntent.payment_method_types?.[0],
-          stripeChargeId: paymentIntent.latest_charge,
-          updatedAt: new Date()
-        } 
-      }
-    );
-
-    // Update transaction status
-    await transactionsCollection.updateOne(
-      { transactionId: transactionId || payment.paymentId.replace('PAY-', 'TXN-') },
-      { 
-        $set: { 
-          status: 'completed',
-          "payment.status": 'completed',
-          "payment.stripeChargeId": paymentIntent.latest_charge,
-          "payment.completedAt": new Date(),
-          "dates.completedAt": new Date(),
-          updatedAt: new Date()
-        } 
-      }
-    );
-
-    // Create completed transaction record (for access tracking)
-    const completedTransaction = {
-      transactionId: `COMP-${Date.now().toString().slice(-8)}`,
-      type: 'purchase',
-      status: 'completed',
-      user: {
-        userId: userId,
-        name: req.user.name,
-        email: req.user.email,
-        stripeCustomerId: payment.stripeCustomerId
-      },
-      book: {
-        bookId: payment.bookId,
-        title: payment.bookTitle,
-        authors: payment.bookAuthors,
-        isbn: payment.bookISBN,
-        price: payment.amount,
-        category: payment.metadata?.bookCategory
-      },
-      payment: {
-        paymentId: payment.paymentId,
-        stripePaymentIntentId: paymentIntent.id,
-        stripeChargeId: paymentIntent.latest_charge,
-        amount: payment.amount,
-        currency: payment.currency,
-        status: 'completed',
-        completedAt: new Date()
-      },
-      dates: {
-        purchaseDate: new Date(),
-        // Permanent access for purchases
-        expiresAt: null
-      },
-      access: {
-        granted: true,
-        type: 'permanent',
-        downloadLimit: 10, // Allow 10 downloads
-        downloadsUsed: 0
-      },
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    await transactionsCollection.insertOne(completedTransaction);
-
-    // Update user's purchase history
-    const usersCollection = await getCollection('users');
-    await usersCollection.updateOne(
-      { _id: userId },
-      { 
-        $push: { 
-          purchaseHistory: {
-            transactionId: completedTransaction.transactionId,
-            bookId: payment.bookId,
-            bookTitle: payment.bookTitle,
-            amount: payment.amount,
-            purchasedAt: new Date(),
-            paymentMethod: 'stripe'
-          }
-        },
-        $inc: { 
-          "statistics.totalSpent": payment.amount,
-          "statistics.booksPurchased": 1
-        }
-      }
-    );
-
-    // Update book statistics
-    await booksCollection.updateOne(
-      { _id: payment.bookId },
-      { 
-        $inc: { 
-          "statistics.totalPurchases": 1,
-          "statistics.totalRevenue": payment.amount
-        },
-        $push: {
-          recentPurchases: {
-            userId: userId,
-            userName: req.user.name,
-            purchasedAt: new Date(),
-            amount: payment.amount
-          }
-        }
-      }
-    );
-
-    // Send confirmation email (you would integrate with your email service)
-    // await sendPurchaseConfirmationEmail(req.user.email, payment.bookTitle, payment.amount);
-
-    res.json({
-      status: 'success',
-      message: 'Payment verified successfully',
-      data: {
-        transactionId: completedTransaction.transactionId,
-        paymentId: payment.paymentId,
-        bookId: payment.bookId,
-        bookTitle: payment.bookTitle,
-        amount: payment.amount,
-        currency: payment.currency,
-        purchasedAt: new Date(),
-        accessGranted: true,
-        downloadToken: `DL-${Date.now().toString().slice(-8)}` // Optional: generate immediate download token
-      }
-    });
   } catch (error) {
-    console.error('Verify payment error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Internal server error'
+    console.error('❌ Payment verification error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Payment verification failed',
+      message: error.message
     });
   }
 };
 
-// Webhook handler for Stripe events
-export const handleStripeWebhook = async (req, res) => {
+// Test payment endpoint (for development)
+export const testPayment = async (req, res) => {
   try {
-    const sig = req.headers['stripe-signature'];
-    let event;
+    const { email, articleId, type = 'article' } = req.body;
 
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET
-      );
-    } catch (err) {
-      console.error('Webhook signature verification failed:', err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+    console.log('🧪 TEST PAYMENT for:', email, 'item:', articleId);
+
+    const db = req.app.locals.db;
+    if (!db) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database not available'
+      });
     }
 
-    const paymentsCollection = await getCollection('payments');
-    const transactionsCollection = await getCollection('transactions');
+    const added = await addToUserLibrary(db, email, articleId, type, 'test', `test_${Date.now()}`, 0);
 
-    // Handle the event
-    switch (event.type) {
-      case 'payment_intent.succeeded':
-        const paymentIntent = event.data.object;
-        
-        // Update payment status
-        await paymentsCollection.updateOne(
-          { stripePaymentIntentId: paymentIntent.id },
-          { 
-            $set: { 
-              status: 'completed',
-              completedAt: new Date(),
-              stripePaymentMethod: paymentIntent.payment_method,
-              stripeChargeId: paymentIntent.latest_charge,
-              updatedAt: new Date()
-            } 
-          }
-        );
-
-        // Update related transaction
-        await transactionsCollection.updateOne(
-          { "payment.stripePaymentIntentId": paymentIntent.id },
-          { 
-            $set: { 
-              status: 'completed',
-              "payment.status": 'completed',
-              "payment.stripeChargeId": paymentIntent.latest_charge,
-              "payment.completedAt": new Date(),
-              "dates.completedAt": new Date(),
-              updatedAt: new Date()
-            } 
-          }
-        );
-
-        console.log(`Payment succeeded: ${paymentIntent.id}`);
-        break;
-
-      case 'payment_intent.payment_failed':
-        const failedPayment = event.data.object;
-        
-        await paymentsCollection.updateOne(
-          { stripePaymentIntentId: failedPayment.id },
-          { 
-            $set: { 
-              status: 'failed',
-              failureMessage: failedPayment.last_payment_error?.message,
-              updatedAt: new Date()
-            } 
-          }
-        );
-
-        await transactionsCollection.updateOne(
-          { "payment.stripePaymentIntentId": failedPayment.id },
-          { 
-            $set: { 
-              status: 'failed',
-              "payment.status": 'failed',
-              "payment.failureMessage": failedPayment.last_payment_error?.message,
-              updatedAt: new Date()
-            } 
-          }
-        );
-
-        console.log(`Payment failed: ${failedPayment.id}`);
-        break;
-
-      case 'payment_intent.canceled':
-        const canceledPayment = event.data.object;
-        
-        await paymentsCollection.updateOne(
-          { stripePaymentIntentId: canceledPayment.id },
-          { 
-            $set: { 
-              status: 'canceled',
-              updatedAt: new Date()
-            } 
-          }
-        );
-
-        console.log(`Payment canceled: ${canceledPayment.id}`);
-        break;
-
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
-    }
-
-    res.json({ received: true });
-  } catch (error) {
-    console.error('Stripe webhook error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Webhook handler error'
-    });
-  }
-};
-
-// Get payment history for user
-export const getPaymentHistory = async (req, res) => {
-  try {
-    const userId = req.user._id;
-    const { page = 1, limit = 20, status } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
-
-    const paymentsCollection = await getCollection('payments');
-
-    // Build query
-    const query = { userId: userId };
-    if (status && status !== 'all') {
-      query.status = status;
-    }
-
-    const paymentsCursor = paymentsCollection.find(query, {
-      projection: {
-        paymentId: 1,
-        bookId: 1,
-        bookTitle: 1,
-        bookAuthors: 1,
-        amount: 1,
-        currency: 1,
-        status: 1,
-        paymentMethod: 1,
-        stripePaymentIntentId: 1,
-        createdAt: 1,
-        completedAt: 1,
-        expiresAt: 1
-      }
-    })
-    .sort({ createdAt: -1 })
-    .skip(skip)
-    .limit(parseInt(limit));
-
-    const payments = await paymentsCursor.toArray();
-    const total = await paymentsCollection.countDocuments(query);
-
-    // Calculate totals
-    const totalSpent = payments
-      .filter(p => p.status === 'completed')
-      .reduce((sum, p) => sum + (p.amount || 0), 0);
-
-    const pendingPayments = payments.filter(p => p.status === 'pending').length;
-
-    res.json({
-      status: 'success',
-      data: {
-        payments: payments,
-        summary: {
-          totalPayments: total,
-          completedPayments: payments.filter(p => p.status === 'completed').length,
-          pendingPayments: pendingPayments,
-          failedPayments: payments.filter(p => p.status === 'failed').length,
-          totalSpent: totalSpent
-        },
-        pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total: total,
-          pages: Math.ceil(total / limit)
-        }
-      }
+    res.json({ 
+      success: true, 
+      message: 'Test purchase successful! Item added to your library.',
+      itemId: articleId
     });
   } catch (error) {
-    console.error('Get payment history error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Internal server error'
-    });
-  }
-};
-
-// Refund payment (admin function)
-export const refundPayment = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-    
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({
-        status: 'error',
-        message: 'Admin access required'
-      });
-    }
-
-    const paymentsCollection = await getCollection('payments');
-
-    // Get payment details
-    const payment = await paymentsCollection.findOne({
-      paymentId: paymentId,
-      status: 'completed'
-    });
-
-    if (!payment) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Payment not found or not completed'
-      });
-    }
-
-    // Process refund through Stripe
-    let refund;
-    try {
-      refund = await stripe.refunds.create({
-        payment_intent: payment.stripePaymentIntentId,
-        amount: Math.round(payment.amount * 100), // Convert to cents
-        reason: 'requested_by_customer'
-      });
-    } catch (stripeError) {
-      console.error('Stripe refund error:', stripeError);
-      return res.status(400).json({
-        status: 'error',
-        message: `Refund failed: ${stripeError.message}`
-      });
-    }
-
-    // Update payment status
-    await paymentsCollection.updateOne(
-      { paymentId: paymentId },
-      { 
-        $set: { 
-          status: 'refunded',
-          refundId: refund.id,
-          refundedAt: new Date(),
-          refundAmount: payment.amount,
-          updatedAt: new Date()
-        } 
-      }
-    );
-
-    // Update related transaction
-    const transactionsCollection = await getCollection('transactions');
-    await transactionsCollection.updateOne(
-      { "payment.paymentId": paymentId },
-      { 
-        $set: { 
-          status: 'refunded',
-          "payment.refundId": refund.id,
-          "payment.refundedAt": new Date(),
-          "dates.refundedAt": new Date(),
-          updatedAt: new Date()
-        } 
-      }
-    );
-
-    // Revoke user access (optional - you might want to keep access)
-    // await revokeBookAccess(payment.userId, payment.bookId);
-
-    res.json({
-      status: 'success',
-      message: 'Payment refunded successfully',
-      data: {
-        refundId: refund.id,
-        paymentId: paymentId,
-        amountRefunded: payment.amount,
-        refundStatus: refund.status
-      }
-    });
-  } catch (error) {
-    console.error('Refund payment error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Internal server error'
-    });
-  }
-};
-
-// Get payment details
-export const getPaymentDetails = async (req, res) => {
-  try {
-    const { paymentId } = req.params;
-    const userId = req.user._id;
-
-    const paymentsCollection = await getCollection('payments');
-
-    const query = { paymentId: paymentId };
-    
-    // Users can only see their own payments unless admin
-    if (req.user.role !== 'admin') {
-      query.userId = userId;
-    }
-
-    const payment = await paymentsCollection.findOne(query);
-
-    if (!payment) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Payment not found'
-      });
-    }
-
-    // Get additional details from Stripe if available
-    let stripeDetails = null;
-    if (payment.stripePaymentIntentId) {
-      try {
-        stripeDetails = await stripe.paymentIntents.retrieve(payment.stripePaymentIntentId);
-      } catch (stripeError) {
-        console.error('Error fetching Stripe details:', stripeError);
-      }
-    }
-
-    res.json({
-      status: 'success',
-      data: {
-        payment: payment,
-        stripeDetails: stripeDetails
-      }
-    });
-  } catch (error) {
-    console.error('Get payment details error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Internal server error'
+    console.error('❌ Test payment error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Test payment failed',
+      message: error.message
     });
   }
 };

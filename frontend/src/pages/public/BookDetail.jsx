@@ -1,3 +1,4 @@
+// frontend/pages/public/BookDetail.js
 import { useEffect, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import {
@@ -16,7 +17,16 @@ import {
   FiEye,
   FiBarChart2,
   FiAward,
+  FiLock,
+  FiShoppingCart,
+  FiUser,
+  FiClock,
+  FiTag,
+  FiFileText,
+  FiType,
 } from "react-icons/fi";
+import { MdPayment } from "react-icons/md";
+import { SiStripe } from "react-icons/si";
 import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
 import { bookService } from "../../services/bookService";
@@ -26,6 +36,18 @@ import { formatDate } from "../../utils/dateHelper";
 import { renderStars } from "../../utils/ratingHelper";
 import { clearCorruptedData } from "../../utils/storageHelpers";
 import { formatReadingTime } from "../../utils/dateHelper";
+
+const LoadingSpinner = ({ message = "Loading..." }) => (
+  <div className="flex flex-col items-center justify-center py-12">
+    <div className="relative">
+      <div className="w-16 h-16 border-4 border-gray-200 dark:border-gray-700 rounded-full animate-spin"></div>
+      <div className="absolute top-0 left-0 w-16 h-16 border-4 border-transparent border-t-green-600 dark:border-t-green-400 rounded-full animate-spin"></div>
+    </div>
+    <p className="mt-4 text-gray-600 dark:text-gray-400 font-medium">
+      {message}
+    </p>
+  </div>
+);
 
 const BookDetail = () => {
   const { id } = useParams();
@@ -38,6 +60,12 @@ const BookDetail = () => {
   const [relatedBooks, setRelatedBooks] = useState([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
   const [readingStats, setReadingStats] = useState(null);
+  
+  // ADDED: Payment state variables
+  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("");
+  const [debugInfo, setDebugInfo] = useState("");
 
   // Helper to clean file URLs
   const cleanFileUrl = (fileUrl) => {
@@ -45,12 +73,10 @@ const BookDetail = () => {
     
     let cleanUrl = fileUrl;
     
-    // Remove any duplicate paths
     if (cleanUrl.includes("uploads/files/uploads/files")) {
       cleanUrl = cleanUrl.replace("uploads/files/uploads/files", "uploads/files");
     }
     
-    // Remove double slashes
     cleanUrl = cleanUrl.replace(/\/\//g, '/');
     
     return cleanUrl;
@@ -62,97 +88,15 @@ const BookDetail = () => {
     
     const cleanUrl = cleanFileUrl(fileUrl);
     
-    // If already a full URL, return as is
     if (cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://')) {
       return cleanUrl;
     }
     
-    // If already has uploads/files path, add server URL
     if (cleanUrl.startsWith('uploads/files/')) {
       return `http://localhost:5000/${cleanUrl}`;
     }
     
-    // If just a filename, add full path
     return `http://localhost:5000/uploads/files/${cleanUrl}`;
-  };
-
-  // 1. READ ONLINE - Opens in browser for reading
-  const handleReadOnline = () => {
-    if (!book?.file_url) {
-      alert("No digital version available for this book");
-      return;
-    }
-    
-    const fileUrl = getFileUrl(book.file_url);
-    console.log("📖 Opening for online reading:", fileUrl);
-    
-    window.open(fileUrl, '_blank', 'noopener,noreferrer');
-    
-    // Update reading stats
-    if (book) {
-      readingService.updateReadingStats(book.id, {
-        lastRead: new Date().toISOString(),
-        totalReadingTime: (readingStats?.totalReadingTime || 0) + 1,
-        reads: (readingStats?.reads || 0) + 1,
-      });
-      setReadingStats(readingService.getReadingStats(book.id));
-    }
-  };
-
-  // 2. VIEW DOCUMENT - Opens in browser for viewing
-  const handleViewDocument = () => {
-    if (!book?.file_url) {
-      alert("No file available to view");
-      return;
-    }
-    
-    const fileUrl = getFileUrl(book.file_url);
-    console.log("👁️ Opening for viewing:", fileUrl);
-    
-    window.open(fileUrl, '_blank', 'noopener,noreferrer');
-  };
-
-  // 3. DOWNLOAD - Downloads file to device
-  const handleDownload = async () => {
-    if (!book?.file_url) {
-      alert("File not available for download");
-      return;
-    }
-    
-    const fileUrl = getFileUrl(book.file_url);
-    const fileName = book.file_name || `${book.title}.${getFileExtension(book.file_url)}`;
-    
-    try {
-      console.log("📥 Downloading:", fileUrl);
-      
-      const link = document.createElement('a');
-      link.href = fileUrl;
-      link.download = fileName;
-      link.target = '_blank';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Track download
-      if (book) {
-        readingService.updateReadingStats(book.id, {
-          lastDownload: new Date().toISOString(),
-          downloads: (readingStats?.downloads || 0) + 1,
-        });
-        setReadingStats(readingService.getReadingStats(book.id));
-      }
-      
-      setTimeout(() => {
-        alert(`"${fileName}" is downloading to your device.`);
-      }, 100);
-      
-      return true;
-    } catch (error) {
-      console.error("❌ Download error:", error);
-      alert("Download failed. Please try again.");
-      return false;
-    }
   };
 
   // Helper to get file extension
@@ -187,17 +131,22 @@ const BookDetail = () => {
             throw new Error("No book data received from server");
           }
 
-          // Debug: Check the file URL
-          console.log("📊 Book data received:", {
-            title: bookData.title,
-            original_file_url: bookData.file_url,
-            cleaned_file_url: cleanFileUrl(bookData.file_url),
-            final_url: getFileUrl(bookData.file_url)
-          });
-
           setBook(bookData);
           setIsFavorite(readingService.isFavorite(bookData.id));
-          setHasPurchased(readingService.hasPurchased(bookData.id));
+          
+          // Check if book is already purchased
+          const purchasedBooks = JSON.parse(localStorage.getItem('purchasedBooks') || '[]');
+          console.log("Purchased books from localStorage:", purchasedBooks);
+          console.log("Current book ID:", id);
+          console.log("Is current book purchased?", purchasedBooks.includes(id));
+          
+          if (purchasedBooks.includes(id)) {
+            setHasPurchased(true);
+            setDebugInfo(`Book ${id} found in purchasedBooks`);
+          } else {
+            setDebugInfo(`Book ${id} NOT found in purchasedBooks`);
+          }
+          
           setReadingStats(readingService.getReadingStats(bookData.id));
 
           if (bookData.category) {
@@ -229,10 +178,7 @@ const BookDetail = () => {
         limit: 3,
       });
 
-      if (
-        relatedResponse &&
-        (relatedResponse.success || relatedResponse.data)
-      ) {
+      if (relatedResponse && (relatedResponse.success || relatedResponse.data)) {
         let relatedBooksData = [];
         if (relatedResponse.data && relatedResponse.data.books) {
           relatedBooksData = relatedResponse.data.books;
@@ -252,6 +198,298 @@ const BookDetail = () => {
       console.error("Error loading related books:", error);
     } finally {
       setLoadingRelated(false);
+    }
+  };
+
+  // FIXED: Payment handler function
+  const handlePayment = async (method) => {
+    if (!book || bookData.price <= 0) return;
+
+    console.log('🔄 Starting payment for method:', method);
+    setProcessingPayment(true);
+    setPaymentMethod(method);
+    
+    const userEmail = localStorage.getItem('userEmail') || prompt('Please enter your email to continue with payment:');
+    if (!userEmail) {
+      console.log('❌ No email provided');
+      setProcessingPayment(false);
+      return;
+    }
+    
+    localStorage.setItem('userEmail', userEmail);
+
+    let successUrl;
+    
+    if (method === 'stripe') {
+      // Stripe can handle the placeholder
+      successUrl = `${window.location.origin}/payment-success?session_id={CHECKOUT_SESSION_ID}&book_id=${book.id || id}&provider=stripe`;
+    } else if (method === 'paypal') {
+      // FIXED: PayPal CANNOT handle {ORDER_ID} placeholder - using simple URL
+      successUrl = `${window.location.origin}/payment-success?book_id=${book.id || id}&provider=paypal`;
+    }
+
+    const cancelUrl = `${window.location.origin}/payment-cancelled?book_id=${book.id || id}`;
+
+    console.log('📤 Payment URLs:', {
+      successUrl,
+      cancelUrl,
+      email: userEmail,
+      bookId: book.id || id
+    });
+
+    try {
+      const paymentData = {
+        amount: bookData.price,
+        bookId: book.id || id,
+        email: userEmail,
+        successUrl,
+        cancelUrl,
+        type: 'book'
+      };
+      
+      console.log('📦 Sending payment data:', paymentData);
+      
+      const res = await fetch(`http://localhost:5000/api/pay/${method}`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(paymentData),
+      });
+
+      console.log('📥 Response status:', res.status, res.statusText);
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('❌ Server error:', errorText);
+        throw new Error(`Payment failed: ${res.status} - ${errorText}`);
+      }
+
+      const data = await res.json();
+      console.log('💰 Payment response:', data);
+
+      if (data.url) {
+        console.log(`🔗 Redirecting to payment page: ${data.url}`);
+        // Save orderId for PayPal for later verification
+        if (method === 'paypal' && data.orderId) {
+          localStorage.setItem('lastPaypalOrderId', data.orderId);
+        }
+        window.location.href = data.url;
+      } else {
+        console.error('❌ No payment URL received:', data);
+        throw new Error('No payment URL received from server');
+      }
+    } catch (error) {
+      console.error('❌ Payment failed:', error);
+      alert(`Payment failed: ${error.message}\n\nCheck browser console for details.`);
+      setProcessingPayment(false);
+      setPaymentMethod('');
+    }
+  };
+
+  // ADDED: Test purchase handler
+  const handleTestPurchase = async () => {
+    if (!book) return;
+
+    const userEmail = localStorage.getItem('userEmail') || prompt('Please enter your email for test purchase:');
+    if (!userEmail) return;
+
+    try {
+      const res = await fetch('http://localhost:5000/api/pay/test', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          bookId: book.id || id,
+          type: 'book'
+        }),
+      });
+
+      const data = await res.json();
+      
+      if (data.success) {
+        alert('Test purchase successful! Book added to your library.');
+        
+        const purchasedBooks = JSON.parse(localStorage.getItem('purchasedBooks') || '[]');
+        if (!purchasedBooks.includes(id)) {
+          purchasedBooks.push(id);
+          localStorage.setItem('purchasedBooks', JSON.stringify(purchasedBooks));
+        }
+        
+        setHasPurchased(true);
+        setShowPaymentOptions(false);
+        window.location.reload();
+      } else {
+        throw new Error(data.error || 'Test purchase failed');
+      }
+    } catch (error) {
+      console.error('Test purchase error:', error);
+      alert(`Test purchase failed: ${error.message}`);
+    }
+  };
+
+  // Updated handlers that check purchase status
+  const handleReadOnline = () => {
+    if (!book?.file_url) {
+      alert("No digital version available for this book");
+      return;
+    }
+    
+    // FREE BOOKS: Allow access immediately
+    if (bookData.price === 0) {
+      const fileUrl = getFileUrl(book.file_url);
+      console.log("📖 Opening for online reading:", fileUrl);
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      
+      if (book) {
+        readingService.updateReadingStats(book.id, {
+          lastRead: new Date().toISOString(),
+          totalReadingTime: (readingStats?.totalReadingTime || 0) + 1,
+          reads: (readingStats?.reads || 0) + 1,
+        });
+        setReadingStats(readingService.getReadingStats(book.id));
+      }
+      return;
+    }
+    
+    // PREMIUM BOOKS: Check purchase
+    if (!hasPurchased) {
+      alert("Please purchase this book to read it online");
+      setShowPaymentOptions(true);
+      return;
+    }
+    
+    // User has purchased, open the file
+    const fileUrl = getFileUrl(book.file_url);
+    console.log("📖 Opening for online reading:", fileUrl);
+    
+    window.open(fileUrl, '_blank', 'noopener,noreferrer');
+    
+    if (book) {
+      readingService.updateReadingStats(book.id, {
+        lastRead: new Date().toISOString(),
+        totalReadingTime: (readingStats?.totalReadingTime || 0) + 1,
+        reads: (readingStats?.reads || 0) + 1,
+      });
+      setReadingStats(readingService.getReadingStats(book.id));
+    }
+  };
+
+  const handleViewDocument = () => {
+    if (!book?.file_url) {
+      alert("No file available to view");
+      return;
+    }
+    
+    // FREE BOOKS: Allow access immediately
+    if (bookData.price === 0) {
+      const fileUrl = getFileUrl(book.file_url);
+      console.log("👁️ Opening for viewing:", fileUrl);
+      window.open(fileUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    
+    // PREMIUM BOOKS: Check purchase
+    if (!hasPurchased) {
+      alert("Please purchase this book to view the document");
+      setShowPaymentOptions(true);
+      return;
+    }
+    
+    // User has purchased, open the file
+    const fileUrl = getFileUrl(book.file_url);
+    console.log("👁️ Opening for viewing:", fileUrl);
+    
+    window.open(fileUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleDownload = async () => {
+    if (!book?.file_url) {
+      alert("File not available for download");
+      return;
+    }
+    
+    // FREE BOOKS: Allow download immediately
+    if (bookData.price === 0) {
+      const fileUrl = getFileUrl(book.file_url);
+      const fileName = book.file_name || `${book.title}.${getFileExtension(book.file_url)}`;
+      
+      try {
+        console.log("📥 Downloading:", fileUrl);
+        
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = fileName;
+        link.target = '_blank';
+        
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        if (book) {
+          readingService.updateReadingStats(book.id, {
+            lastDownload: new Date().toISOString(),
+            downloads: (readingStats?.downloads || 0) + 1,
+          });
+          setReadingStats(readingService.getReadingStats(book.id));
+        }
+        
+        setTimeout(() => {
+          alert(`"${fileName}" is downloading to your device.`);
+        }, 100);
+        
+        return true;
+      } catch (error) {
+        console.error("❌ Download error:", error);
+        alert("Download failed. Please try again.");
+        return false;
+      }
+    }
+    
+    // PREMIUM BOOKS: Check purchase
+    if (!hasPurchased) {
+      alert("Please purchase this book to download it");
+      setShowPaymentOptions(true);
+      return;
+    }
+    
+    // User has purchased, proceed with download
+    const fileUrl = getFileUrl(book.file_url);
+    const fileName = book.file_name || `${book.title}.${getFileExtension(book.file_url)}`;
+    
+    try {
+      console.log("📥 Downloading:", fileUrl);
+      
+      const link = document.createElement('a');
+      link.href = fileUrl;
+      link.download = fileName;
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      if (book) {
+        readingService.updateReadingStats(book.id, {
+          lastDownload: new Date().toISOString(),
+          downloads: (readingStats?.downloads || 0) + 1,
+        });
+        setReadingStats(readingService.getReadingStats(book.id));
+      }
+      
+      setTimeout(() => {
+        alert(`"${fileName}" is downloading to your device.`);
+      }, 100);
+      
+      return true;
+    } catch (error) {
+      console.error("❌ Download error:", error);
+      alert("Download failed. Please try again.");
+      return false;
     }
   };
 
@@ -315,6 +553,123 @@ const BookDetail = () => {
     return (bytes / 1073741824).toFixed(2) + " GB";
   };
 
+  // ADDED: Payment Modal Component
+  const PaymentModal = () => {
+    if (!showPaymentOptions || !book) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-md w-full p-6 shadow-2xl">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              {processingPayment ? 'Processing...' : 'Buy Book'}
+            </h3>
+            {!processingPayment && (
+              <button 
+                onClick={() => setShowPaymentOptions(false)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl font-light"
+                disabled={processingPayment}
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {processingPayment ? (
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-6"></div>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Redirecting to {paymentMethod === 'stripe' ? 'Stripe' : 'PayPal'}
+              </h4>
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Secure payment processing...
+              </p>
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <p className="text-sm text-blue-700 dark:text-blue-300">
+                  You'll be redirected to the payment confirmation page after payment.
+                </p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  Book ID: {book.id || id}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="mb-8">
+                <div className="text-center mb-6">
+                  <h4 className="text-xl font-bold text-gray-900 dark:text-white">
+                    COMMUNIVERSITY LIBRARY
+                  </h4>
+                </div>
+
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-5 mb-6">
+                  <p className="text-gray-600 dark:text-gray-400 text-center text-sm mb-3">
+                    Premium Book • Lifetime Access
+                  </p>
+                  <div className="flex flex-col items-center justify-center">
+                    <span className="text-4xl font-bold text-blue-600 dark:text-blue-400">
+                      ${bookData.price}
+                    </span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      One-time purchase
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mb-6">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">
+                    Choose your payment method:
+                  </p>
+                  
+                  <div className="space-y-4">
+                    <button
+                      onClick={() => handlePayment('stripe')}
+                      className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center shadow-lg"
+                    >
+                      <SiStripe className="w-6 h-6 mr-3" />
+                      Stripe
+                    </button>
+                    
+                    <button
+                      onClick={() => handlePayment('paypal')}
+                      className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white py-4 rounded-xl font-semibold transition-all duration-200 flex items-center justify-center shadow-lg"
+                    >
+                      <MdPayment className="w-6 h-6 mr-3" />
+                      PayPal
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <div className="flex items-start text-sm text-gray-500 dark:text-gray-400">
+                  <FiLock className="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" />
+                  <span>
+                    Secure payment processing. Your financial information is encrypted and protected.
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  After payment, you will be redirected to the payment success page.
+                </div>
+              </div>
+
+              {process.env.NODE_ENV === 'development' && (
+                <div className="mt-6">
+                  <button
+                    onClick={handleTestPurchase}
+                    className="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 rounded-lg font-medium transition-all duration-200"
+                  >
+                    Test Purchase (Development Only)
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   // Render book cover with fallback
   const renderBookCover = () => {
     if (bookData.cover) {
@@ -337,23 +692,15 @@ const BookDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center py-8">
-        <Card className="text-center p-6 sm:p-8">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600 mx-auto mb-4"></div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
-            Loading Book...
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            Please wait while we load the book details.
-          </p>
-        </Card>
+      <div className="flex items-center justify-center min-h-[80vh] bg-gradient-to-br from-gray-50 to-green-50 dark:from-gray-900 dark:to-gray-800">
+        <LoadingSpinner message="Loading book..." />
       </div>
     );
   }
 
   if (error || !book) {
     return (
-      <div className="min-h-screen bg-white dark:bg-gray-900 flex items-center justify-center py-8">
+      <div className="flex items-center justify-center min-h-[80vh] bg-gradient-to-br from-gray-50 to-green-50 dark:from-gray-900 dark:to-gray-800">
         <Card className="text-center p-6 sm:p-8">
           <FiAlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
@@ -393,8 +740,25 @@ const BookDetail = () => {
   const overallProgress = calculateOverallProgress();
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 py-4 sm:py-6 lg:py-8 transition-colors duration-300">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-green-50 dark:from-gray-900 dark:to-gray-800 py-8">
       <div className="container mx-auto px-3 sm:px-4 lg:px-6 max-w-6xl">
+        {/* Debug info - remove in production */}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+            <div className="flex items-center mb-2">
+              <FiAlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
+              <span className="font-semibold text-yellow-700 dark:text-yellow-300">Debug Info</span>
+            </div>
+            <div className="text-sm text-yellow-600 dark:text-yellow-400 space-y-1">
+              <p>Book ID: {id}</p>
+              <p>Price: ${bookData.price}</p>
+              <p>Has Purchased: {hasPurchased ? 'YES' : 'NO'}</p>
+              <p>Is Premium: {bookData.price > 0 ? 'YES' : 'NO'}</p>
+              <p>Debug: {debugInfo}</p>
+            </div>
+          </div>
+        )}
+
         {/* Navigation */}
         <div className="flex items-center justify-between mb-4 sm:mb-6 lg:mb-8">
           <Button
@@ -434,7 +798,7 @@ const BookDetail = () => {
         </div>
 
         {/* Book Header */}
-        <Card className="mb-6 sm:mb-8 lg:mb-12 border-0 shadow-xl dark:shadow-gray-900/50">
+        <Card className="mb-6 sm:mb-8 lg:mb-12 border-0 shadow-xl dark:shadow-gray-900/50 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-2xl">
           <div className="flex flex-col lg:flex-row">
             {/* Book Cover */}
             <div className="lg:w-1/3 p-4 sm:p-6 lg:p-8 flex justify-center">
@@ -521,7 +885,80 @@ const BookDetail = () => {
                 </div>
               )}
 
-              {/* Reading Progress */}
+              {/* Premium Book Purchase Prompt */}
+              {bookData.price > 0 && !hasPurchased && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-6 mb-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                        🔒 Premium Book - Payment Required
+                      </h3>
+                      <p className="text-gray-600 dark:text-gray-400 text-sm">
+                        You must purchase this book to access the content
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                          ${bookData.price}
+                        </div>
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                          One-time purchase
+                        </div>
+                      </div>
+                      <Button
+                        variant="primary"
+                        onClick={() => setShowPaymentOptions(true)}
+                        className="px-6 py-3 text-lg bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700"
+                      >
+                        <FiShoppingCart className="mr-2" />
+                        Buy Now
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons - Conditionally enabled based on purchase status */}
+              <div className="flex flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
+                {/* READ ONLINE - Only enabled for free books or purchased premium books */}
+                <Button
+                  variant="primary"
+                  onClick={handleReadOnline}
+                  className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
+                  disabled={!bookData.file_url || (bookData.price > 0 && !hasPurchased)}
+                >
+                  <FiBookOpen className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  {bookData.price > 0 && !hasPurchased ? "Purchase to Read" : 
+                   overallProgress > 0 ? "Continue Reading" : "Read Online"}
+                </Button>
+
+                {/* DOWNLOAD - Only enabled for free books or purchased premium books */}
+                <Button
+                  variant="secondary"
+                  onClick={handleDownload}
+                  className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
+                  disabled={!bookData.file_url || (bookData.price > 0 && !hasPurchased)}
+                >
+                  <FiDownload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                  {bookData.price > 0 && !hasPurchased ? "Purchase to Download" : "Download File"}
+                </Button>
+
+                {/* VIEW DOCUMENT - Only enabled for free books or purchased premium books */}
+                {bookData.file_url && (
+                  <Button
+                    variant="outline"
+                    onClick={handleViewDocument}
+                    className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
+                    disabled={!bookData.file_url || (bookData.price > 0 && !hasPurchased)}
+                  >
+                    <FiEye className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
+                    {bookData.price > 0 && !hasPurchased ? "Purchase to View" : "View Document"}
+                  </Button>
+                )}
+              </div>
+
+              {/* Reading Progress - Only show if user has accessed the book */}
               {overallProgress > 0 && (
                 <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center justify-between mb-2">
@@ -546,75 +983,6 @@ const BookDetail = () => {
                       </span>
                     </div>
                   )}
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-2 sm:gap-3 mb-4 sm:mb-6">
-                {/* READ ONLINE */}
-                <Button
-                  variant="primary"
-                  onClick={handleReadOnline}
-                  className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
-                  disabled={!bookData.file_url}
-                >
-                  <FiBookOpen className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                  {overallProgress > 0 ? "Continue Reading" : "Read Online"}
-                </Button>
-
-                {/* DOWNLOAD */}
-                {bookData.price > 0 ? (
-                  <Button
-                    variant="secondary"
-                    onClick={handleDownload}
-                    className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
-                    disabled={!bookData.file_url || (!hasPurchased && bookData.price > 0)}
-                  >
-                    <FiDownload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                    {hasPurchased
-                      ? "Download File"
-                      : `Purchase & Download - $${bookData.price}`}
-                  </Button>
-                ) : (
-                  <Button
-                    variant="secondary"
-                    onClick={handleDownload}
-                    className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
-                    disabled={!bookData.file_url}
-                  >
-                    <FiDownload className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                    Download File
-                  </Button>
-                )}
-
-                {/* VIEW DOCUMENT */}
-                {bookData.file_url && (
-                  <Button
-                    variant="outline"
-                    onClick={handleViewDocument}
-                    className="flex items-center px-4 sm:px-6 py-2 sm:py-3 text-sm sm:text-base"
-                  >
-                    <FiEye className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                    View Document
-                  </Button>
-                )}
-              </div>
-
-              {/* Action descriptions */}
-              <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1 mt-2">
-                <p>• <span className="font-medium">Read Online</span>: Opens in browser for immediate reading</p>
-                <p>• <span className="font-medium">View Document</span>: Opens in browser for viewing</p>
-                <p>• <span className="font-medium">Download</span>: Saves file to your device</p>
-              </div>
-
-              {bookData.price > 0 && !hasPurchased && (
-                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 sm:p-4 mt-4">
-                  <div className="flex items-center">
-                    <FiDollarSign className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-600 dark:text-yellow-400 mr-2" />
-                    <span className="text-yellow-800 dark:text-yellow-300 font-medium text-sm sm:text-base">
-                      This is a premium book. Purchase required for download.
-                    </span>
-                  </div>
                 </div>
               )}
             </div>
@@ -841,6 +1209,9 @@ const BookDetail = () => {
           </Card>
         )}
       </div>
+
+      {/* Payment Modal */}
+      <PaymentModal />
     </div>
   );
 };

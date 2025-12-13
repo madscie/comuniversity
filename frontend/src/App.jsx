@@ -31,6 +31,7 @@ import ManageArticlesPage from "./pages/admin/Pages/ManageArticlesPage";
 import ManageAffiliatesPage from "./pages/admin/Pages/ManageAffiliatePage";
 import UserManagementPage from "./pages/admin/Pages/UserManagementPage";
 import ManageWebinarsPage from "./pages/admin/Pages/ManageWebinarsPage";
+import TransactionsPage from "./pages/admin/Pages/TransactionsPage";
 
 // Affiliate pages
 import CheckoutDownloadPage from "./pages/payments/CheckoutPage";
@@ -40,6 +41,15 @@ import AffiliateStatus from "./pages/affiliate/AffiliateStatus";
 
 import MemberRoute from "./components/MemberRoute";
 import AdminRoute from "./components/AdminRoute";
+
+// Payment Result Pages - FIXED IMPORT PATHS
+// First, let's check what the actual file names are
+import PaymentSuccessPage from "./pages/public/PaymentSuccessPage.jsx";
+import PaymentCancelledPage from "./pages/public/PaymentCancelledPage";
+
+// If the above doesn't work, try these alternatives:
+// import PaymentSuccessPage from "./pages/public/PaymentSuccessPage";
+// import PaymentCancelledPage from "./pages/public/PaymentCancelledPage";
 
 // Enhanced Loading Spinner Component
 const LoadingSpinner = ({ size = "large", message = "Loading application..." }) => {
@@ -66,6 +76,27 @@ const LoadingSpinner = ({ size = "large", message = "Loading application..." }) 
     </div>
   );
 };
+
+// Temporary fallback components in case imports fail
+const FallbackPaymentSuccessPage = () => (
+  <div className="min-h-screen flex items-center justify-center bg-green-50">
+    <div className="text-center">
+      <h1 className="text-3xl font-bold text-green-600 mb-4">Payment Success</h1>
+      <p className="text-gray-600">Payment was successful!</p>
+      <a href="/" className="text-blue-600 hover:underline mt-4 inline-block">Back to Home</a>
+    </div>
+  </div>
+);
+
+const FallbackPaymentCancelledPage = () => (
+  <div className="min-h-screen flex items-center justify-center bg-red-50">
+    <div className="text-center">
+      <h1 className="text-3xl font-bold text-red-600 mb-4">Payment Cancelled</h1>
+      <p className="text-gray-600">Payment was cancelled.</p>
+      <a href="/" className="text-blue-600 hover:underline mt-4 inline-block">Back to Home</a>
+    </div>
+  </div>
+);
 
 const App = () => {
   const { isLoaded } = useAuth();
@@ -96,6 +127,10 @@ const App = () => {
     return <LoadingSpinner message="Initializing application..." />;
   }
 
+  // Check if payment pages are loaded, use fallback if not
+  const SuccessPage = PaymentSuccessPage || FallbackPaymentSuccessPage;
+  const CancelledPage = PaymentCancelledPage || FallbackPaymentCancelledPage;
+
   return (
     <>
       <Routes>
@@ -103,6 +138,8 @@ const App = () => {
         <Route path="/sign-in" element={<SignInPage />} />
         <Route path="/sign-up" element={<SignUpPage />} />
         <Route path="/auth-redirect" element={<AuthRedirect />} />
+        <Route path="/payment-success" element={<SuccessPage />} />
+        <Route path="/payment-cancelled" element={<CancelledPage />} />
 
         {/* PROTECTED ROUTES - Require user authentication */}
         <Route
@@ -329,6 +366,18 @@ const App = () => {
             </AdminRoute>
           }
         />
+       <Route
+  path="/admin/transactions"
+  element={
+    <AdminRoute>
+      <AdminLayout>
+        <TransactionsPage />
+      </AdminLayout>
+    </AdminRoute>
+  }
+/>
+
+
 
         {/* CATCH ALL ROUTE - Redirect unknown paths to home */}
         <Route

@@ -103,7 +103,7 @@ const ManageArticlesPage = () => {
         status: articleData.status,
         featured: Boolean(articleData.featured),
         dewey_decimal: articleData.deweyDecimal || null,
-        // REMOVED: amount field completely - articles are free
+        amount: parseFloat(articleData.amount) || 0, // ADDED: Include amount field
       };
 
       // FIXED: Handle tags properly - check if it's already an array or needs processing
@@ -124,6 +124,8 @@ const ManageArticlesPage = () => {
       }
 
       console.log("📤 Submission data:", submissionData);
+      console.log("💰 Amount being sent:", submissionData.amount);
+      console.log("💰 Amount type:", typeof submissionData.amount);
 
       let response;
       if (articleId) {
@@ -169,6 +171,7 @@ const ManageArticlesPage = () => {
       setSaveLoading(false);
     }
   };
+
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setSelectedArticle(null);

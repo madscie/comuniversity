@@ -10,6 +10,7 @@ import {
   FiFileText,
   FiUserCheck,
   FiVideo,
+  FiCreditCard  // ADDED THIS IMPORT
 } from "react-icons/fi";
 import { useAuthStore } from "../../store/clerkAuthStore";
 
@@ -82,6 +83,13 @@ const AdminLayout = ({ children }) => {
       name: "User Management",
       icon: FiUsers,
       path: "/admin/users",
+    },
+    // ADDED TRANSACTIONS MENU ITEM
+    {
+      id: "transactions",
+      name: "Transactions",
+      icon: FiCreditCard,
+      path: "/admin/transactions",
     },
   ];
 

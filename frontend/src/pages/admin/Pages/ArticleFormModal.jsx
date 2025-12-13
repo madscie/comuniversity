@@ -13,6 +13,7 @@ import {
   FiDownload,
   FiTrash2,
   FiBook,
+  FiDollarSign,
 } from "react-icons/fi";
 import { toast } from "react-toastify";
 import Card from "../../../components/UI/Card";
@@ -39,6 +40,7 @@ const ArticleFormModal = ({
     tags: "",
     featured: false,
     deweyDecimal: "",
+    amount: "0", // ADDED: Price field
   });
 
   const [imageFile, setImageFile] = useState(null);
@@ -72,6 +74,7 @@ const ArticleFormModal = ({
         tags: article.tags ? article.tags.join(", ") : "",
         featured: article.featured || false,
         deweyDecimal: article.dewey_decimal || "",
+        amount: article.amount?.toString() || "0", // ADDED: Load existing amount
       });
 
       if (article.image_url) {
@@ -99,6 +102,7 @@ const ArticleFormModal = ({
         tags: "",
         featured: false,
         deweyDecimal: "",
+        amount: "0", // ADDED: Default to 0 for new articles
       });
       setImageFile(null);
       setImagePreview("");
@@ -118,6 +122,13 @@ const ArticleFormModal = ({
       setFormData((prev) => ({
         ...prev,
         [name]: checked,
+      }));
+    } else if (name === "amount") {
+      // Special handling for amount field
+      const numValue = parseFloat(value);
+      setFormData((prev) => ({
+        ...prev,
+        [name]: isNaN(numValue) ? "0" : value, // Keep as string for input
       }));
     } else {
       setFormData((prev) => ({
@@ -225,6 +236,12 @@ const ArticleFormModal = ({
       newErrors.readTime = "⏱️ Read time cannot exceed 60 minutes";
     }
 
+    // ADDED: Validate amount field
+    const amountValue = parseFloat(formData.amount);
+    if (isNaN(amountValue) || amountValue < 0) {
+      newErrors.amount = "💰 Amount must be a valid number greater than or equal to 0";
+    }
+
     // Content is now optional since we can upload files
     if (!formData.content.trim() && !documentFile && !documentPreview) {
       newErrors.content = "📝 Either content or a document file is required";
@@ -264,19 +281,21 @@ const ArticleFormModal = ({
     setUploadProgress(0);
 
     try {
+      // FIXED: Use the exact field names your backend expects
       const submissionData = {
         title: formData.title.trim(),
         content: formData.content.trim(),
         excerpt: formData.excerpt.trim(),
         author: formData.author.trim(),
         category: formData.category,
-        readTime: parseInt(formData.readTime) || 5,
+        read_time: parseInt(formData.readTime) || 5, // FIXED: read_time not readTime
         status: formData.status,
         featured: Boolean(formData.featured),
-        deweyDecimal: formData.deweyDecimal || null,
+        dewey_decimal: formData.deweyDecimal || null, // FIXED: dewey_decimal not deweyDecimal
+        amount: parseFloat(formData.amount) || 0, // This is correct
       };
 
-      // FIXED: Handle tags properly - always send as string to be consistent
+      // Handle tags properly - always send as string to be consistent
       if (formData.tags.trim()) {
         submissionData.tags = formData.tags;
       } else {
@@ -356,6 +375,15 @@ const ArticleFormModal = ({
         {/* Scrollable Form Content */}
         <div className="flex-1 overflow-y-auto">
           <form onSubmit={handleSubmit} className="p-8 bg-gray-50">
+            {/* Debug panel - REMOVE in production */}
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm font-semibold text-blue-800 mb-2">Debug Info:</p>
+              <div className="text-xs space-y-1">
+                <p>Amount in form: <span className="font-bold">${formData.amount}</span></p>
+                <p>Field names being sent: read_time, dewey_decimal, amount</p>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
               {/* Left Column - Images & Basic Info */}
               <div className="xl:col-span-2 space-y-6">
@@ -517,6 +545,37 @@ const ArticleFormModal = ({
                     ))}
                   </select>
                 </FormField>
+
+                {/* ADDED: Price Field */}
+                {/* ADDED: Price Field */}
+<FormField
+  label="Price (USD)"
+  icon={FiDollarSign}
+  error={errors.amount}
+  required={true}
+  helpText="Set to 0 for free articles, or enter price for premium articles"
+>
+  <div className="relative">
+    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+      <span className="text-gray-500">$</span>
+    </div>
+    <input
+      type="number"
+      name="amount"
+      value={formData.amount === "0" ? "" : formData.amount.replace(/^0+/, '')}
+      onChange={handleInputChange}
+      min="0"
+      step="0.01"
+      className={`w-full pl-8 px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-blue-200 focus:border-blue-500 transition-all duration-300 ${
+        errors.amount
+          ? "border-red-300 bg-red-50"
+          : "border-gray-200 hover:border-gray-300"
+      }`}
+      placeholder="0.00"
+      disabled={isUploading}
+    />
+  </div>
+</FormField>
 
                 <FormField
                   label="Dewey Decimal"

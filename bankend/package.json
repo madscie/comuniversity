@@ -21,12 +21,16 @@
   "author": "Your Name",
   "license": "MIT",
   "dependencies": {
+    "@clerk/express": "^1.7.57",
+    "@paypal/checkout-server-sdk": "^1.0.3",
+    "@paypal/paypal-server-sdk": "^2.1.0",
+    "axios": "^1.13.2",
     "bcryptjs": "^2.4.3",
     "cloudinary": "^1.41.3",
     "compression": "^1.7.4",
     "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "express": "^4.21.2",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
@@ -36,6 +40,7 @@
     "multer-storage-cloudinary": "^4.0.0",
     "mysql2": "^3.6.5",
     "nodemailer": "^6.9.7",
+    "stripe": "^20.0.0",
     "validator": "^13.11.0"
   },
   "devDependencies": {

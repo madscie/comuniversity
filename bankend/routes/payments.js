@@ -1,16 +1,22 @@
-const express = require('express');
+// backend/routes/payments.js
+import express from 'express';
+import { 
+  createStripePayment, 
+  createPayPalPayment,
+  confirmPayment,
+  verifyPayment,
+  paypalWebhook,
+  testPayment 
+} from '../controllers/paymentController.js';
+
 const router = express.Router();
-const { authMiddleware } = require('../middleware/auth');
 
-// All payment routes require authentication
-router.use(authMiddleware);
+// Payment routes
+router.post('/stripe', createStripePayment);
+router.post('/paypal', createPayPalPayment);
+router.post('/confirm', confirmPayment);
+router.post('/verify', verifyPayment);
+router.post('/webhook/paypal', paypalWebhook);
+router.post('/test', testPayment);
 
-// GET /api/payments
-router.get('/', (req, res) => {
-  res.json({ 
-    success: true,
-    message: 'Payments route - to be implemented' 
-  });
-});
-
-module.exports = router;
+export default router;
