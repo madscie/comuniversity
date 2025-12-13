@@ -40,6 +40,7 @@ console.log('💳 Initializing payment gateways...');
 // Initialize Stripe
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
+
 // Initialize PayPal SDK
 let paypalEnvironment;
 let paypalClient;
