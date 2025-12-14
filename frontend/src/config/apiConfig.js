@@ -79,6 +79,8 @@ export const API_BASE_URL =
   import.meta.env.VITE_API_URL || 
   "https://comuniversity-backend.onrender.com";
 
+export const API_PREFIX = "/api"; // or "" if no prefix
+
 // Request timeout configuration
 export const REQUEST_TIMEOUT = 30000;
 
