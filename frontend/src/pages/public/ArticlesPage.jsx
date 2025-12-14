@@ -14,7 +14,7 @@ import Card from "../../components/UI/Card";
 import Button from "../../components/UI/Button";
 import axios from "axios";
 import { getImageUrl, handleImageError, formatDate } from "../../utils/fileHelpers";
-import { API_BASE_URL } from "../../services/apiConfig";
+import { API_BASE_URL } from "../../config/apiConfig";
 
 const ArticlesPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
