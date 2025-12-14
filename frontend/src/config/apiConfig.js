@@ -75,11 +75,12 @@
 
 
 // src/api/apiConfig.js
-export const API_BASE_URL = 
-  import.meta.env.VITE_API_URL || 
-  "https://comuniversity-backend.onrender.com/api";
+const API_BASE_URL = import.meta.env.VITE_API_URL || (process.env.VITE_API_URL === "production" ? "https://comuniversity-backend.onrender.com/api" : "http://localhost:5000/api");
+// export const API_BASE_URL = 
+//   import.meta.env.VITE_API_URL || 
+//   "https://comuniversity-backend.onrender.com/api";
 
-export const API_PREFIX = "/api"; // or "" if no prefix
+// export const API_PREFIX = "/api"; // or "" if no prefix
 
 // Request timeout configuration
 export const REQUEST_TIMEOUT = 30000;
