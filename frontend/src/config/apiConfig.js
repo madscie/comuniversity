@@ -77,7 +77,7 @@
 // src/api/apiConfig.js
 export const API_BASE_URL = 
   import.meta.env.VITE_API_URL || 
-  "https://comuniversity-backend.onrender.com";
+  "https://comuniversity-backend.onrender.com/api";
 
 export const API_PREFIX = "/api"; // or "" if no prefix
 
