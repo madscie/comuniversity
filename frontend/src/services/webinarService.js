@@ -1,7 +1,8 @@
 // src/services/webinarService.js - FIXED VERSION
 import axios from "axios";
 
-const API_URL = "http://localhost:5000/api/webinars";
+// const API_URL = "http://localhost:5000/api/webinars";
+const API_URL = "https://comuniversity-backend.onrender.com/api/webinars";
 
 // Define all service functions as individual functions
 const getWebinars = async () => {
