@@ -1,0 +1,66 @@
+services:
+  - type: web
+    name: communiversity-backend
+    env: node
+    repo: https://github.com/madscie/comuniversity
+    branch: backend-integrated
+    buildCommand: npm install
+    startCommand: node server.js  # ⚠️ CHANGE THIS if your main file is index.js or app.js!
+    envVars:
+      # Clerk Configuration
+      - key: CLERK_SECRET_KEY
+        value: "sk_test_gKjhRzJbsdy1zdG1EDf26lWOw7vSnp4Esk0YsoUuKn"
+      
+      # Stripe Configuration
+      - key: STRIPE_PUBLISHABLE_KEY
+        value: "pk_test_51SRtnwRwIojNfjylLyR9dM9k6KhOOoyDwhhX82sIxEKLI8zoBVHK70oqfvcApp2eCrQpMibFfL6v6gbjc7VxK2Ys00Eozzxbyz"
+      - key: STRIPE_SECRET_KEY
+        value: "sk_test_51SRtnwRwIojNfjylex9BX1V9ayhGoMwmx38qQPACqSfGQAHhkKLE05eYXKPpEBN6O11RqB1zEtYsmHLXt81PTxU500aVN1ItIP"
+      
+      # PayPal Configuration
+      - key: PAYPAL_CLIENT_ID
+        value: "AYeBV9cqNBWdvlqXp8Nn09SmHHHRNx4x43ifAdj02YYFS5ABWvJPe2-3zPUr3tcRb9QDmvAM2sbTeZpK"
+      - key: PAYPAL_CLIENT_SECRET
+        value: "EM72t6qWX_zthB3ZQXPXj1fKUhuosE590CL4eodqwNNjj2GD9rItkKSOtrm5yCqSi--r74b2mmcaksJb"
+      
+      # MongoDB Configuration
+      - key: MONGODB_URI
+        value: "mongodb+srv://communiversity_library:jelLQSHNS3jZoy5e@cluster0.xrgo9q3.mongodb.net/communiversity_library?retryWrites=true&w=majority&appName=Cluster0"
+      
+      # JWT Configuration
+      - key: JWT_SECRET
+        value: "SQiouuJtq+IXmLK453InNXklsvkqsDltfkJeds5noKM="
+      - key: JWT_EXPIRES_IN
+        value: "7d"
+      
+      # Server Configuration
+      - key: PORT
+        value: "5000"
+      - key: NODE_ENV
+        value: "production"  # ⚠️ Changed from "development" for deployment
+      
+      # Cloudinary Configuration
+      - key: CLOUDINARY_CLOUD_NAME
+        value: "communi"
+      - key: CLOUDINARY_API_KEY
+        value: "149474992148553"
+      - key: CLOUDINARY_API_SECRET
+        value: "AAD9QbXh3w5Oy5GUs45ujVt83_4"
+      
+      # Application Configuration - CRITICAL UPDATES NEEDED!
+      - key: APP_URL
+        value: "https://communiversity-backend.onrender.com"  # ⚠️ Must be your Render URL
+      - key: CLIENT_URL
+        value: "https://communiversity-library.vercel.app"  # ⚠️ Will be your Vercel URL
+      - key: UPLOAD_LIMIT
+        value: "50mb"
+      
+      # MySQL Configuration (from your second .env file)
+      - key: DB_HOST
+        value: "localhost"  # ⚠️ This won't work! Need cloud MySQL or remove if not used
+      - key: DB_USER
+        value: "root"
+      - key: DB_PASSWORD
+        value: "your_mysql_password_here"  # ⚠️ Update with real password or remove
+      - key: DB_NAME
+        value: "communiversity_library"

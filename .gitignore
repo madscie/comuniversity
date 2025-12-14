@@ -1,3 +1,4 @@
+
 # Dependencies
 node_modules/
 */node_modules/
@@ -43,6 +44,12 @@ Thumbs.db
 *.swp
 *.swo
 
-# Prisma
+# Prisma migrations
 /backend/prisma/migrations/
-!/backend/prisma/migrations/.gitkeepbankend/uploads/
+!/backend/prisma/migrations/.gitkeep
+
+# Uploads (runtime generated)
+bankend/uploads/
+
+
+
