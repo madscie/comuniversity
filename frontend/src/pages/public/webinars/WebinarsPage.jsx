@@ -20,6 +20,7 @@ import Modal from "../../../components/UI/Modal";
 import WebinarRegistration from "./WebinarRegistration";
 import axios from "axios";
 import { componentClasses } from "../../../components/UI/TailwindColors";
+import { apiService } from "./apiService";
 
 const WebinarsPage = () => {
   const [webinars, setWebinars] = useState([]);
@@ -35,26 +36,27 @@ const WebinarsPage = () => {
     fetchWebinars();
   }, []);
 
-  const fetchWebinars = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+const fetchWebinars = async () => {
+  try {
+    setLoading(true);
+    setError(null);
 
-      const response = await axios.get("http://localhost:5000/api/webinars");
-      console.log("Webinars API response:", response.data);
+    // Use apiService with base URL
+    const response = await apiService.get("/webinars");
+    console.log("Webinars API response:", response);
 
-      if (response.data.success) {
-        setWebinars(response.data.data.webinars);
-      } else {
-        throw new Error(response.data.message || "Failed to fetch webinars");
-      }
-    } catch (err) {
-      console.error("Error fetching webinars:", err);
-      setError("Failed to load webinars. Please try again later.");
-    } finally {
-      setLoading(false);
+    if (response.success) {
+      setWebinars(response.data.webinars || []);
+    } else {
+      throw new Error(response.message || "Failed to fetch webinars");
     }
-  };
+  } catch (err) {
+    console.error("Error fetching webinars:", err);
+    setError("Failed to load webinars. Please try again later.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleRegisterClick = (webinar) => {
     setSelectedWebinar(webinar);
