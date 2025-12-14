@@ -4,7 +4,7 @@ const API_BASE_URL =
   // import.meta.env.VITE_API_URL || "https://comuniversity-backend.onrender.com/api"; //call render backend
 export const API_BASE_URL =
   process.env.NODE_ENV === "production"
-    ? "https://comuniversity-backend.onrender.com/api"
+    ? "axios.get('https://comuniversity-backend.onrender.com/api"
     : "http://localhost:5000";
 
 
