@@ -31,7 +31,8 @@ const ArticlesPage = () => {
       setLoading(true);
       setError(null);
 
-      const response = await axios.get("http://localhost:5000/api/articles");
+      // const response = await axios.get("http://localhost:5000/api/articles"); //LOCALFETCH
+      const response = await axios.get(`${API_BASE_URL}/articles`); //production
 
       if (response.data.success) {
         setArticles(response.data.data.articles);
